@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+  namespace: kube-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+rules:
+  - apiGroups:
+    - ''
+    resources:
+    - pods
+    - pods/exec
+    - services
+    - endpoints
+    - persistentvolumeclaims
+    - events
+    - configmaps
+    - secrets
+    - namespaces
+    - nodes
+    verbs:
+    - "*"
+  - apiGroups:
+    - extensions
+    resources:
+    - deployments
+    - daemonsets
+    - replicasets
+    - ingresses
+    verbs:
+    - "*"
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    - daemonsets
+    - replicasets
+    - statefulsets
+    verbs:
+    - "*"
+  - apiGroups:
+    - chaosblade.io
+    resources:
+    - chaosblades
+    - chaosblades/status
+    verbs:
+    - "*"
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+roleRef:
+  kind: ClusterRole
+  name: chaosblade
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: chaosblade
+    namespace: kube-system

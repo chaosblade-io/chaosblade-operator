@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaosblade-operator
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: chaosblade-operator
+  template:
+    metadata:
+      labels:
+        name: chaosblade-operator
+    spec:
+      serviceAccountName: chaosblade
+      containers:
+        - name: chaosblade-operator
+          # Replace this with the built image name
+          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.0.1
+          command: ["chaosblade-operator"]
+          args:
+          - --blade-version=0.4.0
+          - --aliyun-region=cn-hangzhou
+          - --pull-policy=Always
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "chaosblade-operator"

@@ -1,0 +1,101 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: chaosblade-tool
+  name: chaosblade-tool
+  namespace: kube-system
+spec:
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+      app: chaosblade-tool
+  template:
+    metadata:
+      labels:
+        app: chaosblade-tool
+      name: chaosblade-tool
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                - virtual-kubelet
+      containers:
+      - image: {{ template "tool.image" .}}:0.4.0
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: chaosblade-tool
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/run/docker.sock
+          type: ""
+        name: docker-socket
+  updateStrategy:
+    type: RollingUpdate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaosblade-operator
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: chaosblade-operator
+  template:
+    metadata:
+      labels:
+        name: chaosblade-operator
+    spec:
+      serviceAccountName: chaosblade
+      containers:
+        - name: chaosblade-operator
+          # Replace this with the built image name
+          image: {{ template "operator.image" .}}:0.0.1
+          command: ["chaosblade-operator"]
+          args:
+          {{- if .Values.env.zapLevel }}
+          - '--zap-level={{ .Values.env.zapLevel }}'
+          {{- end }}
+          {{- if .Values.blade.version }}
+          - '--blade-version={{ .Values.blade.version }}'
+          {{- end }}
+          {{- if .Values.blade.imageRepo }}
+          - '--image-repo={{ .Values.blade.imageRepo }}'
+          {{- end }}
+          {{- if .Values.env.region }}
+          - '--aliyun-region={{ .Values.env.region }}'
+          {{- end }}
+          {{- if .Values.image.pullPolicy }}
+          - '--pull-policy={{ .Values.image.pullPolicy }}'
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "chaosblade-operator"

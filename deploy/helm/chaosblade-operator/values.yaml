@@ -1,0 +1,28 @@
+# Default values for chaosblade.
+
+serviceAccount:
+  # serviceAccount.create: whether serviceAccount should be created or not. Must be true or false
+  create: true
+  # serviceAccount.name: the name of serviceAccount
+  name: chaosblade
+
+rbac:
+  # rabc.create: whether RABC should be created or not. Must be true or false
+  create: true
+
+image:
+  # image.repository: the value is related to the running env
+  repository: "registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.0.1"
+  # image.tag: the agent version
+  tag: 0.0.1
+  # image.pullPolicy: must be Always|IfNotPresent|Never
+  pullPolicy: IfNotPresent
+
+env:
+  # env.name: the cluster environment that is running
+  region: cn-hangzhou
+  zapLevel: ""
+
+blade:
+  imageRepo: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool
+  version: 0.4.0

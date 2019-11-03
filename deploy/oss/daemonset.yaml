@@ -1,0 +1,53 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    app: chaosblade-tool
+  name: chaosblade-tool
+  namespace: kube-system
+spec:
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+      app: chaosblade-tool
+  template:
+    metadata:
+      labels:
+        app: chaosblade-tool
+      name: chaosblade-tool
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: type
+                operator: NotIn
+                values:
+                - virtual-kubelet
+      containers:
+      - image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.4.0
+        imagePullPolicy: IfNotPresent
+        name: chaosblade-tool
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/run/docker.sock
+          type: ""
+        name: docker-socket
+  updateStrategy:
+    type: RollingUpdate
