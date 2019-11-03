@@ -1,0 +1,19 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: kill-container-process-by-id
+spec:
+  experiments:
+  - scope: container
+    target: process
+    action: kill
+    desc: "kill container process by id"
+    matchers:
+    - name: container-ids
+      value:
+      - "68f325dc763c8"
+    - name: process
+      value: ["redis"]
+      # pod labels
+    - name: labels
+      value: ["app=redis"]
