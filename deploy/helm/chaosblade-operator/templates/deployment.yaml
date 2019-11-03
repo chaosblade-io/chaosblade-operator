@@ -26,8 +26,8 @@ spec:
                 values:
                 - virtual-kubelet
       containers:
-      - image: {{ template "tool.image" .}}:0.4.0
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+      - image: {{ .Values.blade.repository }}:{{ .Values.blade.version }}
+        imagePullPolicy: {{ .Values.blade.pullPolicy }}
         name: chaosblade-tool
         securityContext:
           privileged: true
@@ -70,8 +70,7 @@ spec:
       serviceAccountName: chaosblade
       containers:
         - name: chaosblade-operator
-          # Replace this with the built image name
-          image: {{ template "operator.image" .}}:0.0.1
+          image: {{ .Values.operator.repository }}:{{ .Values.operator.version }}
           command: ["chaosblade-operator"]
           args:
           {{- if .Values.env.zapLevel }}
@@ -80,16 +79,13 @@ spec:
           {{- if .Values.blade.version }}
           - '--blade-version={{ .Values.blade.version }}'
           {{- end }}
-          {{- if .Values.blade.imageRepo }}
-          - '--image-repo={{ .Values.blade.imageRepo }}'
+          {{- if .Values.blade.repository }}
+          - '--image-repo={{ .Values.blade.repository }}'
           {{- end }}
-          {{- if .Values.env.region }}
-          - '--aliyun-region={{ .Values.env.region }}'
+          {{- if .Values.blade.pullPolicy }}
+          - '--pull-policy={{ .Values.blade.pullPolicy }}'
           {{- end }}
-          {{- if .Values.image.pullPolicy }}
-          - '--pull-policy={{ .Values.image.pullPolicy }}'
-          {{- end }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE
               value: ""
