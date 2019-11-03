@@ -1,0 +1,20 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: delete-two-pod-by-labels
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: delete
+    desc: "delete pod by labels"
+    matchers:
+    - name: labels
+      value:
+      - "app=guestbook"
+    - name: namespace
+      value:
+      - "default"
+    - name: evict-count
+      value:
+      - "2"

@@ -61,7 +61,7 @@ func NewOSSubResourceExecutor(client *channel.Client) spec.Executor {
 				if expIdValues, ok := spec.IsDestroy(ctx); ok {
 					expIds := strings.Split(expIdValues, ",")
 					for _, expId := range expIds {
-						command := fmt.Sprintf("%s destroy docker %s", bladeBin, expId)
+						command := fmt.Sprintf("%s destroy %s", bladeBin, expId)
 						identifier := model.NewExperimentIdentifier(expId, resourceIdentifier.PodUid,
 							resourceIdentifier.PodName, command)
 						identifiers = append(identifiers, identifier)

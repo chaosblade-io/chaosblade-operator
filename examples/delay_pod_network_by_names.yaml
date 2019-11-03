@@ -1,0 +1,25 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: delay-pod-network-by-names
+spec:
+  experiments:
+  - scope: pod
+    target: network
+    action: delay
+    desc: "delay pod network by names"
+    matchers:
+    - name: names
+      value:
+      - "redis-slave-674d68586-wslbk"
+    - name: namespace
+      value:
+      - "default"
+    - name: local-port
+      value: ["6379"]
+    - name: interface
+      value: ["eth0"]
+    - name: time
+      value: ["3000"]
+    - name: offset
+      value: ["1000"]
