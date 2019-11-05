@@ -1,0 +1,15 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: kill-node-process-by-names
+spec:
+  experiments:
+  - scope: node
+    target: process
+    action: kill
+    desc: "kill node process by names"
+    matchers:
+    - name: names
+      value: ["cn-hangzhou.192.168.0.205"]
+    - name: process
+      value: ["redis-server"]
