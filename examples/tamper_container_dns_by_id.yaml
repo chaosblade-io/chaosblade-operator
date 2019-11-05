@@ -1,0 +1,22 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: tamper-container-dns-by-id
+spec:
+  experiments:
+  - scope: container
+    target: network
+    action: dns
+    desc: "tamper container dns by id"
+    matchers:
+    - name: container-ids
+      value:
+      - "4b25f66580c4"
+    - name: domain
+      value: ["www.baidu.com"]
+    - name: ip
+      value: ["10.0.0.1"]
+      # pod names
+    - name: names
+      value: ["frontend-d89756ff7-trsxf"]
+      # or use pod labels

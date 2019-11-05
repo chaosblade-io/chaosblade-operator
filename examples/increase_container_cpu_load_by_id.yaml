@@ -1,22 +1,20 @@
 apiVersion: chaosblade.io/v1alpha1
 kind: ChaosBlade
 metadata:
-  name: increase-container-cpu-load-by-names
+  name: increase-container-cpu-load-by-id
 spec:
   experiments:
   - scope: container
     target: cpu
     action: fullload
-    desc: "increase container cpu load by names"
+    desc: "increase container cpu load by id"
     matchers:
-    - name: container-names
+    - name: container-ids
       value:
-      - "php-redis"
+      - "2ff814b246f86"
     - name: cpu-percent
       value: ["100"]
       # pod names
     - name: names
-      value: ["frontend-d89756ff7-94fj6"]
+      value: ["frontend-d89756ff7-pbnnc"]
       # or use pod labels
-    - name: labels
-      value: ["app=guestbook"]

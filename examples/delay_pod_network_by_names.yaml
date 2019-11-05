@@ -11,7 +11,7 @@ spec:
     matchers:
     - name: names
       value:
-      - "redis-slave-674d68586-wslbk"
+      - "redis-slave-674d68586-jnf7f"
     - name: namespace
       value:
       - "default"

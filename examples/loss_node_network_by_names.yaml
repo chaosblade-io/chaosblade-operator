@@ -1,0 +1,19 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: loss-node-network-by-names
+spec:
+  experiments:
+  - scope: node
+    target: network
+    action: loss
+    desc: "node network loss"
+    matchers:
+    - name: names
+      value: ["cn-hangzhou.192.168.0.205"]
+    - name: percent
+      value: ["60"]
+    - name: interface
+      value: ["eth0"]
+    - name: local-port
+      value: ["40690"]

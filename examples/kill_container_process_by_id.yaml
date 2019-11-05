@@ -11,9 +11,8 @@ spec:
     matchers:
     - name: container-ids
       value:
-      - "68f325dc763c8"
+      - "f1de335b4eeaf"
     - name: process
-      value: ["redis"]
-      # pod labels
-    - name: labels
-      value: ["app=redis"]
+      value: ["top"]
+    - name: names
+      value: ["frontend-d89756ff7-tl4xl"]
