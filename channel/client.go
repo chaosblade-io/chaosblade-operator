@@ -17,19 +17,19 @@
 package channel
 
 import (
-	"fmt"
-	"time"
-	"io"
 	"bytes"
+	"fmt"
+	"io"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,14 +83,14 @@ func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, tim
 		Namespace(pod.Namespace).
 		SubResource("exec").
 		VersionedParams(
-		&corev1.PodExecOptions{
-			Container: containerName,
-			Command:   []string{"/bin/sh", "-c", command},
-			Stdin:     false,
-			Stdout:    true,
-			Stderr:    true,
-			TTY:       TTY,
-		}, scheme.ParameterCodec)
+			&corev1.PodExecOptions{
+				Container: containerName,
+				Command:   []string{"/bin/sh", "-c", command},
+				Stdin:     false,
+				Stdout:    true,
+				Stderr:    true,
+				TTY:       TTY,
+			}, scheme.ParameterCodec)
 
 	var stdout, stderr bytes.Buffer
 

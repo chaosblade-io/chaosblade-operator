@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"

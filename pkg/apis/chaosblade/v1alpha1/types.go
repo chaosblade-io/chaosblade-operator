@@ -163,9 +163,9 @@ type ChaosBlade struct {
 
 // ChaosBladeList contains a list of ChaosBlade
 type ChaosBladeList struct {
-	metav1.TypeMeta    `json:",inline"`
-	metav1.ListMeta    `json:"metadata,omitempty"`
-	Items []ChaosBlade `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ChaosBlade `json:"items"`
 }
 
 func init() {
