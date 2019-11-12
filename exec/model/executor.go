@@ -39,6 +39,7 @@ type ExperimentIdentifier struct {
 	Uid     string
 	Name    string
 	Command string
+	Error   string
 }
 
 func NewExperimentIdentifier(id, uid, name, command string) ExperimentIdentifier {
@@ -47,6 +48,15 @@ func NewExperimentIdentifier(id, uid, name, command string) ExperimentIdentifier
 		Uid:     uid,
 		Name:    name,
 		Command: command,
+	}
+}
+
+func NewExperimentIdentifierWithError(id, uid, name, error string) ExperimentIdentifier {
+	return ExperimentIdentifier{
+		Id:    id,
+		Uid:   uid,
+		Name:  name,
+		Error: error,
 	}
 }
 
@@ -79,20 +89,14 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 
 // ResourceIdentifier is used to pass the necessary values in context
 type ResourceIdentifier struct {
-	NodeName    string
-	NodeUid     string
-	PodName     string
-	PodUid      string
-	ContainerId string
+	NodeName string
+	NodeUid  string
 }
 
-func NewResourceIdentifier(nodeName, nodeUid, podName, podUid, containerId string) *ResourceIdentifier {
+func NewResourceIdentifier(nodeName, nodeUid string) *ResourceIdentifier {
 	return &ResourceIdentifier{
-		NodeName:    nodeName,
-		NodeUid:     nodeUid,
-		PodName:     podName,
-		PodUid:      podUid,
-		ContainerId: containerId,
+		NodeName: nodeName,
+		NodeUid:  nodeUid,
 	}
 }
 
@@ -137,16 +141,14 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNam
 			ctx = spec.SetDestroyFlag(ctx, expIds)
 		}
 
-		targetPod := e.getExecPod(nodeName, podList)
-		if targetPod == nil {
-			rsStatus.CreateFailResourceStatus(fmt.Sprintf("can not find the target pod on %s node", nodeName))
+		targetExcCommandPod := e.getExecPod(nodeName, podList)
+		if targetExcCommandPod == nil {
+			rsStatus.CreateFailResourceStatus(fmt.Sprintf("can not find the target exec pod on %s node", nodeName))
 			statuses = append(statuses, rsStatus)
 			continue
 		}
-		// get the first container from pod
-		containerId, _ := GetOneAvailableContainerIdFromPod(*targetPod)
-		resourceIdentifier := NewResourceIdentifier(nodeName, nodeUid, targetPod.Name, string(targetPod.UID), containerId)
-		success, statuses = e.execCommands(ctx, expModel, rsStatus, targetPod, statuses, resourceIdentifier)
+		resourceIdentifier := NewResourceIdentifier(nodeName, nodeUid)
+		success, statuses = e.execCommands(ctx, expModel, rsStatus, targetExcCommandPod, statuses, resourceIdentifier)
 	}
 	logrus.Infof("success: %t, statuses: %+v", success, statuses)
 	if success {
@@ -165,7 +167,7 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNam
 }
 
 func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *spec.ExpModel,
-	rsStatus v1alpha1.ResourceStatus, targetPod *v1.Pod, statuses []v1alpha1.ResourceStatus,
+	rsStatus v1alpha1.ResourceStatus, targetExecPod *v1.Pod, statuses []v1alpha1.ResourceStatus,
 	resourceIdentifier *ResourceIdentifier) (bool, []v1alpha1.ResourceStatus) {
 
 	success := false
@@ -181,15 +183,20 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *s
 		newStatus.Id = identifier.Id
 		newStatus.Uid = identifier.Uid
 		newStatus.Name = identifier.Name
-		response := e.Client.Exec(targetPod, meta.Constant.PodName, identifier.Command, time.Second*30)
-		if response.Success {
-			if _, ok := spec.IsDestroy(ctx); !ok {
-				newStatus.Id = response.Result.(string)
-			}
-			newStatus = newStatus.CreateSuccessResourceStatus()
-			success = true
+
+		if identifier.Error != "" {
+			newStatus = newStatus.CreateFailResourceStatus(identifier.Error)
 		} else {
-			newStatus = newStatus.CreateFailResourceStatus(response.Err)
+			response := e.Client.Exec(targetExecPod, meta.Constant.PodName, identifier.Command, time.Second*30)
+			if response.Success {
+				if _, ok := spec.IsDestroy(ctx); !ok {
+					newStatus.Id = response.Result.(string)
+				}
+				newStatus = newStatus.CreateSuccessResourceStatus()
+				success = true
+			} else {
+				newStatus = newStatus.CreateFailResourceStatus(response.Err)
+			}
 		}
 		statuses = append(statuses, newStatus)
 	}

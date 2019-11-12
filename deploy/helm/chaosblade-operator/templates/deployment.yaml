@@ -1,8 +1,6 @@
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  labels:
-    app: chaosblade-tool
   name: chaosblade-tool
   namespace: kube-system
 spec:
@@ -14,6 +12,7 @@ spec:
     metadata:
       labels:
         app: chaosblade-tool
+        part-of: chaosblade
       name: chaosblade-tool
     spec:
       affinity:
@@ -66,6 +65,7 @@ spec:
     metadata:
       labels:
         name: chaosblade-operator
+        part-of: chaosblade
     spec:
       serviceAccountName: chaosblade
       containers:
