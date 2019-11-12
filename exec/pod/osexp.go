@@ -19,10 +19,11 @@ package pod
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -58,27 +59,56 @@ func NewOSSubResourceExecutor(client *channel.Client) spec.Executor {
 				resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
 				bladeBin := meta.Constant.BladeBin
 				identifiers := make([]model.ExperimentIdentifier, 0)
-
-				if expIdValues, ok := spec.IsDestroy(ctx); ok {
-					expIds := strings.Split(expIdValues, ",")
-					for _, expId := range expIds {
-						command := fmt.Sprintf("%s destroy %s", bladeBin, expId)
-						identifier := model.NewExperimentIdentifier(expId, resourceIdentifier.PodUid,
-							resourceIdentifier.PodName, command)
+				// Destroy
+				if _, ok := spec.IsDestroy(ctx); ok {
+					expObjectMetasMaps, err := model.ExtractNodeNameExpObjectMetasMapFromContext(ctx)
+					if err != nil {
+						return identifiers, err
+					}
+					expObjectMetas := expObjectMetasMaps[resourceIdentifier.NodeName]
+					for _, expObjectMeta := range expObjectMetas {
+						if expObjectMeta.Id == "" {
+							continue
+						}
+						command := fmt.Sprintf("%s destroy %s", bladeBin, expObjectMeta.Id)
+						identifier := model.NewExperimentIdentifier(expObjectMeta.Id, expObjectMeta.Uid,
+							expObjectMeta.Name, command)
 						identifiers = append(identifiers, identifier)
 					}
 					return identifiers, nil
 				}
-
+				// Create
 				matchers := spec.ConvertExpMatchersToString(expModel, model.ExcludeKeyFunc())
-				containerId := resourceIdentifier.ContainerId
-				if containerId == "" {
-					return identifiers, fmt.Errorf("cannot find a valiable container in the %s pod", resourceIdentifier.PodName)
+				// Get pods from context
+				podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
+				if err != nil {
+					return identifiers, err
 				}
-				flags := fmt.Sprintf("%s --container-id %s", matchers, containerId)
-				command := fmt.Sprintf("%s create docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
-				identifier := model.NewExperimentIdentifier("", resourceIdentifier.PodUid, resourceIdentifier.PodName, command)
-				identifiers = append(identifiers, identifier)
+				// Traverse the pod list to get the container running in every pod
+				for _, podObjectMeta := range podObjectMetaList {
+					if podObjectMeta.NodeName != resourceIdentifier.NodeName {
+						continue
+					}
+					pod := v1.Pod{}
+					err := client.Get(context.Background(), types.NamespacedName{
+						Name:      podObjectMeta.Name,
+						Namespace: podObjectMeta.Namespace}, &pod)
+					if err != nil {
+						identifier := model.NewExperimentIdentifierWithError("", podObjectMeta.Uid, podObjectMeta.Name, err.Error())
+						identifiers = append(identifiers, identifier)
+						continue
+					}
+					containerId, err := model.GetOneAvailableContainerIdFromPod(pod)
+					if err != nil {
+						identifier := model.NewExperimentIdentifierWithError("", podObjectMeta.Uid, podObjectMeta.Name, err.Error())
+						identifiers = append(identifiers, identifier)
+						continue
+					}
+					flags := fmt.Sprintf("%s --container-id %s", matchers, containerId)
+					command := fmt.Sprintf("%s create docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
+					identifier := model.NewExperimentIdentifier("", podObjectMeta.Uid, podObjectMeta.Name, command)
+					identifiers = append(identifiers, identifier)
+				}
 				return identifiers, nil
 			},
 		},

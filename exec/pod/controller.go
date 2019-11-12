@@ -61,7 +61,7 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 }
 
 func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod) context.Context {
-	podObjectMetas := make([]model.PodObjectMeta, 0)
+	podObjectMetas := model.PodObjectMetaList{}
 	nodeNameUidMap := model.NodeNameUidMap{}
 	for _, pod := range pods {
 		podObjectMeta := model.PodObjectMeta{
@@ -71,7 +71,7 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod) context.Co
 		// node uid is unuseful for pod experiments
 		nodeNameUidMap[pod.Spec.NodeName] = ""
 	}
-	ctx = context.WithValue(ctx, model.PodObjectMetaKey, podObjectMetas)
+	ctx = context.WithValue(ctx, model.PodObjectMetaListKey, podObjectMetas)
 	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
 	return ctx
 }
