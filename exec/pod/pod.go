@@ -17,9 +17,10 @@
 package pod
 
 import (
-	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
+	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 )
 
 type ResourceModelSpec struct {

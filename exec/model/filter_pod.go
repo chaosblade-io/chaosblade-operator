@@ -17,17 +17,18 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"strings"
-	"context"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	pkglabels "k8s.io/apimachinery/pkg/labels"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 )
 

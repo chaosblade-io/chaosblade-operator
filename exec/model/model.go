@@ -18,6 +18,7 @@ package model
 
 import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 )
 

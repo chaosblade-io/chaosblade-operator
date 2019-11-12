@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
@@ -50,7 +51,7 @@ func NewExperimentIdentifier(id, uid, name, command string) ExperimentIdentifier
 }
 
 type ExecCommandInPodExecutor struct {
-	Client *channel.Client
+	Client      *channel.Client
 	CommandFunc func(ctx context.Context, model *spec.ExpModel,
 		resourceIdentifier *ResourceIdentifier) ([]ExperimentIdentifier, error) `json:"-"`
 }

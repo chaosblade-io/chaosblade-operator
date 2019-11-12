@@ -22,9 +22,10 @@ import (
 	"k8s.io/api/core/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
 type ExpController struct {

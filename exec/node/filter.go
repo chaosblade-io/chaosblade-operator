@@ -17,19 +17,20 @@
 package node
 
 import (
-	"strings"
-	"fmt"
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	pkglabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
-	"github.com/chaosblade-io/chaosblade-operator/exec/model"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 )
 
 func (e *ExpController) getMatchedNodeResources(expModel spec.ExpModel) ([]v1.Node, error) {

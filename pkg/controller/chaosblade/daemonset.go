@@ -22,8 +22,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
