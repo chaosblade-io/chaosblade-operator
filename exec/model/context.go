@@ -32,8 +32,8 @@ const (
 	NodeNameUidMapKey = "NodeNameUidMap"
 	// nodeName: []{}
 	NodeNameContainerObjectMetasMapKey = "NodeNameContainerObjectMetasMapKey"
-	//{Name: xx, Namespace: xx, Uid: xxx, NodeName: xxx}
-	PodObjectMetaKey = "PodObjectMeta"
+	//[{Name: xx, Namespace: xx, Uid: xxx, NodeName: xxx}]
+	PodObjectMetaListKey = "PodObjectMetaListKey"
 
 	// For destroy operation
 	// nodeName:[{uid:expId}, {uid:expId}]
@@ -72,6 +72,8 @@ type ContainerObjectMeta struct {
 
 type NodeNameContainerObjectMetasMap map[string][]ContainerObjectMeta
 
+type PodObjectMetaList []PodObjectMeta
+
 func ExtractNodeNameUidMapFromContext(ctx context.Context) (NodeNameUidMap, error) {
 	nodeNameUidMapValue := ctx.Value(NodeNameUidMapKey)
 	if nodeNameUidMapValue == nil {
@@ -97,6 +99,15 @@ func ExtractNodeNameContainerMetasMapFromContext(ctx context.Context) (NodeNameC
 	}
 	containerObjectMetas := containerObjectMetaValues.(NodeNameContainerObjectMetasMap)
 	return containerObjectMetas, nil
+}
+
+func ExtractPodObjectMetasFromContext(ctx context.Context) (PodObjectMetaList, error) {
+	podObjectMetaValues := ctx.Value(PodObjectMetaListKey)
+	if podObjectMetaValues == nil {
+		return nil, fmt.Errorf("less pod object meta parameter")
+	}
+	podObjectMetas := podObjectMetaValues.(PodObjectMetaList)
+	return podObjectMetas, nil
 }
 
 func GetChaosBladePodListOptions() *client.ListOptions {

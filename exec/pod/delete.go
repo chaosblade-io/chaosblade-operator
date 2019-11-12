@@ -80,16 +80,14 @@ func (d *DeletePodActionExecutor) Exec(uid string, ctx context.Context, model *s
 }
 
 func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	podObjectMetaValues := ctx.Value(model.PodObjectMetaKey)
-	if podObjectMetaValues == nil {
-		errMsg := "less pod object meta parameter"
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
+	if err != nil {
+		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	podObjectMetas := podObjectMetaValues.([]model.PodObjectMeta)
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
-	for _, meta := range podObjectMetas {
+	for _, meta := range podObjectMetaList {
 		status := v1alpha1.ResourceStatus{
 			Uid:      meta.Uid,
 			Name:     meta.Name,
