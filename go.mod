@@ -1,9 +1,9 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.0.1
-	github.com/chaosblade-io/chaosblade-exec-os v0.0.1
-	github.com/chaosblade-io/chaosblade-spec-go v0.0.1
+	github.com/chaosblade-io/chaosblade-exec-docker v0.0.2-0.20191129084100-a824a101b937
+	github.com/chaosblade-io/chaosblade-exec-os v0.0.2-0.20191129081657-0b7ed2b9c260
+	github.com/chaosblade-io/chaosblade-spec-go v0.0.2-0.20191128032435-a99b601f1c34
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/golang/groupcache v0.0.0-20191025150517-4a4ac3fbac33 // indirect

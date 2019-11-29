@@ -3,7 +3,8 @@
 BLADE_SRC_ROOT=`pwd`
 
 GO_ENV=CGO_ENABLED=1
-GO=env $(GO_ENV) go
+GO_MODULE=GO111MODULE=on
+GO=env $(GO_ENV) $(GO_MODULE) go
 
 UNAME := $(shell uname)
 
@@ -27,6 +28,8 @@ ifeq ($(GOOS), linux)
 endif
 
 build: pre_build build_yaml
+
+build_linux: build
 
 pre_build:
 	rm -rf $(BUILD_TARGET_PKG_DIR) $(BUILD_TARGET_PKG_FILE_PATH)
