@@ -78,10 +78,16 @@ github.com/chaosblade-io/chaosblade v0.3.0 h1:bI2OhaJ3IGxfcqBnqaOVj7MTitNSntAuiw
 github.com/chaosblade-io/chaosblade v0.3.0/go.mod h1:H05IzB/iwqJ+kcHYX8XAnnE8lInMIROpd70eKfRi+tY=
 github.com/chaosblade-io/chaosblade-exec-docker v0.0.1 h1:Aa54CsdI/Jmuz/cltvmQCnD3xJwC3/xz3lIMyAzS6wo=
 github.com/chaosblade-io/chaosblade-exec-docker v0.0.1/go.mod h1:+ul76sNFxd3qS91+uSyv9qqO6aAYShdBG34P65N0ZNM=
+github.com/chaosblade-io/chaosblade-exec-docker v0.0.2-0.20191129084100-a824a101b937 h1:DVgb4wBp3JC4u0WXmJEtIVRETfogyQ5fspe//QBp/jU=
+github.com/chaosblade-io/chaosblade-exec-docker v0.0.2-0.20191129084100-a824a101b937/go.mod h1:2QT2QORf+b+i7Q+6TUnDC+DQIOuFSU+OC3RZHGUC5MM=
 github.com/chaosblade-io/chaosblade-exec-os v0.0.1 h1:D3ivaFDZ7PxR8lEUIpPxS+B0kbR3IM3OvYyS8MihFY4=
 github.com/chaosblade-io/chaosblade-exec-os v0.0.1/go.mod h1:urXotEH/sG+4lhIGv++i7rmL+qV21HIEHzMx829NqlA=
+github.com/chaosblade-io/chaosblade-exec-os v0.0.2-0.20191129081657-0b7ed2b9c260 h1:4h6rJbYYRvDayJT38PkCHNExDdm0EyJrIYPbCaFMGIw=
+github.com/chaosblade-io/chaosblade-exec-os v0.0.2-0.20191129081657-0b7ed2b9c260/go.mod h1:uW61Cd77yVrHBMCyTYYKpSNA4wmVIThw6hFnEub/m58=
 github.com/chaosblade-io/chaosblade-spec-go v0.0.1 h1:8Nch78qEYJLxW9Xd5pESSnLB1RCV4gMYgDnE7rlVgDs=
 github.com/chaosblade-io/chaosblade-spec-go v0.0.1/go.mod h1:ybcCsIX1wZtPrH0IsI28yDNJ+AVPeDMUZlgw1HE++Ds=
+github.com/chaosblade-io/chaosblade-spec-go v0.0.2-0.20191128032435-a99b601f1c34 h1:LHfbaAtmnigDxstc0SNeoKOuz8J6IDx6idVWHV5cbq4=
+github.com/chaosblade-io/chaosblade-spec-go v0.0.2-0.20191128032435-a99b601f1c34/go.mod h1:ybcCsIX1wZtPrH0IsI28yDNJ+AVPeDMUZlgw1HE++Ds=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/containerd/cgroups v0.0.0-20190717030353-c4b9ac5c7601/go.mod h1:X9rLEHIqSf/wfK8NsPqxJmeZgW4pcfzdXITDrUSJ6uI=
 github.com/containerd/cgroups v0.0.0-20191011165608-5fbad35c2a7e/go.mod h1:OApqhQ4XNSNC13gXIwDjhOQxjWa/NxkwZXJ1EvqT0ko=
