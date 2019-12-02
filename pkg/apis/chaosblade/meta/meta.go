@@ -39,7 +39,6 @@ var Vendors = map[string]*chaosBladeConstant{
 	Community: {
 		Home:          "/opt/chaosblade",
 		BladeBin:      "/opt/chaosblade/blade",
-		Namespace:     "kube-system",
 		PodName:       "chaosblade-tool",
 		ImageRepoFunc: ImageRepoForCommunity,
 		PodLabels:     map[string]string{"app": "chaosblade-tool"},
@@ -48,7 +47,6 @@ var Vendors = map[string]*chaosBladeConstant{
 	AHAS: {
 		Home:          "/opt/aliyunahas/chaosblade",
 		BladeBin:      "/opt/aliyunahas/chaosblade/blade",
-		Namespace:     "ahas",
 		PodName:       "ahas-agent",
 		ImageRepoFunc: ImageRepoForAliyun,
 		PodLabels:     map[string]string{"app": "ahas"},
@@ -60,7 +58,6 @@ var Constant *chaosBladeConstant
 type chaosBladeConstant struct {
 	Home          string
 	BladeBin      string
-	Namespace     string
 	PodName       string
 	ImageRepoFunc func() string
 	PodLabels     map[string]string
@@ -100,6 +97,7 @@ var (
 	imageRepo         string
 	chaosBladeVersion string
 	pullPolicy        string
+	namespace         string
 )
 
 func init() {
@@ -110,6 +108,7 @@ func init() {
 	metaFlagSet.StringVar(&chaosBladeVersion, "blade-version", "latest",
 		"Chaosblade image version, default value is latest")
 	metaFlagSet.StringVar(&pullPolicy, "pull-policy", "IfNotPresent", "Pull image policy, default value is IfNotPresent")
+	metaFlagSet.StringVar(&namespace, "namespace", "kube-system", "the kubernetes namespace which chaosblade operator deployed")
 
 	switch version.Vendor {
 	case Community:
@@ -131,6 +130,10 @@ func GetChaosBladeVersion() string {
 
 func GetPullImagePolicy() string {
 	return pullPolicy
+}
+
+func GetNamespace() string {
+	return namespace
 }
 
 func GetChaosBladePkgPath() string {
