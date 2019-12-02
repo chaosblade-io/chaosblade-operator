@@ -34,7 +34,7 @@ func deployChaosBladeAgent(rcb *ReconcileChaosBlade, cb *v1alpha1.ChaosBlade) er
 	daemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      meta.Constant.PodName,
-			Namespace: meta.Constant.Namespace,
+			Namespace: meta.GetNamespace(),
 			Labels:    meta.Constant.PodLabels,
 		},
 		Spec: createDaemonsetSpec(),

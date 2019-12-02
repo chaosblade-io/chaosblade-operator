@@ -112,7 +112,7 @@ func ExtractPodObjectMetasFromContext(ctx context.Context) (PodObjectMetaList, e
 
 func GetChaosBladePodListOptions() *client.ListOptions {
 	return &client.ListOptions{
-		Namespace:     meta.Constant.Namespace,
+		Namespace:     meta.GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(meta.Constant.PodLabels),
 	}
 }
