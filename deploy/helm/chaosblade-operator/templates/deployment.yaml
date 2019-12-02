@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: chaosblade-tool
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
 spec:
   minReadySeconds: 5
   selector:
@@ -19,20 +19,20 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-              - key: type
-                operator: NotIn
-                values:
-                - virtual-kubelet
+              - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                      - virtual-kubelet
       containers:
-      - image: {{ .Values.blade.repository }}:{{ .Values.blade.version }}
-        imagePullPolicy: {{ .Values.blade.pullPolicy }}
-        name: chaosblade-tool
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /var/run/docker.sock
-          name: docker-socket
+        - image: {{ .Values.blade.repository }}:{{ .Values.blade.version }}
+          imagePullPolicy: {{ .Values.blade.pullPolicy }}
+          name: chaosblade-tool
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: docker-socket
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -41,13 +41,13 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 30
       tolerations:
-      - effect: NoSchedule
-        operator: Exists
+        - effect: NoSchedule
+          operator: Exists
       volumes:
-      - hostPath:
-          path: /var/run/docker.sock
-          type: ""
-        name: docker-socket
+        - hostPath:
+            path: /var/run/docker.sock
+            type: ""
+          name: docker-socket
   updateStrategy:
     type: RollingUpdate
 ---
@@ -55,7 +55,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chaosblade-operator
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -85,6 +85,7 @@ spec:
           {{- if .Values.blade.pullPolicy }}
           - '--pull-policy={{ .Values.blade.pullPolicy }}'
           {{- end }}
+          - '--namespace={{ .Release.Namespace }}'
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE
