@@ -73,25 +73,28 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus("cannot find the target pods for container resource", nil))
 	}
-	expectedContainerIds := strings.Split(containerIdsValue, ",")
-	expectedContainerNames := strings.Split(containerNamesValue, ",")
-	ctx = setNecessaryObjectsToContext(ctx, pods, expectedContainerIds, expectedContainerNames)
+	ctx = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue)
 	return e.Exec(ctx, expModel)
 }
 
 // setNecessaryObjectsToContext which will be used in the executor
 func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
-	expectedContainerIds, expectedContainerNames []string) context.Context {
+	containerIdsValue, containerNamesValue string) context.Context {
 	nodeNameContainerObjectMetasMaps := model.NodeNameContainerObjectMetasMap{}
 	nodeNameUidMap := model.NodeNameUidMap{}
+	expectedContainerIds := strings.Split(containerIdsValue, ",")
+	expectedContainerNames := strings.Split(containerNamesValue, ",")
 	for _, pod := range pods {
 		containerStatuses := pod.Status.ContainerStatuses
 		if containerStatuses != nil {
 			for _, containerStatus := range containerStatuses {
 				containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 				containerName := containerStatus.Name
-				if len(expectedContainerIds) > 0 {
+				if len(containerIdsValue) > 0 {
 					for _, expectedContainerId := range expectedContainerIds {
+						if expectedContainerId == "" {
+							continue
+						}
 						if strings.HasPrefix(containerId, expectedContainerId) {
 							// matched
 							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
@@ -100,8 +103,11 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 						}
 					}
 				}
-				if len(expectedContainerNames) > 0 {
+				if len(containerNamesValue) > 0 {
 					for _, expectedName := range expectedContainerNames {
+						if expectedName == "" {
+							continue
+						}
 						if expectedName == containerName {
 							// matched
 							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
