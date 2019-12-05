@@ -33,6 +33,8 @@ spec:
           volumeMounts:
             - mountPath: /var/run/docker.sock
               name: docker-socket
+            - mountPath: /opt/chaosblade/chaosblade.dat
+              name: chaosblade-db-volume
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -46,8 +48,11 @@ spec:
       volumes:
         - hostPath:
             path: /var/run/docker.sock
-            type: ""
           name: docker-socket
+        - hostPath:
+            path: /opt/chaosblade/chaosblade.dat
+            type: FileOrCreate
+          name: chaosblade-db-volume
   updateStrategy:
     type: RollingUpdate
 ---

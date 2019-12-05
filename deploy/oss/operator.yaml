@@ -17,7 +17,7 @@ spec:
       containers:
         - name: chaosblade-operator
           # Replace this with the built image name
-          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.0.1
+          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.4.0
           command: ["chaosblade-operator"]
           args:
           - --blade-version=0.4.0

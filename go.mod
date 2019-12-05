@@ -1,12 +1,13 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.0.2-0.20191129084100-a824a101b937
-	github.com/chaosblade-io/chaosblade-exec-os v0.0.2-0.20191129081657-0b7ed2b9c260
-	github.com/chaosblade-io/chaosblade-spec-go v0.0.2-0.20191128032435-a99b601f1c34
+	github.com/chaosblade-io/chaosblade-exec-docker v0.4.0
+	github.com/chaosblade-io/chaosblade-exec-os v0.4.0
+	github.com/chaosblade-io/chaosblade-spec-go v0.4.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/golang/groupcache v0.0.0-20191025150517-4a4ac3fbac33 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/gophercloud/gophercloud v0.6.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
