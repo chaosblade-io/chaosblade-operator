@@ -34,6 +34,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/docker.sock
           name: docker-socket
+        - mountPath: /etc/hosts
+          name: hosts
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -49,5 +51,8 @@ spec:
           path: /var/run/docker.sock
           type: ""
         name: docker-socket
+      - hostPath:
+          path: /etc/hosts
+        name: hosts
   updateStrategy:
     type: RollingUpdate
