@@ -20,10 +20,11 @@ spec:
           image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.4.0
           command: ["chaosblade-operator"]
           args:
-          - --blade-version=0.4.0
-          - --aliyun-region=cn-hangzhou
-          - --pull-policy=Always
-          imagePullPolicy: Always
+            - --blade-version=0.4.0
+            - --aliyun-region=cn-hangzhou
+            - --pull-policy=IfNotPresent
+            - --namespace=kube-system
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
               value: ""

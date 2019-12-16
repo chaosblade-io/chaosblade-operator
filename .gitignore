@@ -37,7 +37,7 @@ flycheck_*.el
 # projectiles files
 .projectile
 projectile-bookmarks.eld
-deploy/helm/chaosblade-operator-*
+deploy/helm/chaosblade-operator-*.tgz
 # directory configuration
 .dir-locals.el
 # saveplace

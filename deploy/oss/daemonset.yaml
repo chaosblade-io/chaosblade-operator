@@ -20,22 +20,24 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-              - key: type
-                operator: NotIn
-                values:
-                - virtual-kubelet
+              - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                      - virtual-kubelet
       containers:
-      - image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool:0.4.0
-        imagePullPolicy: IfNotPresent
-        name: chaosblade-tool
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /var/run/docker.sock
-          name: docker-socket
-        - mountPath: /etc/hosts
-          name: hosts
+        - image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool:0.4.0
+          imagePullPolicy: IfNotPresent
+          name: chaosblade-tool
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: docker-socket
+            - mountPath: /opt/chaosblade/chaosblade.dat
+              name: chaosblade-db-volume
+            - mountPath: /etc/hosts
+              name: hosts
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -44,15 +46,18 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 30
       tolerations:
-      - effect: NoSchedule
-        operator: Exists
+        - effect: NoSchedule
+          operator: Exists
       volumes:
-      - hostPath:
-          path: /var/run/docker.sock
-          type: ""
-        name: docker-socket
-      - hostPath:
-          path: /etc/hosts
-        name: hosts
+        - hostPath:
+            path: /var/run/docker.sock
+          name: docker-socket
+        - hostPath:
+            path: /var/run/chaosblade.dat
+            type: FileOrCreate
+          name: chaosblade-db-volume
+        - hostPath:
+            path: /etc/hosts
+          name: hosts
   updateStrategy:
     type: RollingUpdate
