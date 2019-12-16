@@ -23,6 +23,7 @@ items:
         - services
         - endpoints
         - persistentvolumeclaims
+        - persistentvolumes
         - events
         - configmaps
         - secrets

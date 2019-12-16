@@ -6,22 +6,11 @@ require (
 	github.com/chaosblade-io/chaosblade-spec-go v0.4.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
-	github.com/golang/groupcache v0.0.0-20191025150517-4a4ac3fbac33 // indirect
 	github.com/google/martian v2.1.0+incompatible
-	github.com/gophercloud/gophercloud v0.6.0 // indirect
-	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
-	github.com/hashicorp/golang-lru v0.5.3 // indirect
-	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/operator-framework/operator-sdk v0.10.0
-	github.com/prometheus/client_golang v1.2.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.4-0.20181223182923-24fa6976df40
-	go.uber.org/atomic v1.4.0 // indirect
-	go.uber.org/multierr v1.2.0 // indirect
-	go.uber.org/zap v1.11.0 // indirect
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
-	k8s.io/api v0.0.0-20190612125737-db0771252981
+	k8s.io/api v0.0.0-20191025025715-ac1bc6bf0668
 	k8s.io/apimachinery v0.0.0-20191025225532-af6325b3a843
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
