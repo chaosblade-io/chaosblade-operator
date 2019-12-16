@@ -1,7 +1,7 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.4.0
+	github.com/chaosblade-io/chaosblade-exec-docker v0.4.1
 	github.com/chaosblade-io/chaosblade-exec-os v0.4.0
 	github.com/chaosblade-io/chaosblade-spec-go v0.4.0
 	github.com/go-logr/logr v0.1.0
