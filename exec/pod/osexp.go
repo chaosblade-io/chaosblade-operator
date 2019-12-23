@@ -104,7 +104,8 @@ func NewOSSubResourceExecutor(client *channel.Client) spec.Executor {
 						identifiers = append(identifiers, identifier)
 						continue
 					}
-					flags := fmt.Sprintf("%s --container-id %s", matchers, containerId)
+					flags := fmt.Sprintf("%s --container-id %s --image-repo %s --image-version %s",
+						matchers, containerId, meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion())
 					command := fmt.Sprintf("%s create docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
 					identifier := model.NewExperimentIdentifier("", podObjectMeta.Uid, podObjectMeta.Name, command)
 					identifiers = append(identifiers, identifier)

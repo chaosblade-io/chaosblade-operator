@@ -45,8 +45,8 @@ var Vendors = map[string]*chaosBladeConstant{
 	},
 	// FOR ALIYUN AHAS
 	AHAS: {
-		Home:          "/opt/aliyunahas/chaosblade",
-		BladeBin:      "/opt/aliyunahas/chaosblade/blade",
+		Home:          "/opt/chaosblade",
+		BladeBin:      "/opt/chaosblade/blade",
 		PodName:       "ahas-agent",
 		ImageRepoFunc: ImageRepoForAliyun,
 		PodLabels:     map[string]string{"app": "ahas"},
@@ -77,14 +77,14 @@ var ImageRepoForAliyun = func() string {
 	env := runtimeEnv
 	if region == publicRegion {
 		if env == prodEnv {
-			return fmt.Sprintf("registry.cn-hangzhou.aliyuncs.com/chaosbladecr-public/chaosblade-tool")
+			return fmt.Sprintf("registry.cn-hangzhou.aliyuncs.com/ahascr-public/chaosblade-tool")
 		}
-		return fmt.Sprintf("registry.cn-hangzhou.aliyuncs.com/chaosblade-public/chaosblade-tool")
+		return fmt.Sprintf("registry.cn-hangzhou.aliyuncs.com/ahas-public/chaosblade-tool")
 	}
 	if env == prodEnv {
-		return fmt.Sprintf("registry-vpc.cn-hangzhou.aliyuncs.com/chaosbladecr/chaosblade-tool")
+		return fmt.Sprintf("registry-vpc.%s.aliyuncs.com/ahascr/chaosblade-tool", region)
 	}
-	return fmt.Sprintf("registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool")
+	return fmt.Sprintf("registry-vpc.%s.aliyuncs.com/ahas/chaosblade-tool", region)
 }
 
 type PointerString *string
@@ -109,6 +109,7 @@ func init() {
 		"Chaosblade image version, default value is latest")
 	metaFlagSet.StringVar(&pullPolicy, "pull-policy", "IfNotPresent", "Pull image policy, default value is IfNotPresent")
 	metaFlagSet.StringVar(&namespace, "namespace", "kube-system", "the kubernetes namespace which chaosblade operator deployed")
+	metaFlagSet.StringVar(&runtimeEnv, "aliyun-env", "prod", "environment")
 
 	switch version.Vendor {
 	case Community:

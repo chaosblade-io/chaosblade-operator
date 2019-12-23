@@ -99,6 +99,10 @@ func NewDockerSubResourceExecutor(client *channel.Client) spec.Executor {
 				if !isNetworkTarget && !isContainerSelfTarget {
 					matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, meta.GetChaosBladePkgPath())
 				}
+				if isNetworkTarget {
+					matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
+						matchers, meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion())
+				}
 				for _, objectMeta := range containerObjectMetas {
 					identifier := model.ExperimentIdentifier{}
 					flags := fmt.Sprintf("%s --container-id %s", matchers, objectMeta.Uid)
