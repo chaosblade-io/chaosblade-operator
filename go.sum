@@ -84,6 +84,10 @@ github.com/chaosblade-io/chaosblade-exec-docker v0.0.2-0.20191129084100-a824a101
 github.com/chaosblade-io/chaosblade-exec-docker v0.4.0/go.mod h1:3MyfWEuMky34T00W7KSAo+sD0SsVzmgyCYkOHEqoQeg=
 github.com/chaosblade-io/chaosblade-exec-docker v0.4.1 h1:bQ7OndsHdOI0Pjax/FfIJptYJBrkbMAydPPhmaRL4c8=
 github.com/chaosblade-io/chaosblade-exec-docker v0.4.1/go.mod h1:dODgtc/L+ZXIapL0EzCS+4uT/TORasqeDveiywq3y1E=
+github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20191223115240-13f713346ccf/go.mod h1:dODgtc/L+ZXIapL0EzCS+4uT/TORasqeDveiywq3y1E=
+github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20191223124320-5b05fa929987/go.mod h1:dODgtc/L+ZXIapL0EzCS+4uT/TORasqeDveiywq3y1E=
+github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20191224071628-b2f4fc56853b h1:09HWfw4twl1vM3Es9dGMQ/szq8Stadg9Uq1OrQmwJDk=
+github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20191224071628-b2f4fc56853b/go.mod h1:dODgtc/L+ZXIapL0EzCS+4uT/TORasqeDveiywq3y1E=
 github.com/chaosblade-io/chaosblade-exec-os v0.0.1 h1:D3ivaFDZ7PxR8lEUIpPxS+B0kbR3IM3OvYyS8MihFY4=
 github.com/chaosblade-io/chaosblade-exec-os v0.0.1/go.mod h1:urXotEH/sG+4lhIGv++i7rmL+qV21HIEHzMx829NqlA=
 github.com/chaosblade-io/chaosblade-exec-os v0.0.2-0.20191129081657-0b7ed2b9c260 h1:4h6rJbYYRvDayJT38PkCHNExDdm0EyJrIYPbCaFMGIw=
