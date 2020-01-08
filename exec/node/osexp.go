@@ -39,6 +39,8 @@ func NewOSSubResourceModelSpec(client *channel.Client) model.SubResourceExpModel
 				exec.NewCpuCommandModelSpec(),
 				exec.NewNetworkCommandSpec(),
 				exec.NewProcessCommandModelSpec(),
+				exec.NewDiskCommandSpec(),
+				exec.NewMemCommandModelSpec(),
 			},
 			ExpExecutor: NewOSSubResourceExecutor(client),
 		},
