@@ -1,16 +1,16 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20191224071628-b2f4fc56853b
-	github.com/chaosblade-io/chaosblade-exec-os v0.4.0
-	github.com/chaosblade-io/chaosblade-spec-go v0.4.0
+	github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20200110075138-e482011049e1
+	github.com/chaosblade-io/chaosblade-exec-os v0.4.1-0.20200110074748-6dcc3e972904
+	github.com/chaosblade-io/chaosblade-spec-go v0.4.1-0.20200110072855-4f767ce4e582
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/google/martian v2.1.0+incompatible
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.4-0.20181223182923-24fa6976df40
-	k8s.io/api v0.0.0-20191025025715-ac1bc6bf0668
+	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.0.0-20191025225532-af6325b3a843
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
