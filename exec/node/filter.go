@@ -140,6 +140,9 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		nodes = nodesWithName
 		return nodes, nil
 	}
+	if labels != "" || names != "" {
+		return nodes, nil
+	}
 	nodeList := v1.NodeList{}
 	err := client2.List(context.TODO(), &client.ListOptions{}, &nodeList)
 	if err != nil {
