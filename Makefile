@@ -28,6 +28,10 @@ ifeq ($(GOOS), linux)
 endif
 
 build: pre_build build_yaml
+
+build_all: build build_image
+
+build_image:
 	operator-sdk build chaosblade-operator:latest
 
 build_linux: build
