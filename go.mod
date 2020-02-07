@@ -1,9 +1,9 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.4.2-0.20200110075138-e482011049e1
-	github.com/chaosblade-io/chaosblade-exec-os v0.4.1-0.20200110074748-6dcc3e972904
-	github.com/chaosblade-io/chaosblade-spec-go v0.4.1-0.20200110072855-4f767ce4e582
+	github.com/chaosblade-io/chaosblade-exec-docker v0.5.0
+	github.com/chaosblade-io/chaosblade-exec-os v0.5.0
+	github.com/chaosblade-io/chaosblade-spec-go v0.5.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/google/martian v2.1.0+incompatible

@@ -9,7 +9,7 @@ GO=env $(GO_ENV) $(GO_MODULE) go
 UNAME := $(shell uname)
 
 ifeq ($(BLADE_VERSION), )
-	BLADE_VERSION=0.4.0
+	BLADE_VERSION=0.5.0
 endif
 
 BUILD_TARGET=target
