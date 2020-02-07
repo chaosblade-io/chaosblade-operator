@@ -17,10 +17,10 @@ spec:
       containers:
         - name: chaosblade-operator
           # Replace this with the built image name
-          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.4.0
+          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.5.0
           command: ["chaosblade-operator"]
           args:
-            - --blade-version=0.4.0
+            - --blade-version=0.5.0
             - --aliyun-region=cn-hangzhou
             - --pull-policy=IfNotPresent
             - --namespace=kube-system
