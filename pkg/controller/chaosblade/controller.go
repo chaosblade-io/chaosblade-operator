@@ -79,6 +79,12 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 	if err != nil {
 		return err
 	}
+
+	// deploy chaosblade tool
+	if err := deployChaosBladeTool(rcb); err != nil {
+		log.Error(err, "Failed to deploy chaosblade tool")
+		return err
+	}
 	return nil
 }
 
