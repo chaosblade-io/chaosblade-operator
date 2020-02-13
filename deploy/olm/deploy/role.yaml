@@ -1,0 +1,48 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+rules:
+  - apiGroups:
+    - ''
+    resources:
+    - pods
+    - pods/exec
+    - services
+    - endpoints
+    - persistentvolumeclaims
+    - persistentvolumes
+    - events
+    - configmaps
+    - secrets
+    - namespaces
+    - nodes
+    verbs:
+    - "*"
+  - apiGroups:
+    - extensions
+    resources:
+    - deployments
+    - daemonsets
+    - replicasets
+    - ingresses
+    verbs:
+    - "*"
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    - daemonsets
+    - replicasets
+    - statefulsets
+    verbs:
+    - "*"
+  - apiGroups:
+    - chaosblade.io
+    resources:
+    - chaosblades
+    - chaosblades/status
+    verbs:
+    - "*"
