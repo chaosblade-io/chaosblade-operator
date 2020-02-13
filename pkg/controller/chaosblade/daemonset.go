@@ -24,26 +24,66 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
 // Deploy the chaosblade tool with daemonset mode
-func deployChaosBladeAgent(rcb *ReconcileChaosBlade, cb *v1alpha1.ChaosBlade) error {
+func deployChaosBladeTool(rcb *ReconcileChaosBlade) error {
+	references, err := createOwnerReferences(rcb)
+	if err != nil {
+		return err
+	}
 	daemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      meta.Constant.PodName,
-			Namespace: meta.GetNamespace(),
-			Labels:    meta.Constant.PodLabels,
+			Name:            meta.Constant.PodName,
+			Namespace:       meta.GetNamespace(),
+			Labels:          meta.Constant.PodLabels,
+			OwnerReferences: references,
 		},
 		Spec: createDaemonsetSpec(),
 	}
 
-	if err := rcb.client.Create(context.TODO(), daemonSet); err != nil && !apierrors.IsAlreadyExists(err) {
+	if err := rcb.client.Create(context.TODO(), daemonSet); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			log.Info("chaosblade tool exits, skip to deploy")
+			return nil
+		}
 		return err
 	}
 	return nil
+}
+
+func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, error) {
+	// get chaosblade operator deployment object
+	// Using a unstructured object.
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "Deployment",
+		Version: "v1",
+	})
+
+	err := rcb.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: meta.GetNamespace(),
+		Name:      "chaosblade-operator",
+	}, u)
+	if err != nil {
+		return nil, err
+	}
+	trueVar := true
+	return []metav1.OwnerReference{
+		{
+			APIVersion: u.GetAPIVersion(),
+			Kind:       u.GetKind(),
+			Name:       u.GetName(),
+			UID:        u.GetUID(),
+			Controller: &trueVar,
+		},
+	}, nil
 }
 
 // createDaemonsetSpec
@@ -68,17 +108,33 @@ func createPodTemplateSpec() corev1.PodTemplateSpec {
 }
 
 func createPodSpec() corev1.PodSpec {
+	pathType := corev1.HostPathFileOrCreate
+	periodSeconds := int64(30)
 	return corev1.PodSpec{
-		Containers:  []corev1.Container{createContainer()},
-		Affinity:    createAffinity(),
-		DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
-		HostNetwork: true,
-		HostPID:     true,
-		Tolerations: []corev1.Toleration{{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists}},
+		Containers:                    []corev1.Container{createContainer()},
+		Affinity:                      createAffinity(),
+		DNSPolicy:                     corev1.DNSClusterFirstWithHostNet,
+		HostNetwork:                   true,
+		HostPID:                       true,
+		Tolerations:                   []corev1.Toleration{{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists}},
+		TerminationGracePeriodSeconds: &periodSeconds,
+		SchedulerName:                 corev1.DefaultSchedulerName,
+		RestartPolicy:                 corev1.RestartPolicyAlways,
 		Volumes: []corev1.Volume{
 			{
 				Name:         "docker-socket",
 				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/run/docker.sock"}},
+			},
+			{
+				Name: "chaosblade-db-volume",
+				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/run/chaosblade.dat",
+					Type: &pathType,
+				}},
+			},
+			{
+				Name:         "hosts",
+				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/etc/hosts"}},
 			},
 		},
 	}
@@ -107,10 +163,9 @@ func createContainer() corev1.Container {
 		Image:           fmt.Sprintf("%s:%s", meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion()),
 		ImagePullPolicy: corev1.PullPolicy(meta.GetPullImagePolicy()),
 		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "docker-socket",
-				MountPath: "/var/run/docker.sock",
-			},
+			{Name: "docker-socket", MountPath: "/var/run/docker.sock"},
+			{Name: "chaosblade-db-volume", MountPath: "/opt/chaosblade/chaosblade.dat"},
+			{Name: "hosts", MountPath: "/etc/hosts"},
 		},
 		SecurityContext: &corev1.SecurityContext{Privileged: &trueVar},
 	}
