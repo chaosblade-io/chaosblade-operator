@@ -117,7 +117,8 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 			return 0, err
 		}
 	}
-	percentCount := resourceCount * percent
+
+	percentCount := int(math.Round(float64(percent) / 100.0 * float64(resourceCount)))
 	if count > percentCount {
 		count = percentCount
 	}
