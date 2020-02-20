@@ -102,6 +102,8 @@ github.com/chaosblade-io/chaosblade-exec-os v0.4.1-0.20200110074748-6dcc3e972904
 github.com/chaosblade-io/chaosblade-exec-os v0.4.1-0.20200110074748-6dcc3e972904/go.mod h1:y1+wo+0IAjyHW6574WdT1Vwh2Jqe9pfdFNCZL14oVPE=
 github.com/chaosblade-io/chaosblade-exec-os v0.5.0 h1:aliw7vn+Au3dFuhz430/DGhZ4hjeGxDFOvw2UFmTuaI=
 github.com/chaosblade-io/chaosblade-exec-os v0.5.0/go.mod h1:0iAqL2POuj4fBp5JLI3ug/tWEpWEL7LSsuff3aQ3rZA=
+github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200305014825-c91a0ddb186a h1:/OgebD8oIkyoaxJTAZy3fVrfO0eoWwTcmCiVf6Vqf4U=
+github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200305014825-c91a0ddb186a/go.mod h1:JNAmMFc5RiMP7L1SwDse9QUaFuIkWwcD5UXeOMul754=
 github.com/chaosblade-io/chaosblade-operator v0.4.0/go.mod h1:FfFGwher7xuvU1yjIZzIViBq5svntfk8BDzy3TGjqI0=
 github.com/chaosblade-io/chaosblade-spec-go v0.0.1 h1:8Nch78qEYJLxW9Xd5pESSnLB1RCV4gMYgDnE7rlVgDs=
 github.com/chaosblade-io/chaosblade-spec-go v0.0.1/go.mod h1:ybcCsIX1wZtPrH0IsI28yDNJ+AVPeDMUZlgw1HE++Ds=
@@ -113,6 +115,8 @@ github.com/chaosblade-io/chaosblade-spec-go v0.4.1-0.20200110072855-4f767ce4e582
 github.com/chaosblade-io/chaosblade-spec-go v0.4.1-0.20200110072855-4f767ce4e582/go.mod h1:pNTL6HH4/ei+dshXnqxoNBUJ6jkDL+/7VYrobFVEyeQ=
 github.com/chaosblade-io/chaosblade-spec-go v0.5.0 h1:IcacKph5X7rgAA0d8d4Myh0ko3blXWKBg4jWnA4mH+E=
 github.com/chaosblade-io/chaosblade-spec-go v0.5.0/go.mod h1:pNTL6HH4/ei+dshXnqxoNBUJ6jkDL+/7VYrobFVEyeQ=
+github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200303014535-956c50c757eb h1:rAeJAuxWeKF6rOVmch7QTNno7FkN8cWhoC+MRZ6qE9I=
+github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200303014535-956c50c757eb/go.mod h1:pNTL6HH4/ei+dshXnqxoNBUJ6jkDL+/7VYrobFVEyeQ=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/containerd/cgroups v0.0.0-20190717030353-c4b9ac5c7601/go.mod h1:X9rLEHIqSf/wfK8NsPqxJmeZgW4pcfzdXITDrUSJ6uI=
 github.com/containerd/cgroups v0.0.0-20191011165608-5fbad35c2a7e/go.mod h1:OApqhQ4XNSNC13gXIwDjhOQxjWa/NxkwZXJ1EvqT0ko=

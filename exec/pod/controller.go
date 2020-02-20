@@ -52,7 +52,7 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	if len(pods) == 0 {
+	if pods == nil || len(pods) == 0 {
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus("cannot find the pods", nil))
 	}
