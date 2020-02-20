@@ -53,7 +53,7 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	if len(nodes) == 0 {
+	if nodes == nil || len(nodes) == 0 {
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus("cannot find the target nodes", nil))
 	}
