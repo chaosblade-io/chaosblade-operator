@@ -56,6 +56,10 @@ items:
         - chaosblades/status
         verbs:
         - "*"
+      - apiGroups: ["certificates.k8s.io"]
+        resources: ["certificatesigningrequests", "certificatesigningrequests/approval"]
+        verbs: ["get", "delete", "create", "update"]
+
   - apiVersion: rbac.authorization.k8s.io/v1beta1
     kind: ClusterRoleBinding
     metadata:
@@ -70,3 +74,4 @@ items:
       - kind: ServiceAccount
         name: chaosblade
         namespace: kube-system
+

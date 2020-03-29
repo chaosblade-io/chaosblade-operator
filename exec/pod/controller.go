@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2020 Alibaba Group Holding Ltd.
+ * Copyright 1999-2019 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ package pod
 import (
 	"context"
 
-	"k8s.io/api/core/v1"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
@@ -52,7 +53,24 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	if pods == nil || len(pods) == 0 {
+	if len(pods) == 0 {
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+			v1alpha1.CreateFailExperimentStatus("cannot find the pods", nil))
+	}
+	ctx = setNecessaryObjectsToContext(ctx, pods)
+	return e.Exec(ctx, expModel)
+}
+
+func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec,
+	oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
+	logrus.Infof("start to destroy experiment: %v", expSpec)
+	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
+	pods, err := e.GetMatchedPodResources(*expModel)
+	if err != nil {
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+	}
+	if len(pods) == 0 {
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus("cannot find the pods", nil))
 	}
@@ -69,7 +87,9 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod) context.Co
 		}
 		podObjectMetas = append(podObjectMetas, podObjectMeta)
 		// node uid is unuseful for pod experiments
-		nodeNameUidMap[pod.Spec.NodeName] = ""
+		if _, ok := nodeNameUidMap[pod.Spec.NodeName]; !ok {
+			nodeNameUidMap[pod.Spec.NodeName] = ""
+		}
 	}
 	ctx = context.WithValue(ctx, model.PodObjectMetaListKey, podObjectMetas)
 	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
