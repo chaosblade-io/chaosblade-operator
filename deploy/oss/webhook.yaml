@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaosblade-admission-server
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chaosblade-admission-server
+rules:
+  - apiGroups: [""]
+    resources:
+      - services
+      - secrets
+      - pods
+    verbs: ["get","create","update","list","watch"]
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - mutatingwebhookconfigurations
+      - validatingwebhookconfigurations
+    verbs: ["get","create","update","list","watch","patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chaosblade-admission-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: chaosblade-admission-server
+subjects:
+  - kind: ServiceAccount
+    name: chaosblade-admission-server
+    namespace: kube-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chaosblade-admission-server
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: chaosblade-admission-server
+  name: chaosblade-admission-server
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chaosblade-admission-server
+  template:
+    metadata:
+      labels:
+        app: chaosblade-admission-server
+    spec:
+      serviceAccountName: chaosblade-admission-server
+      containers:
+        - command:
+            - /usr/local/bin/chaosblade-webhook
+            - --port=6443
+            - --fuse-port=65534
+            - --sidecar-image=registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool:0.6.0
+          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.6.0
+          imagePullPolicy: IfNotPresent
+          name: chaosblade-admission-server
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - containerPort: 6443
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/chaosblade/cert/
+              name: tls
+      volumes:
+        - name: tls
+          secret:
+            secretName: chaosblade-admission-server
+
+

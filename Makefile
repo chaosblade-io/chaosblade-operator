@@ -17,6 +17,7 @@ BUILD_TARGET_DIR_NAME=chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_PKG_DIR=$(BUILD_TARGET)/chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_BIN=$(BUILD_TARGET_PKG_DIR)/bin
 BUILD_IMAGE_PATH=build/image/blade
+BUILD_IMAGE_BIN=build/_output/bin
 # cache downloaded file
 BUILD_TARGET_CACHE=$(BUILD_TARGET)/cache
 
@@ -27,12 +28,12 @@ ifeq ($(GOOS), linux)
 	GO_FLAGS=-ldflags="-linkmode external -extldflags -static"
 endif
 
-build: pre_build build_yaml
+build: pre_build build_yaml build_fuse 
 
 build_all: build build_image
 
-build_image:
-	operator-sdk build chaosblade-operator:latest
+build_image: build_webhook
+	operator-sdk build chaosblade-operator:${BLADE_VERSION}
 
 build_linux: build
 
@@ -42,6 +43,13 @@ pre_build:
 
 build_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH)
+
+build_webhook:
+	$(GO) build $(GO_FLAGS) -o $(BUILD_IMAGE_BIN)/chaosblade-webhook cmd/webhook/main.go
+
+build_fuse:
+	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse  cmd/hookfs/main.go
+
 
 # test
 test:

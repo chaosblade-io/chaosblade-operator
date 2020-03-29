@@ -1,12 +1,15 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
+	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/chaosblade-io/chaosblade-exec-docker v0.5.0
 	github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200305014825-c91a0ddb186a
 	github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200303014535-956c50c757eb
+	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/google/martian v2.1.0+incompatible
+	github.com/hanwen/go-fuse v1.0.0
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.4-0.20181223182923-24fa6976df40
