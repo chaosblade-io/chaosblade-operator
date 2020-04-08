@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
 
 	"github.com/chaosblade-io/chaosblade-operator/version"
@@ -135,6 +136,14 @@ func GetPullImagePolicy() string {
 
 func GetNamespace() string {
 	return namespace
+}
+
+func GetOperatorNamespace() string {
+	operatorNs, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return GetNamespace()
+	}
+	return operatorNs
 }
 
 func GetChaosBladePkgPath() string {
