@@ -66,13 +66,26 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 		Kind:    "Deployment",
 		Version: "v1",
 	})
-
 	err := rcb.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: meta.GetNamespace(),
+		Namespace: meta.GetOperatorNamespace(),
 		Name:      "chaosblade-operator",
 	}, u)
 	if err != nil {
-		return nil, err
+		log.Error(err, "cannot get chaosblade-operator deployment from apps/v1, try to get it from extensions/v1beta1")
+		u = &unstructured.Unstructured{}
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "extensions",
+			Kind:    "Deployment",
+			Version: "v1beta1",
+		})
+		err := rcb.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: meta.GetOperatorNamespace(),
+			Name:      "chaosblade-operator",
+		}, u)
+		if err != nil {
+			log.Error(err, "cannot get chaosblade-operator deployment from extensions/v1beta1")
+			return nil, err
+		}
 	}
 	trueVar := true
 	return []metav1.OwnerReference{
