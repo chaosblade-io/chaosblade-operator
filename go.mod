@@ -1,10 +1,9 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
-	github.com/chaosblade-io/chaosblade-exec-docker v0.5.0
-	github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200305014825-c91a0ddb186a
-	github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200303014535-956c50c757eb
+	github.com/chaosblade-io/chaosblade-exec-docker v0.5.1-0.20200417015215-9570469b2ee9
+	github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200415114502-7d3f7b8d57cf
+	github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200413053019-c6149ff993b4
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
@@ -16,6 +15,7 @@ require (
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.0.0-20191025225532-af6325b3a843
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/klog v0.3.1
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
 	sigs.k8s.io/controller-runtime v0.1.12
 	sigs.k8s.io/controller-tools v0.1.10
