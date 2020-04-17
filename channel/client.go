@@ -107,7 +107,8 @@ func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, tim
 	if outMsg != "" {
 		return spec.Decode(outMsg, spec.ReturnFail(spec.Code[spec.K8sInvokeError], outMsg))
 	}
-	return spec.ReturnFail(spec.Code[spec.K8sInvokeError], "nothing returned")
+	return spec.ReturnFail(spec.Code[spec.K8sInvokeError],
+		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed", pod.Name))
 }
 
 // "172.21.1.11:8080/api/v1/namespaces/default/pods/my-nginx-3855515330-l1uqk/exec

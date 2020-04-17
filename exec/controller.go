@@ -118,7 +118,6 @@ func setNodeNamesAndExpIdsToContextForDestroy(ctx context.Context, resourceStatu
 	for _, status := range *resourceStatus {
 		if status.Id == "" {
 			logrus.Warningf("the status id is empty, name: %s, uid: %s", status.Name, status.Uid)
-			continue
 		}
 		// Because uid is unuseful in destroy operator
 		nodeNameUidMap[status.NodeName] = ""
