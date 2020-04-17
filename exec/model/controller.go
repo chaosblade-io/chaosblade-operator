@@ -54,8 +54,8 @@ type BaseExperimentController struct {
 }
 
 func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec,
-	oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
-	expModel := ExtractExpModelFromExperimentStatus(oldExpStatus)
+	_ v1alpha1.ExperimentStatus) *spec.Response {
+	expModel := ExtractExpModelFromExperimentSpec(expSpec)
 	return b.Exec(ctx, expModel)
 }
 
