@@ -11,6 +11,9 @@ UNAME := $(shell uname)
 ifeq ($(BLADE_VERSION), )
 	BLADE_VERSION=0.6.0
 endif
+ifeq ($(BLADE_VENDOR), )
+	BLADE_VENDOR=community
+endif
 
 BUILD_TARGET=target
 BUILD_TARGET_DIR_NAME=chaosblade-$(BLADE_VERSION)
@@ -24,8 +27,12 @@ BUILD_TARGET_CACHE=$(BUILD_TARGET)/cache
 OS_YAML_FILE_NAME=chaosblade-k8s-spec-$(BLADE_VERSION).yaml
 OS_YAML_FILE_PATH=$(BUILD_TARGET_BIN)/$(OS_YAML_FILE_NAME)
 
+VERSION_PKG=github.com/chaosblade-io/chaosblade-operator/version
+GO_X_FLAGS=-X $(VERSION_PKG).Ver=$(BLADE_VERSION) -X $(VERSION_PKG).Vendor=$(BLADE_VENDOR)
+GO_FLAGS=-ldflags="$(GO_X_FLAGS)"
+
 ifeq ($(GOOS), linux)
-	GO_FLAGS=-ldflags="-linkmode external -extldflags -static"
+	GO_FLAGS=-ldflags="-linkmode external -extldflags -static $(GO_X_FLAGS)"
 endif
 
 build: pre_build build_yaml build_fuse 

@@ -1,13 +1,12 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v0.5.1-0.20200417015215-9570469b2ee9
+	github.com/chaosblade-io/chaosblade-exec-docker v0.5.1-0.20200420053331-524a764ee2e1
 	github.com/chaosblade-io/chaosblade-exec-os v0.5.1-0.20200415114502-7d3f7b8d57cf
 	github.com/chaosblade-io/chaosblade-spec-go v0.5.1-0.20200413053019-c6149ff993b4
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.0
-	github.com/google/martian v2.1.0+incompatible
 	github.com/hanwen/go-fuse v1.0.0
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/sirupsen/logrus v1.4.2

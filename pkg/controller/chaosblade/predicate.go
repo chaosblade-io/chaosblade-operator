@@ -17,6 +17,7 @@
 package chaosblade
 
 import (
+	"encoding/json"
 	"reflect"
 
 	"github.com/sirupsen/logrus"
@@ -29,7 +30,6 @@ type SpecUpdatedPredicateForRunningPhase struct {
 }
 
 func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool {
-	logrus.Infof("trigger create event")
 	if e.Object == nil {
 		return false
 	}
@@ -37,22 +37,19 @@ func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool
 	if !ok {
 		return false
 	}
+	logrus.Infof("trigger create event, name: %s", obj.Name)
+	logrus.Infof("creating obj: %+v", obj)
 	if obj.GetDeletionTimestamp() != nil {
-		if contains(obj.GetFinalizers(), chaosbladeFinalizer) {
-			return true
-		}
-		logrus.Infof("cannot find the %s finalizer, so skip the create event", chaosbladeFinalizer)
 		return false
 	}
 	if obj.Status.Phase == v1alpha1.ClusterPhaseInitial {
 		return true
 	}
-	logrus.Infof("unexpected status for cb created, name: %s, phase: %s", obj.Name, obj.Status.Phase)
+	logrus.Infof("unexpected phase for cb creating, name: %s, phase: %s", obj.Name, obj.Status.Phase)
 	return false
 }
 
 func (*SpecUpdatedPredicateForRunningPhase) Delete(e event.DeleteEvent) bool {
-	logrus.Infof("trigger delete event")
 	if e.Object == nil {
 		return false
 	}
@@ -60,16 +57,12 @@ func (*SpecUpdatedPredicateForRunningPhase) Delete(e event.DeleteEvent) bool {
 	if !ok {
 		return false
 	}
-	logrus.Infof("deleteObj: %+v", obj)
-	// 虽然版本是最新的，但是此对象会包含 Finalizers:[finalizer.chaosblade.io]
-	if obj.Status.Phase == v1alpha1.ClusterPhaseDestroyed {
-		return false
-	}
+	logrus.Infof("trigger delete event, name: %s", obj.Name)
+	logrus.Infof("deleting obj: %+v", obj)
 	return contains(obj.GetFinalizers(), chaosbladeFinalizer)
 }
 
 func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
-	logrus.Infof("trigger update event")
 	if e.ObjectOld == nil {
 		return false
 	}
@@ -77,41 +70,42 @@ func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
 	if !ok {
 		return false
 	}
+	logrus.Infof("trigger update event, name: %s", oldObj.Name)
 	newObj, ok := e.ObjectNew.(*v1alpha1.ChaosBlade)
 	if !ok {
 		return false
 	}
-
-	logrus.Infof("oldObject: %+v", oldObj)
-	logrus.Infof("newObject: %+v", newObj)
-
+	logrus.Infof("updating oldObj: %+v", oldObj)
+	logrus.Infof("updating newObj: %+v", newObj)
 	if !reflect.DeepEqual(newObj.Spec, oldObj.Spec) {
+		bytes, err := json.Marshal(oldObj.Spec.DeepCopy())
+		if err != nil {
+			logrus.Warningf("marshal old spec failed, %+v", err)
+			return false
+		}
+		newObj.SetAnnotations(map[string]string{"preSpec": string(bytes)})
 		return true
 	}
 
-	logrus.Infof("oldVersion:%s, newVersion: %s", oldObj.ResourceVersion, newObj.ResourceVersion)
-
-	// This update is end if the old cr status is UPDATING
-	if oldObj.Status.Phase == v1alpha1.ClusterPhaseInitial {
-		if newObj.Status.Phase == v1alpha1.ClusterPhaseInitial {
-			return true
-		}
-		logrus.Infof("this is the end result for initial, so skip the update event")
+	if newObj.Status.Phase == v1alpha1.ClusterPhaseInitial {
+		return true
+	}
+	// delete Error chaosblade
+	if oldObj.GetDeletionTimestamp() == nil &&
+		newObj.GetDeletionTimestamp() != nil {
+		return true
+	}
+	if newObj.Status.Phase == v1alpha1.ClusterPhaseRunning ||
+		newObj.Status.Phase == v1alpha1.ClusterPhaseError ||
+		newObj.Status.Phase == v1alpha1.ClusterPhaseDestroying {
 		return false
 	}
-	if oldObj.Status.Phase == v1alpha1.ClusterPhaseUpdating {
-		logrus.Infof("this is the end result for updating, so skip the update event")
-		return false
-	}
-
 	if newObj.Status.Phase != oldObj.Status.Phase {
 		return true
 	}
-
 	if !reflect.DeepEqual(newObj.Status, oldObj.Status) {
 		return true
 	}
-
 	if newObj.GetDeletionTimestamp() != nil {
 		if contains(newObj.GetFinalizers(), chaosbladeFinalizer) {
 			return true
@@ -119,8 +113,7 @@ func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
 		logrus.Infof("cannot find the %s finalizer, so skip the update event", chaosbladeFinalizer)
 		return false
 	}
-
-	logrus.Infof("spec not changed under running phase, so skip the update event")
+	logrus.Infof("spec not changed under %s phase, so skip the update event", newObj.Status.Phase)
 	return false
 }
 
