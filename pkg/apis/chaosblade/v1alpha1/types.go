@@ -26,12 +26,13 @@ import (
 type ClusterPhase string
 
 const (
-	ClusterPhaseInitial    ClusterPhase = ""
-	ClusterPhaseRunning    ClusterPhase = "Running"
-	ClusterPhaseUpdating   ClusterPhase = "Updating"
-	ClusterPhaseDestroying ClusterPhase = "Destroying"
-	ClusterPhaseDestroyed  ClusterPhase = "Destroyed"
-	ClusterPhaseError      ClusterPhase = "Error"
+	ClusterPhaseInitial     ClusterPhase = ""
+	ClusterPhaseInitialized ClusterPhase = "Initialized"
+	ClusterPhaseRunning     ClusterPhase = "Running"
+	ClusterPhaseUpdating    ClusterPhase = "Updating"
+	ClusterPhaseDestroying  ClusterPhase = "Destroying"
+	ClusterPhaseDestroyed   ClusterPhase = "Destroyed"
+	ClusterPhaseError       ClusterPhase = "Error"
 )
 
 // ChaosBladeSpec defines the desired state of ChaosBlade
