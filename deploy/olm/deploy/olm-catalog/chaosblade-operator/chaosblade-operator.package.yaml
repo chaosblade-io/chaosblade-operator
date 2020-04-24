@@ -1,5 +1,5 @@
 channels:
-- currentCSV: chaosblade-operator.v0.5.1
+- currentCSV: chaosblade-operator.v0.6.0
   name: alpha
 defaultChannel: alpha
 packageName: chaosblade-operator
