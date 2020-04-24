@@ -13,14 +13,14 @@ rbac:
 # chaosblade-operator
 operator:
   repository: "registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator"
-  version: 0.5.1
+  version: 0.6.0
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
 
 # chaosblade-tool
 blade:
   repository: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool
-  version: 0.5.0
+  version: 0.6.0
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
 

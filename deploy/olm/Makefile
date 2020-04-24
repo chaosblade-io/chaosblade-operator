@@ -1,6 +1,6 @@
 .PHONY: build clean
 
-BLADE_VERSION=0.5.1
+BLADE_VERSION=0.6.0
 
 # Build [OLM](https://github.com/operator-framework/operator-lifecycle-manager)
 build:
