@@ -29,6 +29,7 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -58,6 +59,8 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+	log.Info(fmt.Sprintf("Operator Version: %v", version.Ver))
+	log.Info(fmt.Sprintf("Operator Vendor: %v", version.Vendor))
 }
 
 func main() {

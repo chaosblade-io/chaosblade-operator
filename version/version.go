@@ -16,9 +16,27 @@
 
 package version
 
+import "strings"
+
 var (
 	Ver       = "unknown"
-	Vendor    = "unknown"
+	Vendor    = "community"
 	Env       = "unknown"
 	BuildTime = "unknown"
+
+	// Ver#Vendor
+	CombinedVersion = ""
+	Delimiter       = ","
 )
+
+func init() {
+	if CombinedVersion != "" {
+		fields := strings.Split(CombinedVersion, Delimiter)
+		if len(fields) > 0 {
+			Ver = fields[0]
+		}
+		if len(fields) > 1 {
+			Vendor = fields[1]
+		}
+	}
+}
