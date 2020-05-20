@@ -70,8 +70,9 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the target pods for container resource", nil))
+		errMsg := "cannot find the target pods for container resource"
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	ctx = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue)
 	return e.Exec(ctx, expModel)
