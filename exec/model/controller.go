@@ -108,6 +108,9 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if count == 0 {
+			return 0, nil
+		}
 	}
 
 	percentValue := flags[ResourcePercentFlag.Name]
@@ -115,6 +118,9 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 		percent, err = strconv.Atoi(percentValue)
 		if err != nil {
 			return 0, err
+		}
+		if percent == 0 {
+			return 0, nil
 		}
 	}
 

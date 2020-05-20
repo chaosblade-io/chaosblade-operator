@@ -54,8 +54,9 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if nodes == nil || len(nodes) == 0 {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the target nodes", nil))
+		errMsg := "cannot find the target nodes"
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, createNodeNameUidMap(nodes))
 	return e.Exec(ctx, expModel)

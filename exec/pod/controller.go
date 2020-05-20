@@ -54,8 +54,9 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the pods", nil))
+		errMsg := "cannot find the pods"
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	ctx = setNecessaryObjectsToContext(ctx, pods)
 	return e.Exec(ctx, expModel)
@@ -71,8 +72,9 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the pods", nil))
+		errMsg := "cannot find the pods"
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	ctx = setNecessaryObjectsToContext(ctx, pods)
 	return e.Exec(ctx, expModel)
