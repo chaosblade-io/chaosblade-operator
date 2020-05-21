@@ -80,7 +80,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	podList := &v1.PodList{}
-	if err := e.Client.List(context.TODO(), GetChaosBladePodListOptions(), podList); err != nil {
+	if err := e.Client.List(context.TODO(), podList, GetChaosBladePodListOptions()); err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}

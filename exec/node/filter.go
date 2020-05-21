@@ -99,7 +99,7 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		}
 		nodeList := v1.NodeList{}
 		opts := client.ListOptions{LabelSelector: pkglabels.SelectorFromSet(labelMap)}
-		err := client2.List(context.TODO(), &opts, &nodeList)
+		err := client2.List(context.TODO(), &nodeList, &opts)
 		if err != nil {
 			return nodes, err
 		}
@@ -144,7 +144,7 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		return nodes, nil
 	}
 	nodeList := v1.NodeList{}
-	err := client2.List(context.TODO(), &client.ListOptions{}, &nodeList)
+	err := client2.List(context.TODO(), &nodeList, &client.ListOptions{})
 	if err != nil {
 		logrus.Warningf("can not find all the nodes, %v", err)
 		return nodes, err
