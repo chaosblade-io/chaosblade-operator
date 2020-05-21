@@ -1,13 +1,14 @@
 package hookfs
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 )
 
 type ChaosBladeHookClient struct {
@@ -36,22 +37,19 @@ func (c *ChaosBladeHookClient) InjectFault(ctx context.Context, injectMsg *Injec
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	log.Info("inject fault", "injectMsg", injectMsg)
+	result, err, code := util.PostCurl(url, body, "application/json")
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return err
+	if code != http.StatusOK {
+		return fmt.Errorf(result)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("")
-	}
+	log.Info(result)
 	return nil
 }
 
-func (c *ChaosBladeHookClient) Revocer(ctx context.Context) error {
+func (c *ChaosBladeHookClient) Revoke(ctx context.Context) error {
 	url := "http://" + c.addr + RecoverPath
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -62,6 +60,7 @@ func (c *ChaosBladeHookClient) Revocer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	log.Info("revoke fault", "response", resp)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("")
 	}

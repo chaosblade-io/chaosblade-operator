@@ -19,17 +19,12 @@ package hookfs
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
+	"fmt"
 	"net/http"
-	"regexp"
 	"sync"
-	"syscall"
-	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-//go:generate protoc -I pb pb/injure.proto --go_out=plugins=grpc:pb
 
 var (
 	log              = ctrl.Log.WithName("fuse-chaosblade")
@@ -89,64 +84,19 @@ func (s *ChaosbladeHookServer) InjectHandler(w http.ResponseWriter, r *http.Requ
 	var injectMsg InjectMessage
 	if err := json.NewDecoder(r.Body).Decode(&injectMsg); err != nil {
 		log.Error(err, "Cannot Decode Request Message")
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		http.Error(w, "Cannot Decode Request Message", http.StatusBadRequest)
 		return
 	}
 	log.Info("Inject Fault", "inject message", injectMsg)
 	for _, method := range injectMsg.Methods {
 		injectFaultCache.Store(method, &injectMsg)
 	}
+	fmt.Fprintf(w, "success")
 }
 func (s *ChaosbladeHookServer) RecoverHandler(w http.ResponseWriter, r *http.Request) {
 	log.Info("recover all fault")
 	for _, method := range defaultHookPoints {
 		injectFaultCache.Delete(method)
 	}
-}
-
-func randomErrno() error {
-	// from E2BIG to EXFULL, notice linux only
-	return syscall.Errno(rand.Intn(0x36-0x7) + 0x7)
-}
-
-func probab(percentage uint32) bool {
-	return rand.Intn(99) < int(percentage)
-}
-
-func doInjectFault(path, method string) error {
-	log.Info("do Inject fault", "method", method, "path", path)
-	val, ok := injectFaultCache.Load(method)
-	if !ok {
-		return nil
-	}
-	faultMsg := val.(*InjectMessage)
-	log.Info("do Inject fault", "fault message", faultMsg)
-
-	if faultMsg.Percent > 0 && !probab(faultMsg.Percent) {
-		return nil
-	}
-
-	if len(faultMsg.Path) > 0 {
-		re, err := regexp.Compile(faultMsg.Path)
-		if err != nil {
-			log.Error(err, "failed to parse path", "path: ", faultMsg.Path)
-			return nil
-		}
-		if !re.MatchString(path) {
-			return nil
-		}
-	}
-
-	var err error = nil
-	if faultMsg.Errno != 0 {
-		err = syscall.Errno(faultMsg.Errno)
-	} else if faultMsg.Random {
-		err = randomErrno()
-	}
-
-	if faultMsg.Delay > 0 {
-		time.Sleep(time.Duration(faultMsg.Delay) * time.Millisecond)
-	}
-	return err
-
+	fmt.Fprintf(w, "success")
 }

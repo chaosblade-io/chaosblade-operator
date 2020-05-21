@@ -1,15 +1,5 @@
 # Default values for chaosblade.
 
-serviceAccount:
-  # serviceAccount.create: whether serviceAccount should be created or not. Must be true or false
-  create: true
-  # serviceAccount.name: the name of serviceAccount
-  name: chaosblade
-
-rbac:
-  # rabc.create: whether RABC should be created or not. Must be true or false
-  create: true
-
 # chaosblade-operator
 operator:
   repository: "registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator"
