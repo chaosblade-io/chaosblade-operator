@@ -26,6 +26,9 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -34,6 +37,7 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
+	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 	"github.com/chaosblade-io/chaosblade-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -122,14 +126,31 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-
+	if meta.WebhookEnable {
+		if err := addWebhook(mgr); err != nil {
+			log.Error(err, "add webhook failed")
+			os.Exit(1)
+		}
+	}
 	log.Info("Starting the Cmd.")
-
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
+}
+
+func addWebhook(m manager.Manager) error {
+	// Setup webhooks
+	hookServer := &webhook.Server{
+		Port:    meta.BindPort,
+	}
+	if err := m.Add(hookServer); err != nil {
+		return err
+	}
+	klog.Infof("registering mutating-pods to the webhook server")
+	hookServer.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.PodMutator{}})
+	return nil
 }
 
 func createManager(cfg *rest.Config) (manager.Manager, error) {

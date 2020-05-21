@@ -20,7 +20,6 @@ BUILD_TARGET_DIR_NAME=chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_PKG_DIR=$(BUILD_TARGET)/chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_BIN=$(BUILD_TARGET_PKG_DIR)/bin
 BUILD_IMAGE_PATH=build/image/blade
-BUILD_IMAGE_BIN=build/_output/bin
 # cache downloaded file
 BUILD_TARGET_CACHE=$(BUILD_TARGET)/cache
 
@@ -39,10 +38,16 @@ build: pre_build build_yaml build_fuse
 
 build_all: build build_image
 
-build_image: build_webhook
+build_image:
 	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
 
-build_linux: build
+# only build_fuse and yaml
+build_linux:
+	docker build -f build/musl/Dockerfile -t chaosblade-operator-build-musl:latest build/musl
+	docker run --rm \
+		-v $(shell echo -n ${GOPATH}):/go \
+		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
+		chaosblade-operator-build-musl:latest
 
 pre_build:
 	rm -rf $(BUILD_TARGET_PKG_DIR) $(BUILD_TARGET_PKG_FILE_PATH)
@@ -50,9 +55,6 @@ pre_build:
 
 build_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH)
-
-build_webhook:
-	$(GO) build $(GO_FLAGS) -o $(BUILD_IMAGE_BIN)/chaosblade-webhook cmd/webhook/main.go
 
 build_fuse:
 	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse  cmd/hookfs/main.go

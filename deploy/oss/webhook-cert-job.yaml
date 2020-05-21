@@ -1,3 +1,4 @@
+apiVersion: batch/v1
 kind: Job
 metadata:
   name: webhook-certs-job
@@ -21,8 +22,8 @@ spec:
             - |
               set -e
               set -x
-              K8S_SERVICE=chaosblade-admission-server
-              K8S_SECRET=chaosblade-admission-server
+              K8S_SERVICE=chaosblade-webhook-server
+              K8S_SECRET=chaosblade-webhook-server-cert
               K8S_NAMESPACE=kube-system
 
               # test if secret already exists

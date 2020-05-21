@@ -17,6 +17,11 @@
 package hookfs
 
 import (
+	"fmt"
+	"math/rand"
+	"path"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethercflow/hookfs/hookfs"
@@ -27,11 +32,12 @@ type ChaosbladeHookContext struct {
 }
 
 type ChaosbladeHook struct {
+	MountPoint string
 }
 
 func (h *ChaosbladeHook) PreOpen(path string, flags uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "open")
+	err := h.doInjectFault(path, "open")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -44,7 +50,7 @@ func (h *ChaosbladeHook) PostOpen(int32, hookfs.HookContext) (bool, error) {
 
 func (h *ChaosbladeHook) PreRead(path string, length int64, offset int64) ([]byte, bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "read")
+	err := h.doInjectFault(path, "read")
 	if err != nil {
 		return nil, true, ctx, err
 	}
@@ -57,7 +63,7 @@ func (h *ChaosbladeHook) PostRead(realRetCode int32, realBuf []byte, prehookCtx 
 
 func (h *ChaosbladeHook) PreWrite(path string, buf []byte, offset int64) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "write")
+	err := h.doInjectFault(path, "write")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -70,7 +76,7 @@ func (h *ChaosbladeHook) PostWrite(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreMkdir(path string, mode uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "mkdir")
+	err := h.doInjectFault(path, "mkdir")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -83,7 +89,7 @@ func (h *ChaosbladeHook) PostMkdir(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreRmdir(path string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "rmdir")
+	err := h.doInjectFault(path, "rmdir")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -96,7 +102,7 @@ func (h *ChaosbladeHook) PostRmdir(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreOpenDir(path string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "opendir")
+	err := h.doInjectFault(path, "opendir")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -109,7 +115,7 @@ func (h *ChaosbladeHook) PostOpenDir(realRetCode int32, prehookCtx hookfs.HookCo
 
 func (h *ChaosbladeHook) PreFsync(path string, flags uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "fsync")
+	err := h.doInjectFault(path, "fsync")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -122,7 +128,7 @@ func (h *ChaosbladeHook) PostFsync(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreFlush(path string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "flush")
+	err := h.doInjectFault(path, "flush")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -135,7 +141,7 @@ func (h *ChaosbladeHook) PostFlush(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreRelease(path string) (bool, hookfs.HookContext) {
 	ctx := &ChaosbladeHookContext{}
-	_ = doInjectFault(path, "release")
+	_ = h.doInjectFault(path, "release")
 	return false, ctx
 }
 
@@ -145,7 +151,7 @@ func (h *ChaosbladeHook) PostRelease(prehookCtx hookfs.HookContext) (hooked bool
 
 func (h *ChaosbladeHook) PreTruncate(path string, size uint64) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "truncate")
+	err := h.doInjectFault(path, "truncate")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -158,7 +164,7 @@ func (h *ChaosbladeHook) PostTruncate(realRetCode int32, prehookCtx hookfs.HookC
 
 func (h *ChaosbladeHook) PreGetAttr(path string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "getattr")
+	err := h.doInjectFault(path, "getattr")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -171,7 +177,7 @@ func (h *ChaosbladeHook) PostGetAttr(realRetCode int32, prehookCtx hookfs.HookCo
 
 func (h *ChaosbladeHook) PreChown(path string, uid uint32, gid uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "chown")
+	err := h.doInjectFault(path, "chown")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -184,7 +190,7 @@ func (h *ChaosbladeHook) PostChown(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreChmod(path string, perms uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "chmod")
+	err := h.doInjectFault(path, "chmod")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -197,7 +203,7 @@ func (h *ChaosbladeHook) PostChmod(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreUtimens(path string, atime *time.Time, mtime *time.Time) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "utimens")
+	err := h.doInjectFault(path, "utimens")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -210,7 +216,7 @@ func (h *ChaosbladeHook) PostUtimens(realRetCode int32, prehookCtx hookfs.HookCo
 
 func (h *ChaosbladeHook) PreAllocate(path string, off uint64, size uint64, mode uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "allocate")
+	err := h.doInjectFault(path, "allocate")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -223,7 +229,7 @@ func (h *ChaosbladeHook) PostAllocate(realRetCode int32, prehookCtx hookfs.HookC
 
 func (h *ChaosbladeHook) PreGetLk(path string, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "getlk")
+	err := h.doInjectFault(path, "getlk")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -236,7 +242,7 @@ func (h *ChaosbladeHook) PostGetLk(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreSetLk(path string, owner uint64, lk *fuse.FileLock, flags uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "setlk")
+	err := h.doInjectFault(path, "setlk")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -249,7 +255,7 @@ func (h *ChaosbladeHook) PostSetLk(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreSetLkw(path string, owner uint64, lk *fuse.FileLock, flags uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "setlkw")
+	err := h.doInjectFault(path, "setlkw")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -262,7 +268,7 @@ func (h *ChaosbladeHook) PostSetLkw(realRetCode int32, prehookCtx hookfs.HookCon
 
 func (h *ChaosbladeHook) PreStatFs(path string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(path, "statfs")
+	err := h.doInjectFault(path, "statfs")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -275,7 +281,7 @@ func (h *ChaosbladeHook) PostStatFs(prehookCtx hookfs.HookContext) (bool, error)
 
 func (h *ChaosbladeHook) PreReadlink(name string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "readlink")
+	err := h.doInjectFault(name, "readlink")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -288,11 +294,11 @@ func (h *ChaosbladeHook) PostReadlink(realRetCode int32, prehookCtx hookfs.HookC
 
 func (h *ChaosbladeHook) PreSymlink(value string, linkName string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(value, "symlink")
+	err := h.doInjectFault(value, "symlink")
 	if err != nil {
 		return true, ctx, err
 	}
-	err = doInjectFault(linkName, "symlink")
+	err = h.doInjectFault(linkName, "symlink")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -305,7 +311,7 @@ func (h *ChaosbladeHook) PostSymlink(realRetCode int32, prehookCtx hookfs.HookCo
 
 func (h *ChaosbladeHook) PreCreate(name string, flags uint32, mode uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "create")
+	err := h.doInjectFault(name, "create")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -318,7 +324,7 @@ func (h *ChaosbladeHook) PostCreate(realRetCode int32, prehookCtx hookfs.HookCon
 
 func (h *ChaosbladeHook) PreAccess(name string, mode uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "access")
+	err := h.doInjectFault(name, "access")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -331,11 +337,11 @@ func (h *ChaosbladeHook) PostAccess(realRetCode int32, prehookCtx hookfs.HookCon
 
 func (h *ChaosbladeHook) PreLink(oldName string, newName string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(oldName, "link")
+	err := h.doInjectFault(oldName, "link")
 	if err != nil {
 		return true, ctx, err
 	}
-	err = doInjectFault(newName, "link")
+	err = h.doInjectFault(newName, "link")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -348,7 +354,7 @@ func (h *ChaosbladeHook) PostLink(realRetCode int32, prehookCtx hookfs.HookConte
 
 func (h *ChaosbladeHook) PreMknod(name string, mode uint32, dev uint32) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "mknod")
+	err := h.doInjectFault(name, "mknod")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -361,11 +367,11 @@ func (h *ChaosbladeHook) PostMknod(realRetCode int32, prehookCtx hookfs.HookCont
 
 func (h *ChaosbladeHook) PreRename(oldName string, newName string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(oldName, "rename")
+	err := h.doInjectFault(oldName, "rename")
 	if err != nil {
 		return true, ctx, err
 	}
-	err = doInjectFault(newName, "rename")
+	err = h.doInjectFault(newName, "rename")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -378,7 +384,7 @@ func (h *ChaosbladeHook) PostRename(realRetCode int32, prehookCtx hookfs.HookCon
 
 func (h *ChaosbladeHook) PreUnlink(name string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "unlink")
+	err := h.doInjectFault(name, "unlink")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -391,7 +397,7 @@ func (h *ChaosbladeHook) PostUnlink(realRetCode int32, prehookCtx hookfs.HookCon
 
 func (h *ChaosbladeHook) PreGetXAttr(name string, attribute string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "getxattr")
+	err := h.doInjectFault(name, "getxattr")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -404,7 +410,7 @@ func (h *ChaosbladeHook) PostGetXAttr(realRetCode int32, prehookCtx hookfs.HookC
 
 func (h *ChaosbladeHook) PreListXAttr(name string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "listxattr")
+	err := h.doInjectFault(name, "listxattr")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -417,7 +423,7 @@ func (h *ChaosbladeHook) PostListXAttr(realRetCode int32, prehookCtx hookfs.Hook
 
 func (h *ChaosbladeHook) PreRemoveXAttr(name string, attr string) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "removexattr")
+	err := h.doInjectFault(name, "removexattr")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -430,7 +436,7 @@ func (h *ChaosbladeHook) PostRemoveXAttr(realRetCode int32, prehookCtx hookfs.Ho
 
 func (h *ChaosbladeHook) PreSetXAttr(name string, attr string, data []byte, flags int) (bool, hookfs.HookContext, error) {
 	ctx := &ChaosbladeHookContext{}
-	err := doInjectFault(name, "setxattr")
+	err := h.doInjectFault(name, "setxattr")
 	if err != nil {
 		return true, ctx, err
 	}
@@ -439,4 +445,48 @@ func (h *ChaosbladeHook) PreSetXAttr(name string, attr string, data []byte, flag
 
 func (h *ChaosbladeHook) PostSetXAttr(realRetCode int32, prehookCtx hookfs.HookContext) (bool, error) {
 	return false, nil
+}
+
+func (h *ChaosbladeHook) doInjectFault(relativePath, method string) error {
+	log.Info("do Inject fault", "method", method, "relativePath", relativePath)
+	val, ok := injectFaultCache.Load(method)
+	if !ok || val == nil {
+		return nil
+	}
+	faultMsg, ok := val.(*InjectMessage)
+	if !ok {
+		log.Error(nil, fmt.Sprintf("convert to InjectMessage failed, %+v", val))
+		return nil
+	}
+	log.Info("do Inject fault", "fault message", faultMsg)
+	if faultMsg.Path != "" {
+		actualPath := path.Join(h.MountPoint, relativePath)
+		if !strings.HasPrefix(actualPath, faultMsg.Path) {
+			log.Info("the rule path does not contain the actual path", "rulePath", faultMsg.Path, "actualPath", actualPath)
+			return nil
+		}
+	}
+	if faultMsg.Percent > 0 && !probab(faultMsg.Percent) {
+		return nil
+	}
+	var err error = nil
+	if faultMsg.Errno != 0 {
+		err = syscall.Errno(faultMsg.Errno)
+	} else if faultMsg.Random {
+		err = randomErrno()
+	}
+	if faultMsg.Delay > 0 {
+		time.Sleep(time.Duration(faultMsg.Delay) * time.Millisecond)
+	}
+	return err
+
+}
+
+func randomErrno() error {
+	// from E2BIG to EXFULL, notice linux only
+	return syscall.Errno(rand.Intn(0x36-0x7) + 0x7)
+}
+
+func probab(percentage uint32) bool {
+	return rand.Intn(99) < int(percentage)
 }

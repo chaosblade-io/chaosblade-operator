@@ -24,12 +24,14 @@ import (
 	"os/exec"
 	"time"
 
-	chaosbladehook "github.com/chaosblade-io/chaosblade-operator/pkg/hookfs"
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/ethercflow/hookfs/hookfs"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/sirupsen/logrus"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	chaosbladehook "github.com/chaosblade-io/chaosblade-operator/pkg/hookfs"
 )
 
 var (
@@ -59,19 +61,19 @@ func main() {
 }
 
 func startFuseServer(stop <-chan struct{}) error {
-	if !IsExist(original) {
+	if !util.IsExist(original) {
 		if err := os.MkdirAll(original, os.FileMode(755)); err != nil {
 			return err
 		}
 	}
-	if !IsExist(mountpoint) {
+	if !util.IsExist(mountpoint) {
 		if err := os.MkdirAll(mountpoint, os.FileMode(755)); err != nil {
 			return err
 		}
 	}
 
 	logrus.Info("Init hookfs")
-	fs, err := hookfs.NewHookFs(original, mountpoint, &chaosbladehook.ChaosbladeHook{})
+	fs, err := hookfs.NewHookFs(original, mountpoint, &chaosbladehook.ChaosbladeHook{MountPoint: mountpoint})
 	if err != nil {
 		return err
 	}
@@ -96,12 +98,4 @@ func startFuseServer(stop <-chan struct{}) error {
 			}
 		}
 	}
-}
-
-func IsExist(path string) bool {
-	_, err := os.Stat(path)
-	if err != nil && os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
