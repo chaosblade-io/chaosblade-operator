@@ -136,7 +136,7 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		}
 		podList := v1.PodList{}
 		opts := client.ListOptions{Namespace: namespace, LabelSelector: pkglabels.SelectorFromSet(labelMap)}
-		err := client2.List(context.TODO(), &opts, &podList)
+		err := client2.List(context.TODO(), &podList, &opts)
 		if err != nil {
 			return pods, err
 		}

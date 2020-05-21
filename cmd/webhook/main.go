@@ -22,11 +22,9 @@ import (
 	"os"
 	"runtime"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
@@ -36,8 +34,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
+
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
-	hook "github.com/chaosblade-io/chaosblade-operator/pkg/webhook"
 	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 )
 
@@ -67,6 +66,7 @@ func main() {
 	pflag.BoolVar(&DisableWebhookConfigInstaller, "disable-webhook-config-installer", false,
 		"disable the installer in the webhook server, so it won't install webhook configuration resources during bootstrapping")
 	pflag.IntVar(&BindPort, "port", 443, "The port on which to serve HTTPS.")
+	// Op
 	pflag.StringVar(&mutator.SidecarImage, "sidecar-image", "", "sidecar container images.")
 	pflag.Int32Var(&mutator.FuseServerPort, "fuse-port", 65534, "Fuse server port.")
 
@@ -105,44 +105,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	namespace := os.Getenv("NAMESPACE")
-	if len(namespace) == 0 {
-		log.Error(err, "can not found NAMESPACE env")
+	// Setup webhooks
+	hookServer := &webhook.Server{
+		Port:         BindPort,
+		CertDir:      "/etc/chaosblade/cert",
+		CertName:     "",
+		KeyName:      "",
+		ClientCAName: "",
+		WebhookMux:   nil,
+	}
+	if err := mgr.Add(hookServer); err != nil {
+		log.Error(err, "add webhook failed")
 		os.Exit(1)
 	}
-	ws, err := webhook.NewServer("chaosblade-admission-server", mgr, webhook.ServerOptions{
-		Port:                          int32(BindPort),
-		CertDir:                       "/etc/chaosblade/cert",
-		DisableWebhookConfigInstaller: &DisableWebhookConfigInstaller,
-		BootstrapOptions: &webhook.BootstrapOptions{
-			MutatingWebhookConfigName:   "chaosblade-mutating-webhook-configuration",
-			ValidatingWebhookConfigName: "chaosblade-validating-webhook-configuration",
-			Secret: &types.NamespacedName{
-				Namespace: namespace,
-				Name:      "chaosblade-admission-server",
-			},
+	klog.Infof("registering mutating-pods to the webhook server")
+	hookServer.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.PodMutator{}})
 
-			Service: &webhook.Service{
-				Namespace: namespace,
-				Name:      "chaosblade-admission-server",
-				// Selectors should select the pods that runs this webhook server.
-				Selectors: map[string]string{
-					"app": "chaosblade-admission-server",
-				},
-			},
-		},
-	})
-	if err != nil {
-		klog.Errorf("unable to create a new webhook server, %v", err)
-		os.Exit(1)
-	}
-
-	klog.Infof("registering webhooks to the webhook server")
-	err = hook.AddToManager(ws, mgr)
-	if err != nil {
-		log.Error(err, "unable to register webhooks in the admission server")
-		os.Exit(1)
-	}
 	log.Info("Starting the Cmd.")
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")

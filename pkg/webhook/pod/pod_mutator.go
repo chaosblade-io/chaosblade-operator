@@ -18,21 +18,15 @@ package pod
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"k8s.io/api/admission/v1beta1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/types"
 )
 
 var (
@@ -46,53 +40,42 @@ const (
 	FuseServerPortName = "fuse-port"
 )
 
-func AddMutator(server *webhook.Server, mgr manager.Manager) error {
-	webhook, err := builder.NewWebhookBuilder().
-		Name("admission-webhook.chaosblade.com").
-		Mutating().
-		Path("/mutating-pods").
-		Operations(admissionregistrationv1beta1.Create, admissionregistrationv1beta1.Update).
-		ForType(&corev1.Pod{}).
-		WithManager(mgr).
-		Handlers(&podMutator{}).
-		Build()
-	if err != nil {
-		return err
-	}
-	server.Register(webhook)
-	return nil
-}
-
-// podMutator set default values for pod
-type podMutator struct {
+// PodMutator set default values for pod
+type PodMutator struct {
 	client  client.Client
-	decoder types.Decoder
+	decoder *admission.Decoder
 }
 
 // Implement admission.Handler so the controller can handle admission request.
-var _ admission.Handler = &podMutator{}
+var _ admission.Handler = &PodMutator{}
 
-func (a *podMutator) Handle(ctx context.Context, req types.Request) types.Response {
+func (v *PodMutator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := &corev1.Pod{}
-	err := a.decoder.Decode(req, pod)
+	err := v.decoder.Decode(req, pod)
 	if err != nil {
-		return admission.ErrorResponse(http.StatusBadRequest, err)
+		return admission.Errored(http.StatusBadRequest, err)
 	}
 	patchPod := pod.DeepCopy()
-	err = a.mutatePodsFn(patchPod)
+	err = v.mutatePodsFn(patchPod)
 	if err != nil {
 		log.Info("mutate pod failed: %s", err)
-		return types.Response{
-			Response: &v1beta1.AdmissionResponse{
-				Allowed: true,
-			},
-		}
+		return admission.Allowed("")
 	}
-	return admission.PatchResponse(pod, patchPod)
+	originalBytes, err := json.Marshal(pod)
+	if err != nil {
+		log.Error(err, "Marshal original pod err")
+		// TODO allow the target pod to run?
+		return admission.Allowed("")
+	}
+	expectedBytes, err := json.Marshal(patchPod)
+	if err != nil {
+		log.Error(err, "Marshal patched pod err")
+	}
+	return admission.PatchResponseFromRaw(originalBytes, expectedBytes)
 }
 
-// podMutator set default values for pod
-func (a *podMutator) mutatePodsFn(pod *corev1.Pod) error {
+// PodMutator set default values for pod
+func (v *PodMutator) mutatePodsFn(pod *corev1.Pod) error {
 	if pod.Annotations == nil {
 		return nil
 	}
@@ -178,22 +161,14 @@ func (a *podMutator) mutatePodsFn(pod *corev1.Pod) error {
 	return nil
 }
 
-// podMutator implements inject.Client.
-// A client will be automatically injected.
-var _ inject.Client = &podMutator{}
-
 // InjectClient injects the client.
-func (v *podMutator) InjectClient(c client.Client) error {
+func (v *PodMutator) InjectClient(c client.Client) error {
 	v.client = c
 	return nil
 }
 
-// podMutator implements inject.Decoder.
-// A decoder will be automatically injected.
-var _ inject.Decoder = &podMutator{}
-
 // InjectDecoder injects the decoder.
-func (v *podMutator) InjectDecoder(d types.Decoder) error {
+func (v *PodMutator) InjectDecoder(d *admission.Decoder) error {
 	v.decoder = d
 	return nil
 }
