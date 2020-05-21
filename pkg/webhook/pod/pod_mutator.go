@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -58,8 +59,8 @@ func (v *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 	patchPod := pod.DeepCopy()
 	err = v.mutatePodsFn(patchPod)
 	if err != nil {
-		log.Info("mutate pod failed: %s", err)
-		return admission.Allowed("")
+		log.Error(err, "mutate pod failed")
+		return admission.Errored(http.StatusInternalServerError, err)
 	}
 	originalBytes, err := json.Marshal(pod)
 	if err != nil {
@@ -120,16 +121,25 @@ func (v *PodMutator) mutatePodsFn(pod *corev1.Pod) error {
 
 	privileged := true
 	runAsUser := int64(0) //root
+	mountPoint := path.Join(targetVolumeMount.MountPath, injectSubPath)
+	original := path.Join(targetVolumeMount.MountPath, fmt.Sprintf("fuse-%s", injectSubPath))
+	log.Info("", "mountPoint", mountPoint, "MountPath", targetVolumeMount.MountPath)
+	if mountPoint == targetVolumeMount.MountPath {
+		original = path.Join(path.Dir(targetVolumeMount.MountPath),
+			fmt.Sprintf("fuse-%s", path.Base(targetVolumeMount.MountPath)))
+	}
 	sidecar := corev1.Container{
-		Name:  SidecarName,
-		Image: SidecarImage,
+		Name:            SidecarName,
+		Image:           SidecarImage,
+		ImagePullPolicy: corev1.PullAlways,
 		Command: []string{
 			"/opt/chaosblade/bin/chaos_fuse",
 		},
+
 		Args: []string{
 			fmt.Sprintf("--addr=:%d", FuseServerPort),
-			fmt.Sprintf("--mountpoint=%s/%s", targetVolumeMount.MountPath, injectSubPath),
-			fmt.Sprintf("--original=%s/fuse-%s", targetVolumeMount.MountPath, injectSubPath),
+			fmt.Sprintf("--mountpoint=%s", mountPoint),
+			fmt.Sprintf("--original=%s", original),
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{

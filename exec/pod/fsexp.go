@@ -26,12 +26,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 	chaosfs "github.com/chaosblade-io/chaosblade-operator/pkg/hookfs"
 	webhook "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 )
 
 type PodIOActionSpec struct {
@@ -53,9 +54,8 @@ func NewPodIOActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 			},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
-					Name:     "path",
-					Desc:     "I/O exception path or file",
-					Required: true,
+					Name: "path",
+					Desc: "I/O exception path or file",
 				},
 				&spec.ExpFlag{
 					Name: "random",
@@ -134,6 +134,7 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		}
 		if !isPodReady(pod) {
 			logrus.Infof("pod %s is not ready", meta.Name)
+			statuses = append(statuses, status.CreateFailResourceStatus("pod is not read"))
 			continue
 		}
 		methods, ok := expModel.ActionFlags["method"]
@@ -244,7 +245,7 @@ func (d *PodIOActionExecutor) destroy(ctx context.Context, expModel *spec.ExpMod
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}
-		err = chaosfsClient.Revocer(ctx)
+		err = chaosfsClient.Revoke(ctx)
 		if err != nil {
 			logrus.Errorf("recover io exception failed in pod  %v, err: %v", meta.Name, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))

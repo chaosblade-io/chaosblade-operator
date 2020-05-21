@@ -23,6 +23,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
 
+	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
@@ -99,6 +100,8 @@ var (
 	chaosBladeVersion string
 	pullPolicy        string
 	namespace         string
+	WebhookEnable     bool
+	BindPort          int
 )
 
 func init() {
@@ -111,6 +114,12 @@ func init() {
 	metaFlagSet.StringVar(&pullPolicy, "pull-policy", "IfNotPresent", "Pull image policy, default value is IfNotPresent")
 	metaFlagSet.StringVar(&namespace, "namespace", "kube-system", "the kubernetes namespace which chaosblade operator deployed")
 	metaFlagSet.StringVar(&runtimeEnv, "aliyun-env", "prod", "environment")
+
+	metaFlagSet.BoolVar(&WebhookEnable, "webhook.enable", false, "Whether to enable webhook")
+	metaFlagSet.IntVar(&BindPort, "port", 443, "The port on which to serve HTTPS.")
+	// Op
+	metaFlagSet.StringVar(&mutator.SidecarImage, "sidecar-image", "", "sidecar container images.")
+	metaFlagSet.Int32Var(&mutator.FuseServerPort, "fuse-port", 65534, "Fuse server port.")
 
 	switch version.Vendor {
 	case Community:
