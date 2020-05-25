@@ -25,69 +25,51 @@ import (
 	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"github.com/operator-framework/operator-sdk/pkg/leader"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
-	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
-	"github.com/chaosblade-io/chaosblade-operator/version"
-
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
+	operator "github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	webhookcfg "github.com/chaosblade-io/chaosblade-operator/pkg/webhook"
+	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
-// Change below variables to serve metrics on different host or port.
-var (
-	metricsHost               = "0.0.0.0"
-	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
-)
 var log = logf.Log.WithName("cmd")
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-	log.Info(fmt.Sprintf("Operator Version: %v", version.Ver))
-	log.Info(fmt.Sprintf("Operator Vendor: %v", version.Vendor))
+	log.Info(fmt.Sprintf("Operator Version: %v", version.Version))
+	log.Info(fmt.Sprintf("Operator Product: %v", version.Product))
+	log.Info(fmt.Sprintf("Chaosblade Version: %v", chaosblade.Version))
 }
 
 func main() {
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	// Add the controller meta flag set to the cli
-	pflag.CommandLine.AddFlagSet(meta.FlagSet())
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
+	pflag.CommandLine.AddFlagSet(operator.FlagSet())
+	pflag.CommandLine.AddFlagSet(webhookcfg.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	pflag.Parse()
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
 	logf.SetLogger(zap.Logger())
 
 	printVersion()
@@ -126,7 +108,7 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-	if meta.WebhookEnable {
+	if webhookcfg.Enable {
 		if err := addWebhook(mgr); err != nil {
 			log.Error(err, "add webhook failed")
 			os.Exit(1)
@@ -143,13 +125,13 @@ func main() {
 func addWebhook(m manager.Manager) error {
 	// Setup webhooks
 	hookServer := &webhook.Server{
-		Port:    meta.BindPort,
+		Port: webhookcfg.Point,
 	}
 	if err := m.Add(hookServer); err != nil {
 		return err
 	}
 	klog.Infof("registering mutating-pods to the webhook server")
-	hookServer.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.PodMutator{}})
+	hookServer.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.Mutator{}})
 	return nil
 }
 
@@ -162,7 +144,7 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 		namespaces := strings.Split(watchNamespace, ",")
 		return manager.New(cfg, manager.Options{
 			NewCache: cache.MultiNamespacedCacheBuilder(namespaces),
-			MapperProvider: func(c *rest.Config) (apimeta.RESTMapper, error) {
+			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
 				return apiutil.NewDynamicRESTMapper(c)
 			},
 			NewClient: channel.NewClientFunc(),
@@ -170,7 +152,7 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 	}
 	return manager.New(cfg, manager.Options{
 		Namespace: watchNamespace,
-		MapperProvider: func(c *rest.Config) (apimeta.RESTMapper, error) {
+		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
 			return apiutil.NewDynamicRESTMapper(c)
 		},
 		NewClient: channel.NewClientFunc(),

@@ -28,6 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 var (
@@ -42,15 +44,12 @@ const (
 )
 
 // PodMutator set default values for pod
-type PodMutator struct {
+type Mutator struct {
 	client  client.Client
 	decoder *admission.Decoder
 }
 
-// Implement admission.Handler so the controller can handle admission request.
-var _ admission.Handler = &PodMutator{}
-
-func (v *PodMutator) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (v *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := &corev1.Pod{}
 	err := v.decoder.Decode(req, pod)
 	if err != nil {
@@ -76,7 +75,7 @@ func (v *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 }
 
 // PodMutator set default values for pod
-func (v *PodMutator) mutatePodsFn(pod *corev1.Pod) error {
+func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	if pod.Annotations == nil {
 		return nil
 	}
@@ -130,7 +129,7 @@ func (v *PodMutator) mutatePodsFn(pod *corev1.Pod) error {
 	}
 	sidecar := corev1.Container{
 		Name:            SidecarName,
-		Image:           SidecarImage,
+		Image:           GetSidecarImage(),
 		ImagePullPolicy: corev1.PullAlways,
 		Command: []string{
 			"/opt/chaosblade/bin/chaos_fuse",
@@ -172,13 +171,20 @@ func (v *PodMutator) mutatePodsFn(pod *corev1.Pod) error {
 }
 
 // InjectClient injects the client.
-func (v *PodMutator) InjectClient(c client.Client) error {
+func (v *Mutator) InjectClient(c client.Client) error {
 	v.client = c
 	return nil
 }
 
 // InjectDecoder injects the decoder.
-func (v *PodMutator) InjectDecoder(d *admission.Decoder) error {
+func (v *Mutator) InjectDecoder(d *admission.Decoder) error {
 	v.decoder = d
 	return nil
+}
+
+func GetSidecarImage() string {
+	if SidecarImage != "" {
+		return SidecarImage
+	}
+	return fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
 }
