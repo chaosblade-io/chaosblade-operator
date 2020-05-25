@@ -34,8 +34,8 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/community"
 	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
@@ -81,7 +81,7 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 	if err != nil {
 		return err
 	}
-	if meta.Community == version.Vendor {
+	if community.Community == version.Product {
 		// deploy chaosblade tool
 		if err := deployChaosBladeTool(rcb); err != nil {
 			log.Error(err, "Failed to deploy chaosblade tool")

@@ -28,7 +28,8 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 type DockerSubResourceModelSpec struct {
@@ -59,7 +60,7 @@ type DockerSubResourceExecutor struct {
 
 var CommandInPodExecutorFunc = func(ctx context.Context, expModel *spec.ExpModel,
 	resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
-	bladeBin := meta.Constant.BladeBin
+	bladeBin := chaosblade.Constant.BladeBin
 	identifiers := make([]model.ExperimentIdentifier, 0)
 	// container network does not need --blade-tar-file and --override flags
 	excludeFlagsFunc := model.ExcludeKeyFunc()
@@ -67,11 +68,11 @@ var CommandInPodExecutorFunc = func(ctx context.Context, expModel *spec.ExpModel
 	isContainerSelfTarget := expModel.Target == exec.NewContainerCommandSpec().Name()
 	matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
 	if !isNetworkTarget && !isContainerSelfTarget {
-		matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, meta.GetChaosBladePkgPath())
+		matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, runtime.GetChaosBladePkgPath())
 	}
 	if isNetworkTarget {
 		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
-			matchers, meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion())
+			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
 	}
 	if _, ok := spec.IsDestroy(ctx); ok {
 		return generateDestroyCommands(ctx, expModel, resourceIdentifier, matchers, bladeBin, identifiers)

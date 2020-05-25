@@ -29,8 +29,8 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 // ExperimentIdentifier contains the necessary experiment fields of the resource
@@ -187,7 +187,7 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *s
 		if identifier.Error != "" {
 			newStatus = newStatus.CreateFailResourceStatus(identifier.Error)
 		} else {
-			response := e.Client.Exec(targetExecPod, meta.Constant.PodName, identifier.Command, time.Second*30)
+			response := e.Client.Exec(targetExecPod, chaosblade.Constant.PodName, identifier.Command, time.Second*30)
 			if response.Success {
 				if _, ok := spec.IsDestroy(ctx); !ok {
 					newStatus.Id = response.Result.(string)

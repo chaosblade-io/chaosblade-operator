@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 const (
@@ -112,7 +112,7 @@ func ExtractPodObjectMetasFromContext(ctx context.Context) (PodObjectMetaList, e
 
 func GetChaosBladePodListOptions() *client.ListOptions {
 	return &client.ListOptions{
-		Namespace:     meta.GetNamespace(),
-		LabelSelector: labels.SelectorFromSet(meta.Constant.PodLabels),
+		Namespace:     chaosblade.Namespace,
+		LabelSelector: labels.SelectorFromSet(chaosblade.Constant.PodLabels),
 	}
 }
