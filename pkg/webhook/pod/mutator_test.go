@@ -141,7 +141,7 @@ func Test_mutatePodsFn(t *testing.T) {
 		},
 	}
 
-	mutator := &PodMutator{}
+	mutator := &Mutator{}
 	for _, test := range tests {
 		err := mutator.mutatePodsFn(test.pod)
 		if err != nil && err.Error() != test.err.Error() {

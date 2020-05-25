@@ -28,7 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 // Deploy the chaosblade tool with daemonset mode
@@ -39,9 +40,9 @@ func deployChaosBladeTool(rcb *ReconcileChaosBlade) error {
 	}
 	daemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            meta.Constant.PodName,
-			Namespace:       meta.GetNamespace(),
-			Labels:          meta.Constant.PodLabels,
+			Name:            chaosblade.Constant.PodName,
+			Namespace:       chaosblade.Namespace,
+			Labels:          chaosblade.Constant.PodLabels,
 			OwnerReferences: references,
 		},
 		Spec: createDaemonsetSpec(),
@@ -67,7 +68,7 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 		Version: "v1",
 	})
 	err := rcb.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: meta.GetOperatorNamespace(),
+		Namespace: runtime.GetOperatorNamespace(),
 		Name:      "chaosblade-operator",
 	}, u)
 	if err != nil {
@@ -79,7 +80,7 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 			Version: "v1beta1",
 		})
 		err := rcb.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: meta.GetOperatorNamespace(),
+			Namespace: runtime.GetOperatorNamespace(),
 			Name:      "chaosblade-operator",
 		}, u)
 		if err != nil {
@@ -102,7 +103,7 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 // createDaemonsetSpec
 func createDaemonsetSpec() appsv1.DaemonSetSpec {
 	return appsv1.DaemonSetSpec{
-		Selector:        &metav1.LabelSelector{MatchLabels: meta.Constant.PodLabels},
+		Selector:        &metav1.LabelSelector{MatchLabels: chaosblade.Constant.PodLabels},
 		Template:        createPodTemplateSpec(),
 		MinReadySeconds: 5,
 		UpdateStrategy:  appsv1.DaemonSetUpdateStrategy{Type: appsv1.RollingUpdateDaemonSetStrategyType},
@@ -113,8 +114,8 @@ func createDaemonsetSpec() appsv1.DaemonSetSpec {
 func createPodTemplateSpec() corev1.PodTemplateSpec {
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   meta.Constant.PodName,
-			Labels: meta.Constant.PodLabels,
+			Name:   chaosblade.Constant.PodName,
+			Labels: chaosblade.Constant.PodLabels,
 		},
 		Spec: createPodSpec(),
 	}
@@ -172,9 +173,9 @@ func createAffinity() *corev1.Affinity {
 func createContainer() corev1.Container {
 	trueVar := true
 	return corev1.Container{
-		Name:            meta.Constant.PodName,
-		Image:           fmt.Sprintf("%s:%s", meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion()),
-		ImagePullPolicy: corev1.PullPolicy(meta.GetPullImagePolicy()),
+		Name:            chaosblade.Constant.PodName,
+		Image:           fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), chaosblade.Version),
+		ImagePullPolicy: corev1.PullPolicy(chaosblade.PullPolicy),
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "docker-socket", MountPath: "/var/run/docker.sock"},
 			{Name: "chaosblade-db-volume", MountPath: "/opt/chaosblade/chaosblade.dat"},

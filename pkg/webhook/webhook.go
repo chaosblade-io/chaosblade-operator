@@ -14,27 +14,30 @@
  * limitations under the License.
  */
 
-package version
+package webhook
 
-import "strings"
+import (
+	"github.com/spf13/pflag"
 
-var (
-	Version = "unknown"
-	Product = "community"
-
-	// Version#Product
-	CombinedVersion = ""
-	Delimiter       = ","
+	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 )
 
+var (
+	Point  int
+	Enable bool
+)
+
+var f *pflag.FlagSet
+
 func init() {
-	if CombinedVersion != "" {
-		fields := strings.Split(CombinedVersion, Delimiter)
-		if len(fields) > 0 {
-			Version = fields[0]
-		}
-		if len(fields) > 1 {
-			Product = fields[1]
-		}
-	}
+	f := pflag.NewFlagSet("webhook", pflag.ExitOnError)
+	f.StringVar(&mutator.SidecarImage, "fuse.sidecar-image", "", "Fuse sidecar image")
+	f.Int32Var(&mutator.FuseServerPort, "fuse.server-port", 65534, "Fuse server port")
+
+	f.IntVar(&Point, "webhook.point", 443, "The port on which to serve HTTPS.")
+	f.BoolVar(&Enable, "webhook.enable", true, "Whether to enable webhook")
+}
+
+func FlagSet() *pflag.FlagSet {
+	return f
 }

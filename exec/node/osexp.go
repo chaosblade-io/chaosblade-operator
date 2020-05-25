@@ -25,7 +25,7 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 type OSSubResourceModelSpec struct {
@@ -54,7 +54,7 @@ func NewOSSubResourceExecutor(client *channel.Client) spec.Executor {
 		Client: client,
 		CommandFunc: func(ctx context.Context, expModel *spec.ExpModel,
 			resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
-			bladeBin := meta.Constant.BladeBin
+			bladeBin := chaosblade.Constant.BladeBin
 			identifier := model.NewExperimentIdentifier("", resourceIdentifier.NodeUid, resourceIdentifier.NodeName, "")
 
 			if suid, ok := spec.IsDestroy(ctx); ok {

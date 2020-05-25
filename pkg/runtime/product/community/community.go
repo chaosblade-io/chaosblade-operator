@@ -14,27 +14,24 @@
  * limitations under the License.
  */
 
-package version
+package community
 
-import "strings"
-
-var (
-	Version = "unknown"
-	Product = "community"
-
-	// Version#Product
-	CombinedVersion = ""
-	Delimiter       = ","
+import (
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
+const Community = "community"
+
 func init() {
-	if CombinedVersion != "" {
-		fields := strings.Split(CombinedVersion, Delimiter)
-		if len(fields) > 0 {
-			Version = fields[0]
-		}
-		if len(fields) > 1 {
-			Product = fields[1]
-		}
+	chaosblade.Products[Community] = &chaosblade.ProductConstant{
+		Home:          "/opt/chaosblade",
+		BladeBin:      "/opt/chaosblade/blade",
+		PodName:       "chaosblade-tool",
+		ImageRepoFunc: ImageRepoForCommunity,
+		PodLabels:     map[string]string{"app": "chaosblade-tool"},
 	}
+}
+
+var ImageRepoForCommunity = func() string {
+	return chaosblade.ImageRepository
 }
