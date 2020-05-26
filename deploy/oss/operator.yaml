@@ -20,10 +20,11 @@ spec:
           image: chaosbladeio/chaosblade-operator:0.6.0
           command: ["chaosblade-operator"]
           args:
-            - --blade-version=0.6.0
-            - --image-repo=chaosbladeio/chaosblade-tool
-            - --pull-policy=IfNotPresent
-            - --namespace=kube-system
+            - --chaosblade-version=0.6.0
+            - --chaosblade-image-repository=chaosbladeio/chaosblade-tool
+            - --chaosblade-image-pull-policy=IfNotPresent
+            - --chaosblade-namespace=kube-system
+            - --webhook-enable
           imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
