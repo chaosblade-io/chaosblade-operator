@@ -16,3 +16,6 @@ blade:
 
 env:
   zapLevel: ""
+
+webhook:
+  enable: true
