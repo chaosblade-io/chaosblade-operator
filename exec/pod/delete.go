@@ -38,7 +38,13 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 	return &DeletePodActionSpec{
 		spec.BaseExpActionCommandSpec{
 			ActionMatchers: []spec.ExpFlagSpec{},
-			ActionFlags:    []spec.ExpFlagSpec{},
+			ActionFlags: []spec.ExpFlagSpec{
+				&spec.ExpFlag{
+					Name:   "random",
+					Desc:   "Randomly select pod",
+					NoArgs: true,
+				},
+			},
 			ActionExecutor: &DeletePodActionExecutor{client: client},
 		},
 	}
