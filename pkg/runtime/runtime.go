@@ -30,9 +30,12 @@ import (
 )
 
 var flagSet *pflag.FlagSet
+var LogLevel string
 
 func init() {
 	flagSet = pflag.NewFlagSet("operator", pflag.ExitOnError)
+	flagSet.StringVar(&LogLevel, "log-level", "info", "Log level, such as panic|fatal|error|warn|info|debug|trace")
+
 	flagSet.AddFlagSet(aliyun.FlagSet())
 	flagSet.AddFlagSet(chaosblade.FlagSet())
 

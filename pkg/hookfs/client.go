@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
+	"github.com/sirupsen/logrus"
 )
 
 type ChaosBladeHookClient struct {
@@ -37,15 +39,15 @@ func (c *ChaosBladeHookClient) InjectFault(ctx context.Context, injectMsg *Injec
 	if err != nil {
 		return err
 	}
-	log.Info("inject fault", "injectMsg", injectMsg)
+	logrus.WithField("injectMsg", injectMsg).Infoln("Inject fault")
 	result, err, code := util.PostCurl(url, body, "application/json")
 	if err != nil {
 		return err
 	}
+	logrus.WithField("injectMsg", injectMsg).Infof("Response is %s", result)
 	if code != http.StatusOK {
 		return fmt.Errorf(result)
 	}
-	log.Info(result)
 	return nil
 }
 
@@ -60,9 +62,15 @@ func (c *ChaosBladeHookClient) Revoke(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Info("revoke fault", "response", resp)
+	defer resp.Body.Close()
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	result := string(bytes)
+	logrus.Infof("Revoke fault, response is %s", result)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("")
+		return fmt.Errorf(result)
 	}
 	return nil
 }

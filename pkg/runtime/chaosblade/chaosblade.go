@@ -46,10 +46,10 @@ var f *pflag.FlagSet
 func init() {
 	f = pflag.NewFlagSet("chaosblade", pflag.ExitOnError)
 	// chaosblade config
-	f.StringVar(&Namespace, "chaosblade.namespace", "kube-system", "The kubernetes namespace which chaosblade tool pods deployed")
-	f.StringVar(&Version, "chaosblade.version", version.Version, "Chaosblade tool version")
-	f.StringVar(&ImageRepository, "chaosblade.image-repository", "chaosbladeio/chaosblade-tool", "Image repository of chaosblade tool")
-	f.StringVar(&PullPolicy, "chaosblade.image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent")
+	f.StringVar(&Namespace, "chaosblade-namespace", "kube-system", "The kubernetes namespace which chaosblade tool pods deployed")
+	f.StringVar(&Version, "chaosblade-version", version.Version, "Chaosblade tool version")
+	f.StringVar(&ImageRepository, "chaosblade-image-repository", "chaosbladeio/chaosblade-tool", "Image repository of chaosblade tool")
+	f.StringVar(&PullPolicy, "chaosblade-image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent")
 }
 
 func FlagSet() *pflag.FlagSet {

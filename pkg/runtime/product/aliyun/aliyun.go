@@ -40,8 +40,8 @@ var f *pflag.FlagSet
 
 func init() {
 	f = pflag.NewFlagSet("aliyun", pflag.ExitOnError)
-	f.StringVar(&RegionId, "aliyun.region-id", "", "Region id for cloud provider")
-	f.StringVar(&Environment, "aliyun.environment", "", "Environment for cloud provider")
+	f.StringVar(&RegionId, "aliyun-region-id", "", "Region id for cloud provider")
+	f.StringVar(&Environment, "aliyun-environment", "", "Environment for cloud provider")
 
 	chaosblade.Products[AHAS] = &chaosblade.ProductConstant{
 		Home:          "/opt/chaosblade",

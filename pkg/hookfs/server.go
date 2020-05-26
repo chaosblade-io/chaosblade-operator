@@ -23,11 +23,10 @@ import (
 	"net/http"
 	"sync"
 
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/sirupsen/logrus"
 )
 
 var (
-	log              = ctrl.Log.WithName("fuse-chaosblade")
 	injectFaultCache sync.Map
 )
 
@@ -63,11 +62,9 @@ func (s *ChaosbladeHookServer) Start(stop <-chan struct{}) error {
 		Addr:    s.addr,
 		Handler: mux,
 	}
-	log.Info("start chaosblade server", "addr", s.addr)
 	go func() {
 		errCh <- server.ListenAndServe()
 	}()
-
 	for {
 		select {
 		case <-stop:
@@ -83,18 +80,18 @@ func (s *ChaosbladeHookServer) Start(stop <-chan struct{}) error {
 func (s *ChaosbladeHookServer) InjectHandler(w http.ResponseWriter, r *http.Request) {
 	var injectMsg InjectMessage
 	if err := json.NewDecoder(r.Body).Decode(&injectMsg); err != nil {
-		log.Error(err, "Cannot Decode Request Message")
+		logrus.WithError(err).Errorf("Cannot Decode Request Message, %+v", r)
 		http.Error(w, "Cannot Decode Request Message", http.StatusBadRequest)
 		return
 	}
-	log.Info("Inject Fault", "inject message", injectMsg)
+	logrus.WithField("injectMsg", injectMsg).Infoln("Inject Fault")
 	for _, method := range injectMsg.Methods {
 		injectFaultCache.Store(method, &injectMsg)
 	}
 	fmt.Fprintf(w, "success")
 }
 func (s *ChaosbladeHookServer) RecoverHandler(w http.ResponseWriter, r *http.Request) {
-	log.Info("recover all fault")
+	logrus.Infoln("recover all fault")
 	for _, method := range defaultHookPoints {
 		injectFaultCache.Delete(method)
 	}
