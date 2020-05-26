@@ -17,7 +17,6 @@
 package hookfs
 
 import (
-	"fmt"
 	"math/rand"
 	"path"
 	"strings"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/ethercflow/hookfs/hookfs"
 	"github.com/hanwen/go-fuse/fuse"
+	"github.com/sirupsen/logrus"
 )
 
 type ChaosbladeHookContext struct {
@@ -448,21 +448,27 @@ func (h *ChaosbladeHook) PostSetXAttr(realRetCode int32, prehookCtx hookfs.HookC
 }
 
 func (h *ChaosbladeHook) doInjectFault(relativePath, method string) error {
-	log.Info("do Inject fault", "method", method, "relativePath", relativePath)
+	logrus.WithFields(logrus.Fields{
+		"method":       method,
+		"relativePath": relativePath,
+	}).Infoln("do Inject fault")
 	val, ok := injectFaultCache.Load(method)
 	if !ok || val == nil {
 		return nil
 	}
 	faultMsg, ok := val.(*InjectMessage)
 	if !ok {
-		log.Error(nil, fmt.Sprintf("convert to InjectMessage failed, %+v", val))
+		logrus.Errorf("convert to InjectMessage failed, %+v", val)
 		return nil
 	}
-	log.Info("do Inject fault", "fault message", faultMsg)
+	logrus.WithField("faultMessage", faultMsg).Infoln("do Inject fault with inject message")
 	if faultMsg.Path != "" {
 		actualPath := path.Join(h.MountPoint, relativePath)
 		if !strings.HasPrefix(actualPath, faultMsg.Path) {
-			log.Info("the rule path does not contain the actual path", "rulePath", faultMsg.Path, "actualPath", actualPath)
+			logrus.WithFields(logrus.Fields{
+				"rulePath":   faultMsg.Path,
+				"actualPath": actualPath,
+			}).Infoln("the rule path does not contain the actual path")
 			return nil
 		}
 	}

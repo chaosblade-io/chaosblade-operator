@@ -23,17 +23,16 @@ import (
 	"net/http"
 	"path"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 var (
-	log            = logf.Log.WithName("webhook_chaosblade")
 	FuseServerPort int32
 	SidecarImage   string
 )
@@ -58,18 +57,17 @@ func (v *Mutator) Handle(ctx context.Context, req admission.Request) admission.R
 	patchPod := pod.DeepCopy()
 	err = v.mutatePodsFn(patchPod)
 	if err != nil {
-		log.Error(err, "mutate pod failed")
+		logrus.WithError(err).Errorln("mutate pod failed")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 	originalBytes, err := json.Marshal(pod)
 	if err != nil {
-		log.Error(err, "Marshal original pod err")
-		// TODO allow the target pod to run?
+		logrus.WithError(err).Errorln("Marshal original pod err")
 		return admission.Allowed("")
 	}
 	expectedBytes, err := json.Marshal(patchPod)
 	if err != nil {
-		log.Error(err, "Marshal patched pod err")
+		logrus.WithError(err).Errorln("Marshal patched pod err")
 	}
 	return admission.PatchResponseFromRaw(originalBytes, expectedBytes)
 }
@@ -81,18 +79,18 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	}
 	injectVolumeName, ok := pod.Annotations["chaosblade/inject-volume"]
 	if !ok {
-		log.Info("pod has no chaosblade/inject-volume annotation")
+		logrus.WithField("name", pod.Name).Infoln("pod has no chaosblade/inject-volume annotation")
 		return nil
 	}
 	injectSubPath, ok := pod.Annotations["chaosblade/inject-volume-subpath"]
 	if !ok {
-		log.Info("pod has no chaosblade/inject-volume annotation")
+		logrus.WithField("name", pod.Name).Infoln("pod has no chaosblade/inject-volume annotation")
 		return nil
 	}
 
 	for _, container := range pod.Spec.Containers {
 		if container.Name == SidecarName {
-			log.Info("sidecar has been injected")
+			logrus.WithField("name", pod.Name).Infoln("sidecar has been injected")
 			return nil
 		}
 	}
@@ -122,7 +120,11 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	runAsUser := int64(0) //root
 	mountPoint := path.Join(targetVolumeMount.MountPath, injectSubPath)
 	original := path.Join(targetVolumeMount.MountPath, fmt.Sprintf("fuse-%s", injectSubPath))
-	log.Info("", "mountPoint", mountPoint, "MountPath", targetVolumeMount.MountPath)
+	logrus.WithFields(logrus.Fields{
+		"mountPoint": mountPoint,
+		"mountPath":  targetVolumeMount.MountPath,
+		"podName":    pod.Name,
+	}).Infof("Get matched pod")
 	if mountPoint == targetVolumeMount.MountPath {
 		original = path.Join(path.Dir(targetVolumeMount.MountPath),
 			fmt.Sprintf("fuse-%s", path.Base(targetVolumeMount.MountPath)))
@@ -136,7 +138,7 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 		},
 
 		Args: []string{
-			fmt.Sprintf("--addr=:%d", FuseServerPort),
+			fmt.Sprintf("--address=:%d", FuseServerPort),
 			fmt.Sprintf("--mountpoint=%s", mountPoint),
 			fmt.Sprintf("--original=%s", original),
 		},

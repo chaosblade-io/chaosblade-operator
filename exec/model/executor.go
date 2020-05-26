@@ -109,7 +109,6 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNam
 	}
 	statuses := experimentStatus.ResStatuses
 	success := false
-	logrus.Infof("nodeNameUidMap: %+v", nodeNameUidMap)
 	for nodeName, nodeUid := range nodeNameUidMap {
 		rsStatus := v1alpha1.ResourceStatus{
 			Kind:     expModel.Scope,
@@ -172,7 +171,7 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *s
 
 	success := false
 	experimentIdentifiers, err := e.CommandFunc(ctx, expModel, resourceIdentifier)
-	logrus.Infof("experimentIdentifiers: %+v", experimentIdentifiers)
+	logrus.Infof("ExperimentIdentifiers: %+v", experimentIdentifiers)
 	if err != nil {
 		newStatus := rsStatus.CreateFailResourceStatus(err.Error())
 		statuses = append(statuses, newStatus)

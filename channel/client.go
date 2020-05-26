@@ -70,12 +70,18 @@ func NewClientFunc() manager.NewClientFunc {
 
 // Exec command in pod
 func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, timeout time.Duration) *spec.Response {
-	logrus.Infof("exec command in pod, command: %s, container: %s", command, containerName)
+	logFields := logrus.WithFields(logrus.Fields{
+		"command":      command,
+		"podName":      pod.Name,
+		"podNamespace": pod.Namespace,
+		"container":    containerName,
+	})
+	logFields.Infof("Exec command in pod")
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
 		error := fmt.Sprintf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
+		logFields.Errorln(error)
 		return spec.ReturnFail(spec.Code[spec.IllegalParameters], error)
 	}
-
 	const TTY = false
 	request := c.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -96,11 +102,11 @@ func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, tim
 
 	err := execute("POST", request.URL(), c.config, &stdout, &stderr, TTY)
 	if err != nil {
-		logrus.Warningf("invoke exec command err, %v", err)
+		logFields.WithError(err).Errorln("Invoke exec command error")
 	}
 	errMsg := strings.TrimSpace(stderr.String())
 	outMsg := strings.TrimSpace(stdout.String())
-	logrus.Infof("err: %s; out: %s", errMsg, outMsg)
+	logFields.Infof("err: %s; out: %s", errMsg, outMsg)
 	if errMsg != "" {
 		return spec.Decode(errMsg, spec.ReturnFail(spec.Code[spec.K8sInvokeError], errMsg))
 	}
@@ -108,7 +114,7 @@ func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, tim
 		return spec.Decode(outMsg, spec.ReturnFail(spec.Code[spec.K8sInvokeError], outMsg))
 	}
 	return spec.ReturnFail(spec.Code[spec.K8sInvokeError],
-		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed", pod.Name))
+		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found", pod.Name))
 }
 
 // "172.21.1.11:8080/api/v1/namespaces/default/pods/my-nginx-3855515330-l1uqk/exec

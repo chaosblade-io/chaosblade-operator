@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +51,7 @@ func deployChaosBladeTool(rcb *ReconcileChaosBlade) error {
 
 	if err := rcb.client.Create(context.TODO(), daemonSet); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			log.Info("chaosblade tool exits, skip to deploy")
+			logrus.Info("chaosblade tool exits, skip to deploy")
 			return nil
 		}
 		return err
@@ -72,7 +73,7 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 		Name:      "chaosblade-operator",
 	}, u)
 	if err != nil {
-		log.Error(err, "cannot get chaosblade-operator deployment from apps/v1, try to get it from extensions/v1beta1")
+		logrus.WithError(err).Error("cannot get chaosblade-operator deployment from apps/v1, try to get it from extensions/v1beta1")
 		u = &unstructured.Unstructured{}
 		u.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "extensions",
@@ -84,7 +85,7 @@ func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, e
 			Name:      "chaosblade-operator",
 		}, u)
 		if err != nil {
-			log.Error(err, "cannot get chaosblade-operator deployment from extensions/v1beta1")
+			logrus.WithError(err).Error("cannot get chaosblade-operator deployment from extensions/v1beta1")
 			return nil, err
 		}
 	}

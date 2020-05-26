@@ -38,7 +38,7 @@ func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool
 		return false
 	}
 	logrus.Infof("trigger create event, name: %s", obj.Name)
-	logrus.Infof("creating obj: %+v", obj)
+	logrus.Debugf("creating obj: %+v", obj)
 	if obj.GetDeletionTimestamp() != nil {
 		return false
 	}
@@ -58,7 +58,7 @@ func (*SpecUpdatedPredicateForRunningPhase) Delete(e event.DeleteEvent) bool {
 		return false
 	}
 	logrus.Infof("trigger delete event, name: %s", obj.Name)
-	logrus.Infof("deleting obj: %+v", obj)
+	logrus.Debugf("deleting obj: %+v", obj)
 	return contains(obj.GetFinalizers(), chaosbladeFinalizer)
 }
 
@@ -75,8 +75,8 @@ func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
 	if !ok {
 		return false
 	}
-	logrus.Infof("updating oldObj: %+v", oldObj)
-	logrus.Infof("updating newObj: %+v", newObj)
+	logrus.Debugf("updating oldObj: %+v", oldObj)
+	logrus.Debugf("updating newObj: %+v", newObj)
 	if !reflect.DeepEqual(newObj.Spec, oldObj.Spec) {
 		bytes, err := json.Marshal(oldObj.Spec.DeepCopy())
 		if err != nil {

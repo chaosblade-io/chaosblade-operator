@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -26,56 +27,57 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/ethercflow/hookfs/hookfs"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/sirupsen/logrus"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	chaosbladehook "github.com/chaosblade-io/chaosblade-operator/pkg/hookfs"
 )
 
 var (
-	addr       string
+	address    string
 	pidFile    string
 	original   string
 	mountpoint string
 )
 
 func main() {
-	flag.StringVar(&addr, "addr", ":65534", "The address to bind to")
-	flag.StringVar(&original, "original", "", "ORIGINAL")
-	flag.StringVar(&mountpoint, "mountpoint", "", "MOUNTPOINT")
-
+	flag.StringVar(&address, "address", ":65534", "The address to bind")
+	flag.StringVar(&original, "original", "", "Mapping of the original disk, not affected by the drill")
+	flag.StringVar(&mountpoint, "mountpoint", "", "The disk of the drill. The affected directories are controlled by the path flag.")
 	rand.Seed(time.Now().UnixNano())
 	flag.Parse()
-	logf.SetLogger(zap.Logger())
+
+	logFields := logrus.WithFields(logrus.Fields{
+		"address":    address,
+		"original":   original,
+		"mountpoint": mountpoint,
+	})
 	stopCh := signals.SetupSignalHandler()
-	//go startFuseServer(stopCh)
-	chaosbladeHookServer := chaosbladehook.NewChaosbladeHookServer(addr)
-
+	chaosbladeHookServer := chaosbladehook.NewChaosbladeHookServer(address)
+	logFields.Infoln("Start chaosblade hook server.")
 	go chaosbladeHookServer.Start(stopCh)
-	if err := startFuseServer(stopCh); err != nil {
-		logrus.Fatal("start fuse server failed", err)
-	}
 
+	logFields.Infoln("Start fuse server.")
+	if err := startFuseServer(stopCh); err != nil {
+		logFields.WithError(err).Fatalln("Start fuse server failed")
+	}
 }
 
+// startFuseServer starts hookfs server
 func startFuseServer(stop <-chan struct{}) error {
 	if !util.IsExist(original) {
 		if err := os.MkdirAll(original, os.FileMode(755)); err != nil {
-			return err
+			return fmt.Errorf("create original directory error, %v", err)
 		}
 	}
 	if !util.IsExist(mountpoint) {
 		if err := os.MkdirAll(mountpoint, os.FileMode(755)); err != nil {
-			return err
+			return fmt.Errorf("create mountpoint directory error, %v", err)
 		}
 	}
-
-	logrus.Info("Init hookfs")
 	fs, err := hookfs.NewHookFs(original, mountpoint, &chaosbladehook.ChaosbladeHook{MountPoint: mountpoint})
 	if err != nil {
-		return err
+		return fmt.Errorf("create hookfs error, %v", err)
 	}
 	errCh := make(chan error)
 	go func() {
@@ -84,12 +86,17 @@ func startFuseServer(stop <-chan struct{}) error {
 	for {
 		select {
 		case <-stop:
-			logrus.Infof("start unmount fuse volume %s", mountpoint)
+			logFields := logrus.WithFields(logrus.Fields{
+				"address":    address,
+				"original":   original,
+				"mountpoint": mountpoint,
+			})
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, "fusermount", "-zu", mountpoint)
+			logFields.Infof("Start unmount fuse volume, cmd: %v", cmd)
 			if err := cmd.Run(); err != nil {
-				logrus.Errorf("failed to fusermount: %v", cmd)
+				logFields.WithError(err).Errorln("Failed to execute fusermount")
 			}
 			return err
 		case err := <-errCh:

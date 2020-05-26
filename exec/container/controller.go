@@ -128,7 +128,7 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 func AddMatchedContainerAndNode(pod v1.Pod, containerId, containerName string, nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap,
 	nodeNameUidMap model.NodeNameUidMap) (model.NodeNameUidMap, model.NodeNameContainerObjectMetasMap) {
 	nodeName := pod.Spec.NodeName
-	logrus.Infof("matched container: %s, pod: %s, node: %s", containerId, pod.Name, nodeName)
+	logrus.Infof("Matched container: %s, pod: %s, node: %s", containerId, pod.Name, nodeName)
 	nameUidMap := AddMatchedNode(nodeName, nodeNameUidMap)
 	nodeNameContainerObjectMetasMap := AddMatchedContainer(pod, containerId, containerName, nodeName, nodeNameContainerObjectMetasMaps)
 	return nameUidMap, nodeNameContainerObjectMetasMap
