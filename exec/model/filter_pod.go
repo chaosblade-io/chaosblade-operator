@@ -19,7 +19,9 @@ package model
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -82,11 +84,15 @@ func (b *BaseExperimentController) GetMatchedPodResources(expModel spec.ExpModel
 }
 
 func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[string]string) ([]v1.Pod, error) {
+	random := flags["random"] == "true"
 	groupKey := flags[ResourceGroupKeyFlag.Name]
 	if groupKey == "" {
 		count, err := GetResourceCount(len(pods), flags)
 		if err != nil {
 			return nil, err
+		}
+		if random {
+			return randomPodSelected(pods, count), nil
 		}
 		return pods[:count], nil
 	}
@@ -109,7 +115,11 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, podList[:count]...)
+		if random {
+			result = append(result, randomPodSelected(podList, count)...)
+		} else {
+			result = append(result, podList[:count]...)
+		}
 	}
 	return result, nil
 }
@@ -178,4 +188,16 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		pods = podsWithName
 	}
 	return pods, nil
+}
+
+func randomPodSelected(pods []v1.Pod, count int) []v1.Pod {
+	if len(pods) == 0 {
+		return pods
+	}
+	rand.Seed(time.Now().UnixNano())
+	for i := len(pods) - 1; i > 0; i-- {
+		num := rand.Intn(i + 1)
+		pods[i], pods[num] = pods[num], pods[i]
+	}
+	return pods[:count]
 }
