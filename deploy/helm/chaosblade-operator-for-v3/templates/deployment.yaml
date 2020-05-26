@@ -20,19 +20,22 @@ spec:
           image: {{ .Values.operator.repository }}:{{ .Values.operator.version }}
           command: ["chaosblade-operator"]
           args:
+          {{- if .Values.blade.repository }}
+          - '--chaosblade-image-repository={{ .Values.blade.repository }}'
+          {{- end }}
+          {{- if .Values.blade.version }}
+          - '--chaosblade-version={{ .Values.blade.version }}'
+          {{- end }}
+          {{- if .Values.blade.pullPolicy }}
+          - '--chaosblade-image-pull-policy={{ .Values.blade.pullPolicy }}'
+          {{- end }}
+          - '--chaosblade-namespace={{ .Release.Namespace }}'
           {{- if .Values.env.zapLevel }}
           - '--zap-level={{ .Values.env.zapLevel }}'
           {{- end }}
-          {{- if .Values.blade.version }}
-          - '--blade-version={{ .Values.blade.version }}'
+          {{- if eq .Value.webhook.enable "true" }}
+          - '--webhook-enable'
           {{- end }}
-          {{- if .Values.blade.repository }}
-          - '--image-repo={{ .Values.blade.repository }}'
-          {{- end }}
-          {{- if .Values.blade.pullPolicy }}
-          - '--pull-policy={{ .Values.blade.pullPolicy }}'
-          {{- end }}
-          - '--namespace={{ .Release.Namespace }}'
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE
@@ -43,3 +46,15 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "chaosblade-operator"
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: chaosblade-webhook-server-cert
