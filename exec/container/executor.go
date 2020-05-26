@@ -62,12 +62,12 @@ var CommandInPodExecutorFunc = func(ctx context.Context, expModel *spec.ExpModel
 	resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
 	bladeBin := chaosblade.Constant.BladeBin
 	identifiers := make([]model.ExperimentIdentifier, 0)
-	// container network does not need --blade-tar-file and --override flags
 	excludeFlagsFunc := model.ExcludeKeyFunc()
 	isNetworkTarget := expModel.Target == osexec.NewNetworkCommandSpec().Name()
 	isContainerSelfTarget := expModel.Target == exec.NewContainerCommandSpec().Name()
 	matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
 	if !isNetworkTarget && !isContainerSelfTarget {
+		// container network does not need --blade-tar-file and --override flags
 		matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, runtime.GetChaosBladePkgPath())
 	}
 	if isNetworkTarget {
@@ -95,7 +95,7 @@ func generateDestroyCommands(ctx context.Context, expModel *spec.ExpModel, resou
 	if err != nil {
 		return identifiers, err
 	}
-	logrus.Infof("nodeNameExpObjectMetasMaps: %+v", nodeNameExpObjectMetasMaps)
+	logrus.Debugf("NodeNameExpObjectMetasMaps: %+v", nodeNameExpObjectMetasMaps)
 	expObjectMetas := nodeNameExpObjectMetasMaps[resourceIdentifier.NodeName]
 	if expObjectMetas == nil {
 		return identifiers, fmt.Errorf("cannot find the matched container on the node: %s", resourceIdentifier.NodeName)
@@ -118,6 +118,7 @@ func generateCreateCommands(ctx context.Context, expModel *spec.ExpModel, resour
 	if err != nil {
 		return identifiers, err
 	}
+	logrus.Debugf("NodeNameContainerObjectMetasMaps: %+v", nodeNameContainerObjectMetasMaps)
 	containerObjectMetas := nodeNameContainerObjectMetasMaps[resourceIdentifier.NodeName]
 	if containerObjectMetas == nil {
 		return identifiers, fmt.Errorf("cannot find the matched container on the node: %s", resourceIdentifier.NodeName)

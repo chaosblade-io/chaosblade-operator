@@ -60,7 +60,7 @@ func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1
 }
 
 func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrus.Infof("start exec, target: %s, action: %s", expModel.Target, expModel.ActionName)
+	logrus.Infof("Start exec, expModel: %+v", expModel)
 	// get action spec
 	actionSpec := b.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
 	if actionSpec == nil {

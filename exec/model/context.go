@@ -38,9 +38,6 @@ const (
 	// For destroy operation
 	// nodeName:[{uid:expId}, {uid:expId}]
 	NodeNameExpObjectMetaMapKey = "NodeNameExpObjectMetasMap"
-
-	UidKey  = "Uid"
-	NameKey = "Name"
 )
 
 type NodeNameUidMap map[string]string
