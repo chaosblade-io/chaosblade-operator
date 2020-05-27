@@ -60,6 +60,7 @@ func NewPodIOActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 				&spec.ExpFlag{
 					Name: "random",
 					Desc: "random inject I/O code",
+					NoArgs: true,
 				},
 				&spec.ExpFlag{
 					Name: "percent",
