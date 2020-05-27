@@ -34,8 +34,8 @@ func init() {
 	f.StringVar(&mutator.SidecarImage, "fuse-sidecar-image", "", "Fuse sidecar image")
 	f.Int32Var(&mutator.FuseServerPort, "fuse-server-port", 65534, "Fuse server port")
 
-	f.IntVar(&Port, "webhook-port", 443, "The port on which to serve HTTPS.")
-	f.BoolVar(&Enable, "webhook-enable", true, "Whether to enable webhook")
+	f.IntVar(&Port, "webhook-port", 9443, "The port on which to serve HTTPS.")
+	f.BoolVar(&Enable, "webhook-enable", false, "Whether to enable webhook")
 }
 
 func FlagSet() *pflag.FlagSet {

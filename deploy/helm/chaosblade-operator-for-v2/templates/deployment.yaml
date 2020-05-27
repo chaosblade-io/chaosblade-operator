@@ -33,7 +33,10 @@ spec:
           {{- if .Values.env.zapLevel }}
           - '--zap-level={{ .Values.env.zapLevel }}'
           {{- end }}
-          {{- if eq .Value.webhook.enable "true" }}
+          {{- if .Values.env.logLevel }}
+          - '--log-level={{ .Values.env.logLevel }}'
+          {{- end }}
+          {{- if .Values.webhook.enable }}
           - '--webhook-enable'
           {{- end }}
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
