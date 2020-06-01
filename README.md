@@ -18,6 +18,7 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Disk: specify the directory disk occupation, disk IO read and write load, etc.
     * Memory: specify memory usage
     * Pod: kill pod
+    * IO: specify the file system io exception. Supports 31 file operations and 11 exception scenarios, such as "Too many open files", "Device or resource busy" and so on.
 * Container:
     * CPU: specify CPU usage
     * Network: specify network card, port, IP, etc. packet delay, packet loss, packet blocking, packet duplication, packet re-ordering, packet corruption, etc.
@@ -35,8 +36,8 @@ Note: For the following `VERSION`, please use the latest version number instead
 
 ### Helm v2
 * Download the latest `chaosblade-operator-VERSION-v2.tgz` package at [Release](https://github.com/chaosblade-io/chaosblade-operator/releases)
-* Install using `helm install --namespace kube-system --name chaosblade-operator chaosblade-operator-VERSION-v2.tgz`
-* Use `kubectl get pod -l part-of=chaosblade -n kube-system` to check the installation status of the Pod. If both are running, the installation was successful
+* Install using `helm install --namespace chaosblade --name chaosblade-operator chaosblade-operator-VERSION-v2.tgz`
+* Use `kubectl get pod -l part-of=chaosblade -n chaosblade` to check the installation status of the Pod. If both are running, the installation was successful
 * Use the following command to uninstall, pay attention to the execution order:
 ```shell script
 kubectl delete crd chaosblades.chaosblade.io
@@ -44,17 +45,17 @@ helm del --purge chaosblade-operator
 ```
 ### Helm v3
 * Download the latest `chaosblade-operator-VERSION-v3.tgz` package at [Release](https://github.com/chaosblade-io/chaosblade-operator/releases)
-* Use `helm install chaosblade-operator chaosblade-operator-VERSION-v3.tgz --namespace kube-system` command to install
-* Use `kubectl get pod -l part-of=chaosblade -n kube-system` to check the installation status of the Pod. If both are running, the installation was successful
+* Use `helm install chaosblade-operator chaosblade-operator-VERSION-v3.tgz --namespace chaosblade` command to install
+* Use `kubectl get pod -l part-of=chaosblade -n chaosblade` to check the installation status of the Pod. If both are running, the installation was successful
 * Use the following command to uninstall, pay attention to the execution order:
 ```shell script
 kubectl delete crd chaosblades.chaosblade.io
-helm uninstall chaosblade-operator -n kube-system
+helm uninstall chaosblade-operator -n chaosblade
 ```
 ### Kubectl
 * Download the latest `chaosblade-operator-yaml-VERSION.tar.gz` package at [Release](https://github.com/chaosblade-io/chaosblade-operator/releases)
 * After decompression, execute `kubectl apply -f chaosblade-operator-yaml-VERSION/` installation
-* Use `kubectl get pod -l part-of=chaosblade -n kube-system` to check the installation status of the Pod. If both are running, the installation was successful
+* Use `kubectl get pod -l part-of=chaosblade -n chaosblade` to check the installation status of the Pod. If both are running, the installation was successful
 * Use the following command to uninstall, pay attention to the execution order:
 ```shell script
 kubectl delete crd chaosblades.chaosblade.io
