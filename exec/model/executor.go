@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 // ExperimentIdentifier contains the necessary experiment fields of the resource
@@ -80,7 +80,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	podList := &v1.PodList{}
-	if err := e.Client.List(context.TODO(), GetChaosBladePodListOptions(), podList); err != nil {
+	if err := e.Client.List(context.TODO(), podList, GetChaosBladePodListOptions()); err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
@@ -109,7 +109,6 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNam
 	}
 	statuses := experimentStatus.ResStatuses
 	success := false
-	logrus.Infof("nodeNameUidMap: %+v", nodeNameUidMap)
 	for nodeName, nodeUid := range nodeNameUidMap {
 		rsStatus := v1alpha1.ResourceStatus{
 			Kind:     expModel.Scope,
@@ -172,7 +171,7 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *s
 
 	success := false
 	experimentIdentifiers, err := e.CommandFunc(ctx, expModel, resourceIdentifier)
-	logrus.Infof("experimentIdentifiers: %+v", experimentIdentifiers)
+	logrus.Infof("ExperimentIdentifiers: %+v", experimentIdentifiers)
 	if err != nil {
 		newStatus := rsStatus.CreateFailResourceStatus(err.Error())
 		statuses = append(statuses, newStatus)
@@ -187,7 +186,7 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *s
 		if identifier.Error != "" {
 			newStatus = newStatus.CreateFailResourceStatus(identifier.Error)
 		} else {
-			response := e.Client.Exec(targetExecPod, meta.Constant.PodName, identifier.Command, time.Second*30)
+			response := e.Client.Exec(targetExecPod, chaosblade.Constant.PodName, identifier.Command, time.Second*30)
 			if response.Success {
 				if _, ok := spec.IsDestroy(ctx); !ok {
 					newStatus.Id = response.Result.(string)

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,13 +54,13 @@ type BaseExperimentController struct {
 }
 
 func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec,
-	oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
-	expModel := ExtractExpModelFromExperimentStatus(oldExpStatus)
+	_ v1alpha1.ExperimentStatus) *spec.Response {
+	expModel := ExtractExpModelFromExperimentSpec(expSpec)
 	return b.Exec(ctx, expModel)
 }
 
 func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrus.Infof("start exec, target: %s, action: %s", expModel.Target, expModel.ActionName)
+	logrus.Infof("Start exec, expModel: %+v", expModel)
 	// get action spec
 	actionSpec := b.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
 	if actionSpec == nil {
@@ -108,6 +108,9 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if count == 0 {
+			return 0, nil
+		}
 	}
 
 	percentValue := flags[ResourcePercentFlag.Name]
@@ -116,8 +119,12 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if percent == 0 {
+			return 0, nil
+		}
 	}
-	percentCount := resourceCount * percent
+
+	percentCount := int(math.Round(float64(percent) / 100.0 * float64(resourceCount)))
 	if count > percentCount {
 		count = percentCount
 	}

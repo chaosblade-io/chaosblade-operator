@@ -1,0 +1,23 @@
+# Default values for chaosblade.
+
+# chaosblade-operator
+operator:
+  repository: chaosbladeio/chaosblade-operator
+#  repository: "registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator"
+  version: 0.6.0
+  # image.pullPolicy: must be Always|IfNotPresent|Never
+  pullPolicy: IfNotPresent
+
+# chaosblade-tool
+blade:
+  repository: chaosbladeio/chaosblade-tool
+#  repository: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool
+  version: 0.6.0
+  # image.pullPolicy: must be Always|IfNotPresent|Never
+  pullPolicy: IfNotPresent
+
+env:
+  logLevel: info
+
+webhook:
+  enable: false

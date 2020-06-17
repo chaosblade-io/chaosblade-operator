@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +26,13 @@ import (
 type ClusterPhase string
 
 const (
-	ClusterPhaseInitial    ClusterPhase = ""
-	ClusterPhaseRunning    ClusterPhase = "Running"
-	ClusterPhaseUpdating   ClusterPhase = "Updating"
-	ClusterPhaseDestroying ClusterPhase = "Destroying"
-	ClusterPhaseDestroyed  ClusterPhase = "Destroyed"
-	ClusterPhaseError      ClusterPhase = "Error"
+	ClusterPhaseInitial     ClusterPhase = ""
+	ClusterPhaseInitialized ClusterPhase = "Initialized"
+	ClusterPhaseRunning     ClusterPhase = "Running"
+	ClusterPhaseUpdating    ClusterPhase = "Updating"
+	ClusterPhaseDestroying  ClusterPhase = "Destroying"
+	ClusterPhaseDestroyed   ClusterPhase = "Destroyed"
+	ClusterPhaseError       ClusterPhase = "Error"
 )
 
 // ChaosBladeSpec defines the desired state of ChaosBlade

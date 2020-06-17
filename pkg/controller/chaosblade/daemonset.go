@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,36 +20,91 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 // Deploy the chaosblade tool with daemonset mode
-func deployChaosBladeAgent(rcb *ReconcileChaosBlade, cb *v1alpha1.ChaosBlade) error {
+func deployChaosBladeTool(rcb *ReconcileChaosBlade) error {
+	references, err := createOwnerReferences(rcb)
+	if err != nil {
+		return err
+	}
 	daemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      meta.Constant.PodName,
-			Namespace: meta.GetNamespace(),
-			Labels:    meta.Constant.PodLabels,
+			Name:            chaosblade.Constant.PodName,
+			Namespace:       chaosblade.Namespace,
+			Labels:          chaosblade.Constant.PodLabels,
+			OwnerReferences: references,
 		},
 		Spec: createDaemonsetSpec(),
 	}
 
-	if err := rcb.client.Create(context.TODO(), daemonSet); err != nil && !apierrors.IsAlreadyExists(err) {
+	if err := rcb.client.Create(context.TODO(), daemonSet); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			logrus.Info("chaosblade tool exits, skip to deploy")
+			return nil
+		}
 		return err
 	}
 	return nil
 }
 
+func createOwnerReferences(rcb *ReconcileChaosBlade) ([]metav1.OwnerReference, error) {
+	// get chaosblade operator deployment object
+	// Using a unstructured object.
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "Deployment",
+		Version: "v1",
+	})
+	err := rcb.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: runtime.GetOperatorNamespace(),
+		Name:      "chaosblade-operator",
+	}, u)
+	if err != nil {
+		logrus.WithError(err).Error("cannot get chaosblade-operator deployment from apps/v1, try to get it from extensions/v1beta1")
+		u = &unstructured.Unstructured{}
+		u.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "extensions",
+			Kind:    "Deployment",
+			Version: "v1beta1",
+		})
+		err := rcb.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: runtime.GetOperatorNamespace(),
+			Name:      "chaosblade-operator",
+		}, u)
+		if err != nil {
+			logrus.WithError(err).Error("cannot get chaosblade-operator deployment from extensions/v1beta1")
+			return nil, err
+		}
+	}
+	trueVar := true
+	return []metav1.OwnerReference{
+		{
+			APIVersion: u.GetAPIVersion(),
+			Kind:       u.GetKind(),
+			Name:       u.GetName(),
+			UID:        u.GetUID(),
+			Controller: &trueVar,
+		},
+	}, nil
+}
+
 // createDaemonsetSpec
 func createDaemonsetSpec() appsv1.DaemonSetSpec {
 	return appsv1.DaemonSetSpec{
-		Selector:        &metav1.LabelSelector{MatchLabels: meta.Constant.PodLabels},
+		Selector:        &metav1.LabelSelector{MatchLabels: chaosblade.Constant.PodLabels},
 		Template:        createPodTemplateSpec(),
 		MinReadySeconds: 5,
 		UpdateStrategy:  appsv1.DaemonSetUpdateStrategy{Type: appsv1.RollingUpdateDaemonSetStrategyType},
@@ -60,25 +115,41 @@ func createDaemonsetSpec() appsv1.DaemonSetSpec {
 func createPodTemplateSpec() corev1.PodTemplateSpec {
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   meta.Constant.PodName,
-			Labels: meta.Constant.PodLabels,
+			Name:   chaosblade.Constant.PodName,
+			Labels: chaosblade.Constant.PodLabels,
 		},
 		Spec: createPodSpec(),
 	}
 }
 
 func createPodSpec() corev1.PodSpec {
+	pathType := corev1.HostPathFileOrCreate
+	periodSeconds := int64(30)
 	return corev1.PodSpec{
-		Containers:  []corev1.Container{createContainer()},
-		Affinity:    createAffinity(),
-		DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
-		HostNetwork: true,
-		HostPID:     true,
-		Tolerations: []corev1.Toleration{{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists}},
+		Containers:                    []corev1.Container{createContainer()},
+		Affinity:                      createAffinity(),
+		DNSPolicy:                     corev1.DNSClusterFirstWithHostNet,
+		HostNetwork:                   true,
+		HostPID:                       true,
+		Tolerations:                   []corev1.Toleration{{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists}},
+		TerminationGracePeriodSeconds: &periodSeconds,
+		SchedulerName:                 corev1.DefaultSchedulerName,
+		RestartPolicy:                 corev1.RestartPolicyAlways,
 		Volumes: []corev1.Volume{
 			{
 				Name:         "docker-socket",
 				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/run/docker.sock"}},
+			},
+			{
+				Name: "chaosblade-db-volume",
+				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/run/chaosblade.dat",
+					Type: &pathType,
+				}},
+			},
+			{
+				Name:         "hosts",
+				VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/etc/hosts"}},
 			},
 		},
 	}
@@ -103,14 +174,13 @@ func createAffinity() *corev1.Affinity {
 func createContainer() corev1.Container {
 	trueVar := true
 	return corev1.Container{
-		Name:            meta.Constant.PodName,
-		Image:           fmt.Sprintf("%s:%s", meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion()),
-		ImagePullPolicy: corev1.PullPolicy(meta.GetPullImagePolicy()),
+		Name:            chaosblade.Constant.PodName,
+		Image:           fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), chaosblade.Version),
+		ImagePullPolicy: corev1.PullPolicy(chaosblade.PullPolicy),
 		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "docker-socket",
-				MountPath: "/var/run/docker.sock",
-			},
+			{Name: "docker-socket", MountPath: "/var/run/docker.sock"},
+			{Name: "chaosblade-db-volume", MountPath: "/opt/chaosblade/chaosblade.dat"},
+			{Name: "hosts", MountPath: "/etc/hosts"},
 		},
 		SecurityContext: &corev1.SecurityContext{Privileged: &trueVar},
 	}

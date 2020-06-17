@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chaosblade-operator
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: chaosblade-operator
+  template:
+    metadata:
+      labels:
+        name: chaosblade-operator
+    spec:
+      serviceAccountName: chaosblade
+      containers:
+        - name: chaosblade-operator
+          # Replace this with the built image name
+          image: chaosbladeio/chaosblade-operator:0.6.0
+          command: ["chaosblade-operator"]
+          args:
+            - --blade-version=0.6.0
+            - --image-repo=chaosbladeio/chaosblade-tool
+            - --pull-policy=IfNotPresent
+            - --namespace=kube-system
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "chaosblade-operator"

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,6 @@ func setNodeNamesAndExpIdsToContextForDestroy(ctx context.Context, resourceStatu
 	for _, status := range *resourceStatus {
 		if status.Id == "" {
 			logrus.Warningf("the status id is empty, name: %s, uid: %s", status.Name, status.Uid)
-			continue
 		}
 		// Because uid is unuseful in destroy operator
 		nodeNameUidMap[status.NodeName] = ""

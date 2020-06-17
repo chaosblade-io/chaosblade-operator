@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,8 +70,9 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the target pods for container resource", nil))
+		errMsg := "cannot find the target pods for container resource"
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	ctx = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue)
 	return e.Exec(ctx, expModel)
@@ -98,7 +99,7 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 						if strings.HasPrefix(containerId, expectedContainerId) {
 							// matched
 							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-								addMatchedContainer(pod, containerId, containerName,
+								AddMatchedContainerAndNode(pod, containerId, containerName,
 									nodeNameContainerObjectMetasMaps, nodeNameUidMap)
 						}
 					}
@@ -111,7 +112,7 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 						if expectedName == containerName {
 							// matched
 							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-								addMatchedContainer(pod, containerId, containerName,
+								AddMatchedContainerAndNode(pod, containerId, containerName,
 									nodeNameContainerObjectMetasMaps, nodeNameUidMap)
 						}
 					}
@@ -124,11 +125,18 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 	return ctx
 }
 
-// addMatchedContainer to context
-func addMatchedContainer(pod v1.Pod, containerId, containerName string, nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap,
+func AddMatchedContainerAndNode(pod v1.Pod, containerId, containerName string, nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap,
 	nodeNameUidMap model.NodeNameUidMap) (model.NodeNameUidMap, model.NodeNameContainerObjectMetasMap) {
 	nodeName := pod.Spec.NodeName
-	logrus.Infof("matched container: %s, pod: %s, node: %s", containerId, pod.Name, nodeName)
+	logrus.Infof("Matched container: %s, pod: %s, node: %s", containerId, pod.Name, nodeName)
+	nameUidMap := AddMatchedNode(nodeName, nodeNameUidMap)
+	nodeNameContainerObjectMetasMap := AddMatchedContainer(pod, containerId, containerName, nodeName, nodeNameContainerObjectMetasMaps)
+	return nameUidMap, nodeNameContainerObjectMetasMap
+}
+
+// AddMatchedContainer to context
+func AddMatchedContainer(pod v1.Pod, containerId, containerName, nodeName string,
+	nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap) model.NodeNameContainerObjectMetasMap {
 	containerObjectMeta := model.ContainerObjectMeta{
 		Name:     containerName,
 		Uid:      containerId,
@@ -142,7 +150,12 @@ func addMatchedContainer(pod v1.Pod, containerId, containerName string, nodeName
 	}
 	containerObjectMetas = append(containerObjectMetas, containerObjectMeta)
 	nodeNameContainerObjectMetasMaps[nodeName] = containerObjectMetas
+	return nodeNameContainerObjectMetasMaps
+}
+
+// AddMatchedNode to context
+func AddMatchedNode(nodeName string, nodeNameUidMap model.NodeNameUidMap) model.NodeNameUidMap {
 	// node uid is unuseful for pod experiments
 	nodeNameUidMap[nodeName] = ""
-	return nodeNameUidMap, nodeNameContainerObjectMetasMaps
+	return nodeNameUidMap
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,13 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 	return &DeletePodActionSpec{
 		spec.BaseExpActionCommandSpec{
 			ActionMatchers: []spec.ExpFlagSpec{},
-			ActionFlags:    []spec.ExpFlagSpec{},
+			ActionFlags: []spec.ExpFlagSpec{
+				&spec.ExpFlag{
+					Name:   "random",
+					Desc:   "Randomly select pod",
+					NoArgs: true,
+				},
+			},
 			ActionExecutor: &DeletePodActionExecutor{client: client},
 		},
 	}

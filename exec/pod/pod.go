@@ -55,6 +55,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 			ExpFlags: []spec.ExpFlagSpec{},
 			ExpActions: []spec.ExpActionCommandSpec{
 				NewDeletePodActionSpec(client),
+				NewPodIOActionSpec(client),
 			},
 		},
 	}
@@ -75,3 +76,4 @@ func (*SelfExpModelCommandSpec) LongDesc() string {
 func (*SelfExpModelCommandSpec) Example() string {
 	return "blade c k8s pod-pod delete --names redis-slave-674d68586-n5s4q --namespace default --kubeconfig ~/.kube/config"
 }
+

@@ -17,13 +17,14 @@ spec:
       containers:
         - name: chaosblade-operator
           # Replace this with the built image name
-          image: registry.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator:0.4.0
+          image: chaosbladeio/chaosblade-operator:0.6.0
           command: ["chaosblade-operator"]
           args:
-            - --blade-version=0.4.0
-            - --aliyun-region=cn-hangzhou
-            - --pull-policy=IfNotPresent
-            - --namespace=kube-system
+            - --chaosblade-version=0.6.0
+            - --chaosblade-image-repository=chaosbladeio/chaosblade-tool
+            - --chaosblade-image-pull-policy=IfNotPresent
+            - --chaosblade-namespace=kube-system
+            - --webhook-enable
           imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
@@ -34,3 +35,15 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "chaosblade-operator"
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: chaosblade-webhook-server-cert

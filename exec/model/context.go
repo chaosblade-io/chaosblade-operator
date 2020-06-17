@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 const (
@@ -38,9 +38,6 @@ const (
 	// For destroy operation
 	// nodeName:[{uid:expId}, {uid:expId}]
 	NodeNameExpObjectMetaMapKey = "NodeNameExpObjectMetasMap"
-
-	UidKey  = "Uid"
-	NameKey = "Name"
 )
 
 type NodeNameUidMap map[string]string
@@ -112,7 +109,7 @@ func ExtractPodObjectMetasFromContext(ctx context.Context) (PodObjectMetaList, e
 
 func GetChaosBladePodListOptions() *client.ListOptions {
 	return &client.ListOptions{
-		Namespace:     meta.GetNamespace(),
-		LabelSelector: labels.SelectorFromSet(meta.Constant.PodLabels),
+		Namespace:     chaosblade.Namespace,
+		LabelSelector: labels.SelectorFromSet(chaosblade.Constant.PodLabels),
 	}
 }

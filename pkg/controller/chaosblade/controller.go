@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,24 @@ package chaosblade
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/community"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
-
-var log = logf.Log.WithName("controller_chaosblade")
 
 const chaosbladeFinalizer = "finalizer.chaosblade.io"
 
@@ -79,6 +77,13 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 	if err != nil {
 		return err
 	}
+	if community.Community == version.Product {
+		// deploy chaosblade tool
+		if err := deployChaosBladeTool(rcb); err != nil {
+			logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
+			return err
+		}
+	}
 	return nil
 }
 
@@ -100,45 +105,58 @@ type ReconcileChaosBlade struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	requeue := reconcile.Result{Requeue: true}
+	reqLogger := logrus.WithField("Request.Name", request.Name)
 	forget := reconcile.Result{}
-
 	// Fetch the RC instance
 	cb := &v1alpha1.ChaosBlade{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, cb)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Return and don't requeue
-			return forget, nil
-		}
-		// Error reading the object - requeue the request.
-		return forget, err
+		return forget, nil
 	}
-
 	if len(cb.Spec.Experiments) == 0 {
 		return forget, nil
 	}
+	//reqLogger.Info(fmt.Sprintf("chaosblade obj: %+v", cb))
 
-	// Remove the Finalizer if the CR object status is destroyed
+	// Destroyed->delete
+	// Remove the Finalizer if the CR object status is destroyed to delete it
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroyed {
 		cb.SetFinalizers(remove(cb.GetFinalizers(), chaosbladeFinalizer))
 		err := r.client.Update(context.TODO(), cb)
-		return forget, err
-	}
-
-	// Add finalizer for this CR
-	if cb.Status.Phase != v1alpha1.ClusterPhaseDestroyed &&
-		!contains(cb.GetFinalizers(), chaosbladeFinalizer) {
-		if err := r.addFinalizer(reqLogger, cb); err != nil {
-			return requeue, err
+		if err != nil {
+			reqLogger.WithError(err).Errorln("remove chaosblade finalizer failed at destroyed phase")
 		}
 		return forget, nil
 	}
-
-	// Create experiment
-	if cb.Status.Phase == v1alpha1.ClusterPhaseInitial ||
+	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroying || cb.GetDeletionTimestamp() != nil {
+		err := r.finalizeChaosBlade(reqLogger, cb)
+		if err != nil {
+			reqLogger.WithError(err).Errorln("finalize chaosblade failed at destroying phase")
+		}
+		return forget, nil
+	}
+	// Initial->Initialized
+	if cb.Status.Phase == v1alpha1.ClusterPhaseInitial {
+		if contains(cb.GetFinalizers(), chaosbladeFinalizer) {
+			cb.Status.Phase = v1alpha1.ClusterPhaseInitialized
+			cb.Status.ExpStatuses = make([]v1alpha1.ExperimentStatus, 0)
+			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
+				reqLogger.WithError(err).Errorln("update chaosblade phase to Initialized failed")
+			}
+		} else {
+			cb.SetFinalizers(append(cb.GetFinalizers(), chaosbladeFinalizer))
+			// Update CR
+			if err := r.client.Update(context.TODO(), cb); err != nil {
+				reqLogger.WithError(err).Errorln("add finalizer to chaosblade failed")
+			}
+		}
+		return forget, nil
+	}
+	// Initialized->Running/Error
+	// TODO When all the master nodes are inaccessible, there is the possibility of re-execution.
+	if cb.Status.Phase == v1alpha1.ClusterPhaseInitialized ||
 		cb.Status.Phase == v1alpha1.ClusterPhaseUpdating {
+		originalPhase := cb.Status.Phase
 		expStatusList := make([]v1alpha1.ExperimentStatus, 0)
 		var phase = v1alpha1.ClusterPhaseError
 		for _, exp := range cb.Spec.Experiments {
@@ -148,77 +166,77 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 			}
 			expStatusList = append(expStatusList, experimentStatus)
 		}
-
 		cb.Status.ExpStatuses = expStatusList
 		cb.Status.Phase = phase
-		err := r.client.Status().Update(context.TODO(), cb)
-		if err != nil {
-			logrus.Warningf("update chaosblade err, %v", err)
-		}
-		return forget, err
-	}
-
-	// delete the CR object
-	if cb.GetDeletionTimestamp() != nil {
-		if contains(cb.GetFinalizers(), chaosbladeFinalizer) {
-			err := r.finalizeChaosBlade(reqLogger, cb)
-			return forget, err
+		if err := r.client.Status().Update(context.TODO(), cb); err != nil {
+			reqLogger.WithError(err).Errorf("Important!!!!!update phase from %s to %s failed", originalPhase, phase)
 		}
 		return forget, nil
 	}
 
-	// Update CR, firstly destroy it and re-create the new CR
-	phase := v1alpha1.ClusterPhaseUpdating
-	for idx, expStatus := range cb.Status.ExpStatuses {
+	// Running/Error->Updating/Destroying
+	if cb.Status.Phase == v1alpha1.ClusterPhaseRunning ||
+		cb.Status.Phase == v1alpha1.ClusterPhaseError {
+		// Update CR, firstly destroy it and re-create the new CR
+		phase := v1alpha1.ClusterPhaseUpdating
+		originalPhase := cb.Status.Phase
 		logrus.Infof("update cb: %+v", *cb)
-		var experimentStatus = r.Executor.Destroy(cb.Name, cb.Spec.Experiments[idx], expStatus)
-		if !experimentStatus.Success {
-			phase = v1alpha1.ClusterPhaseDestroying
+		matchersString := cb.GetAnnotations()["preSpec"]
+		if matchersString != "" {
+			var oldSpec v1alpha1.ChaosBladeSpec
+			err := json.Unmarshal([]byte(matchersString), &oldSpec)
+			if err != nil {
+				reqLogger.WithError(err).Errorf("unmarshal old spec failed, %s", matchersString)
+				return forget, nil
+			}
+			// update annotation to cb
+			if err = r.client.Update(context.TODO(), cb); err != nil {
+				reqLogger.WithError(err).Errorln("add annotation to chaosblade failed")
+			}
+			if cb.Status.ExpStatuses != nil {
+				for idx, expStatus := range cb.Status.ExpStatuses {
+					var experimentStatus = r.Executor.Destroy(cb.Name, oldSpec.Experiments[idx], expStatus)
+					if !experimentStatus.Success {
+						phase = v1alpha1.ClusterPhaseDestroying
+					}
+					cb.Status.ExpStatuses[idx] = experimentStatus
+				}
+			}
+			cb.Status.Phase = phase
+			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
+				reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
+			}
+			return forget, nil
 		}
-		cb.Status.ExpStatuses[idx] = experimentStatus
-	}
-	cb.Status.Phase = phase
-	err = r.client.Status().Update(context.TODO(), cb.DeepCopy())
-	if err != nil {
-		logrus.Warningf("update chaosblade to updating err, %v", err)
+		reqLogger.Errorln("can not found matchers in annotations field")
 	}
 	return forget, nil
 }
 
 // finalizeChaosBlade
-func (r *ReconcileChaosBlade) finalizeChaosBlade(reqLogger logr.Logger, cb *v1alpha1.ChaosBlade) error {
+func (r *ReconcileChaosBlade) finalizeChaosBlade(reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade) error {
 	var phase = v1alpha1.ClusterPhaseDestroyed
-	for idx, exp := range cb.Spec.Experiments {
-		logrus.Infof("finalize cb: %+v", *cb)
-		oldExpStatus := cb.Status.ExpStatuses[idx]
-		oldExpStatus = r.Executor.Destroy(cb.Name, exp, oldExpStatus)
-		if !oldExpStatus.Success {
-			phase = v1alpha1.ClusterPhaseDestroying
+	reqLogger.Infoln("Finalize the chaosblade")
+	if cb.Status.ExpStatuses != nil &&
+		len(cb.Spec.Experiments) == len(cb.Status.ExpStatuses) {
+		for idx, exp := range cb.Spec.Experiments {
+			oldExpStatus := cb.Status.ExpStatuses[idx]
+			oldExpStatus = r.Executor.Destroy(cb.Name, exp, oldExpStatus)
+			if !oldExpStatus.Success {
+				phase = v1alpha1.ClusterPhaseDestroying
+			}
+			cb.Status.ExpStatuses[idx] = oldExpStatus
 		}
-		cb.Status.ExpStatuses[idx] = oldExpStatus
 	}
 	cb.Status.Phase = phase
-	err := r.client.Status().Update(context.TODO(), cb.DeepCopy())
+	err := r.client.Status().Update(context.TODO(), cb)
 	if err != nil {
-		logrus.Warningf("update chaosblade status failed in finalize phase, %v", err)
-		return err
+		return fmt.Errorf("update chaosblade status failed in finalize phase, %v", err)
 	}
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroying {
 		return fmt.Errorf("failed to destory, please see the experiment status")
 	}
 	reqLogger.Info("Successfully finalized chaosblade")
-	return nil
-}
-
-func (r *ReconcileChaosBlade) addFinalizer(reqLogger logr.Logger, cb *v1alpha1.ChaosBlade) error {
-	reqLogger.Info("Adding Finalizer for the ChaosBlade")
-	cb.SetFinalizers(append(cb.GetFinalizers(), chaosbladeFinalizer))
-	// Update CR
-	err := r.client.Update(context.TODO(), cb)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update ChaosBlade with finalizer")
-		return err
-	}
 	return nil
 }
 

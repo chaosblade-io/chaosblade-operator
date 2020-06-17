@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2020 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/meta"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 type DockerSubResourceModelSpec struct {
@@ -57,61 +58,76 @@ type DockerSubResourceExecutor struct {
 	model.ExecCommandInPodExecutor
 }
 
+var CommandInPodExecutorFunc = func(ctx context.Context, expModel *spec.ExpModel,
+	resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
+	bladeBin := chaosblade.Constant.BladeBin
+	identifiers := make([]model.ExperimentIdentifier, 0)
+	excludeFlagsFunc := model.ExcludeKeyFunc()
+	isNetworkTarget := expModel.Target == osexec.NewNetworkCommandSpec().Name()
+	isContainerSelfTarget := expModel.Target == exec.NewContainerCommandSpec().Name()
+	matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
+	if !isNetworkTarget && !isContainerSelfTarget {
+		// container network does not need --blade-tar-file and --override flags
+		matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, runtime.GetChaosBladePkgPath())
+	}
+	if isNetworkTarget {
+		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
+			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
+	}
+	if _, ok := spec.IsDestroy(ctx); ok {
+		return generateDestroyCommands(ctx, expModel, resourceIdentifier, matchers, bladeBin, identifiers)
+	}
+	return generateCreateCommands(ctx, expModel, resourceIdentifier, matchers, bladeBin, identifiers)
+}
+
 // NewDockerSubResourceExecutor returns the container executor
 func NewDockerSubResourceExecutor(client *channel.Client) spec.Executor {
 	return &DockerSubResourceExecutor{
 		model.ExecCommandInPodExecutor{
-			Client: client,
-			CommandFunc: func(ctx context.Context, expModel *spec.ExpModel,
-				resourceIdentifier *model.ResourceIdentifier) ([]model.ExperimentIdentifier, error) {
-				bladeBin := meta.Constant.BladeBin
-				identifiers := make([]model.ExperimentIdentifier, 0)
-
-				if _, ok := spec.IsDestroy(ctx); ok {
-					logrus.Infof("enter docker destroy...")
-					nodeNameExpObjectMetasMaps, err := model.ExtractNodeNameExpObjectMetasMapFromContext(ctx)
-					if err != nil {
-						return nil, err
-					}
-					logrus.Infof("nodeNameExpObjectMetasMaps: %+v", nodeNameExpObjectMetasMaps)
-					expObjectMetas := nodeNameExpObjectMetasMaps[resourceIdentifier.NodeName]
-					for _, expObjectMeta := range expObjectMetas {
-						command := fmt.Sprintf("%s destroy %s", bladeBin, expObjectMeta.Id)
-						identifier := model.NewExperimentIdentifier(expObjectMeta.Id, expObjectMeta.Uid, expObjectMeta.Name, command)
-						identifiers = append(identifiers, identifier)
-					}
-					return identifiers, nil
-				}
-
-				nodeNameContainerObjectMetasMaps, err := model.ExtractNodeNameContainerMetasMapFromContext(ctx)
-				if err != nil {
-					return nil, err
-				}
-				containerObjectMetas := nodeNameContainerObjectMetasMaps[resourceIdentifier.NodeName]
-				if containerObjectMetas == nil {
-					return nil, fmt.Errorf("cannot find the matched container on the node: %s", resourceIdentifier.NodeName)
-				}
-				// container network does not need --blade-tar-file and --override flags
-				excludeFlagsFunc := model.ExcludeKeyFunc()
-				isNetworkTarget := expModel.Target == osexec.NewNetworkCommandSpec().Name()
-				isContainerSelfTarget := expModel.Target == exec.NewContainerCommandSpec().Name()
-				matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
-				if !isNetworkTarget && !isContainerSelfTarget {
-					matchers = fmt.Sprintf("%s --blade-tar-file %s", matchers, meta.GetChaosBladePkgPath())
-				}
-				if isNetworkTarget {
-					matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
-						matchers, meta.Constant.ImageRepoFunc(), meta.GetChaosBladeVersion())
-				}
-				for _, objectMeta := range containerObjectMetas {
-					identifier := model.ExperimentIdentifier{}
-					flags := fmt.Sprintf("%s --container-id %s", matchers, objectMeta.Uid)
-					command := fmt.Sprintf("%s create docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
-					identifier = model.NewExperimentIdentifier("", objectMeta.Uid, objectMeta.Name, command)
-					identifiers = append(identifiers, identifier)
-				}
-				return identifiers, nil
-			},
+			Client:      client,
+			CommandFunc: CommandInPodExecutorFunc,
 		},
 	}
+}
+
+func generateDestroyCommands(ctx context.Context, expModel *spec.ExpModel, resourceIdentifier *model.ResourceIdentifier, matchers string, bladeBin string, identifiers []model.ExperimentIdentifier) ([]model.ExperimentIdentifier, error) {
+	nodeNameExpObjectMetasMaps, err := model.ExtractNodeNameExpObjectMetasMapFromContext(ctx)
+	if err != nil {
+		return identifiers, err
+	}
+	logrus.Debugf("NodeNameExpObjectMetasMaps: %+v", nodeNameExpObjectMetasMaps)
+	expObjectMetas := nodeNameExpObjectMetasMaps[resourceIdentifier.NodeName]
+	if expObjectMetas == nil {
+		return identifiers, fmt.Errorf("cannot find the matched container on the node: %s", resourceIdentifier.NodeName)
+	}
+	for _, expObjectMeta := range expObjectMetas {
+		flags := fmt.Sprintf("%s --container-id %s", matchers, expObjectMeta.Uid)
+		command := fmt.Sprintf("%s destroy docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
+		if expObjectMeta.Id != "" {
+			command = fmt.Sprintf("%s --uid %s", command, expObjectMeta.Id)
+		}
+		identifier := model.NewExperimentIdentifier(expObjectMeta.Id, expObjectMeta.Uid, expObjectMeta.Name, command)
+		identifiers = append(identifiers, identifier)
+	}
+	return identifiers, nil
+}
+
+func generateCreateCommands(ctx context.Context, expModel *spec.ExpModel, resourceIdentifier *model.ResourceIdentifier,
+	matchers string, bladeBin string, identifiers []model.ExperimentIdentifier) ([]model.ExperimentIdentifier, error) {
+	nodeNameContainerObjectMetasMaps, err := model.ExtractNodeNameContainerMetasMapFromContext(ctx)
+	if err != nil {
+		return identifiers, err
+	}
+	logrus.Debugf("NodeNameContainerObjectMetasMaps: %+v", nodeNameContainerObjectMetasMaps)
+	containerObjectMetas := nodeNameContainerObjectMetasMaps[resourceIdentifier.NodeName]
+	if containerObjectMetas == nil {
+		return identifiers, fmt.Errorf("cannot find the matched container on the node: %s", resourceIdentifier.NodeName)
+	}
+	for _, objectMeta := range containerObjectMetas {
+		flags := fmt.Sprintf("%s --container-id %s", matchers, objectMeta.Uid)
+		command := fmt.Sprintf("%s create docker %s %s %s", bladeBin, expModel.Target, expModel.ActionName, flags)
+		identifier := model.NewExperimentIdentifier("", objectMeta.Uid, objectMeta.Name, command)
+		identifiers = append(identifiers, identifier)
+	}
+	return identifiers, nil
 }
