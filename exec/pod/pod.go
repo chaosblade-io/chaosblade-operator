@@ -56,6 +56,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 			ExpActions: []spec.ExpActionCommandSpec{
 				NewDeletePodActionSpec(client),
 				NewPodIOActionSpec(client),
+				NewFailPodActionSpec(client),
 			},
 		},
 	}
