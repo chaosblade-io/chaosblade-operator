@@ -126,26 +126,34 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 
 // resourceFunc is used to query the target resource
 var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.Pod, error) {
-	pods := make([]v1.Pod, 0)
 	namespace := flags[ResourceNamespaceFlag.Name]
-	// labels
 	labels := flags[ResourceLabelsFlag.Name]
-	if labels != "" {
-		labelArr := strings.Split(labels, ",")
-		labelMap := make(map[string]string, 0)
-		for _, label := range labelArr {
-			keyValue := strings.SplitN(label, "=", 2)
-			if len(keyValue) != 2 {
-				logrus.Warningf("label %s is illegal", label)
+	labelsMap := parseLabels(labels)
+
+	pods := make([]v1.Pod, 0)
+	names := flags[ResourceNamesFlag.Name]
+	if names != "" {
+		nameArr := strings.Split(names, ",")
+		for _, name := range nameArr {
+			pod := v1.Pod{}
+			err := client2.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &pod)
+			if err != nil {
+				logrus.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
-			labelMap[keyValue[0]] = keyValue[1]
+			if mapContains(pod.Labels, labelsMap) {
+				pods = append(pods, pod)
+			}
 		}
-		if len(labelMap) == 0 {
-			return pods, fmt.Errorf("illegal labels %s", labels)
-		}
+		logrus.Infof("get pods by names %s, len is %d", names, len(pods))
+		return pods, nil
+	}
+	if labels != "" && len(labelsMap) == 0 {
+		return pods, fmt.Errorf("illegal labels %s", labels)
+	}
+	if len(labelsMap) > 0 {
 		podList := v1.PodList{}
-		opts := client.ListOptions{Namespace: namespace, LabelSelector: pkglabels.SelectorFromSet(labelMap)}
+		opts := client.ListOptions{Namespace: namespace, LabelSelector: pkglabels.SelectorFromSet(labelsMap)}
 		err := client2.List(context.TODO(), &podList, &opts)
 		if err != nil {
 			return pods, err
@@ -155,37 +163,6 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 		}
 		pods = podList.Items
 		logrus.Infof("get pods by labels %s, len is %d", labels, len(pods))
-	}
-
-	podsWithName := make([]v1.Pod, 0)
-	// names
-	names := flags[ResourceNamesFlag.Name]
-	if names != "" {
-		nameArr := strings.Split(names, ",")
-		if len(pods) == 0 {
-			for _, name := range nameArr {
-				pod := v1.Pod{}
-				err := client2.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &pod)
-				if err != nil {
-					logrus.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
-				} else {
-					podsWithName = append(podsWithName, pod)
-				}
-			}
-		} else {
-			for _, pod := range pods {
-				for _, name := range nameArr {
-					if pod.Name == name {
-						podsWithName = append(podsWithName, pod)
-					}
-				}
-			}
-		}
-		logrus.Infof("get pods by names %s, len is %d", names, len(podsWithName))
-		if len(podsWithName) == 0 {
-			return podsWithName, nil
-		}
-		pods = podsWithName
 	}
 	return pods, nil
 }
@@ -200,4 +177,33 @@ func randomPodSelected(pods []v1.Pod, count int) []v1.Pod {
 		pods[i], pods[num] = pods[num], pods[i]
 	}
 	return pods[:count]
+}
+
+func parseLabels(labels string) map[string]string {
+	labelsMap := make(map[string]string, 0)
+	if labels == "" {
+		return labelsMap
+	}
+	labelArr := strings.Split(labels, ",")
+	for _, label := range labelArr {
+		keyValue := strings.SplitN(label, "=", 2)
+		if len(keyValue) != 2 {
+			logrus.Warningf("label %s is illegal", label)
+			continue
+		}
+		labelsMap[keyValue[0]] = keyValue[1]
+	}
+	return labelsMap
+}
+
+func mapContains(bigMap map[string]string, subMap map[string]string) bool {
+	if bigMap == nil || subMap == nil {
+		return false
+	}
+	for k, v := range subMap {
+		if bigMap[k] != v {
+			return false
+		}
+	}
+	return true
 }
