@@ -17,10 +17,11 @@
 package node
 
 import (
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
-
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+
+	osModel "github.com/chaosblade-io/chaosblade-exec-os/exec/model"
 )
 
 type ResourceModelSpec struct {
@@ -33,9 +34,10 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	}
 	osModelSpecs := NewOSSubResourceModelSpec(client).ExpModels()
 	selfModelSpec := NewSelfExpModelCommandSpec()
-
 	expModelSpecs := append(osModelSpecs, selfModelSpec)
+
 	spec.AddFlagsToModelSpec(getResourceFlags, expModelSpecs...)
+	spec.AddFlagsToModelSpec(osModel.GetSSHExpFlags, expModelSpecs...)
 	modelSpec.RegisterExpModels(osModelSpecs...)
 	return modelSpec
 }
