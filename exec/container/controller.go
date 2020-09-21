@@ -19,6 +19,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -50,79 +51,99 @@ func (*ExpController) Name() string {
 
 // Create an experiment about container
 func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentSpec) *spec.Response {
-	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
-	containerIdsValue := expModel.ActionFlags[model.ContainerIdsFlag.Name]
-	containerNamesValue := expModel.ActionFlags[model.ContainerNamesFlag.Name]
-
-	if containerIdsValue == "" && containerNamesValue == "" {
-		errMsg := fmt.Sprintf("less %s or %s flag", model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name)
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+	expModel, ctx, response := e.convert(ctx, expSpec)
+	if !response.Success {
+		return response
 	}
-	if containerIdsValue != "" && containerNamesValue != "" {
-		errMsg := fmt.Sprintf("only one choice between %s and %s", model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name)
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
+	return e.Exec(ctx, expModel)
+}
+
+func (e *ExpController) convert(ctx context.Context, expSpec v1alpha1.ExperimentSpec) (*spec.ExpModel, context.Context, *spec.Response) {
+	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
+	// priority id > name > index
+	containerIdsValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerIdsFlag.Name])
+	containerNamesValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerNamesFlag.Name])
+	containerIndexValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerIndexFlag.Name])
+
+	if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue == "" {
+		errMsg := fmt.Sprintf("must specify one flag in %s %s %s",
+			model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
+		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
 			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	pods, err := e.GetMatchedPodResources(*expModel)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		errMsg := "cannot find the target pods for container resource"
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+			v1alpha1.CreateFailExperimentStatus("cannot find the target pods for container resource", nil))
 	}
-	ctx = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue)
-	return e.Exec(ctx, expModel)
+	ctx, err = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue, containerIndexValue)
+	if err != nil {
+		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+	}
+	return expModel, ctx, spec.ReturnSuccess("")
 }
 
 // setNecessaryObjectsToContext which will be used in the executor
 func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
-	containerIdsValue, containerNamesValue string) context.Context {
+	containerIdsValue, containerNamesValue, containerIndexValue string) (context.Context, error) {
 	nodeNameContainerObjectMetasMaps := model.NodeNameContainerObjectMetasMap{}
 	nodeNameUidMap := model.NodeNameUidMap{}
 	expectedContainerIds := strings.Split(containerIdsValue, ",")
 	expectedContainerNames := strings.Split(containerNamesValue, ",")
 	for _, pod := range pods {
 		containerStatuses := pod.Status.ContainerStatuses
-		if containerStatuses != nil {
-			for _, containerStatus := range containerStatuses {
-				containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
-				containerName := containerStatus.Name
-				if len(containerIdsValue) > 0 {
-					for _, expectedContainerId := range expectedContainerIds {
-						if expectedContainerId == "" {
-							continue
-						}
-						if strings.HasPrefix(containerId, expectedContainerId) {
-							// matched
-							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-								AddMatchedContainerAndNode(pod, containerId, containerName,
-									nodeNameContainerObjectMetasMaps, nodeNameUidMap)
-						}
+		if containerStatuses == nil {
+			continue
+		}
+		for _, containerStatus := range containerStatuses {
+			containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			containerName := containerStatus.Name
+			if containerIdsValue != "" {
+				for _, expectedContainerId := range expectedContainerIds {
+					if expectedContainerId == "" {
+						continue
+					}
+					if strings.HasPrefix(containerId, expectedContainerId) {
+						nodeNameUidMap, nodeNameContainerObjectMetasMaps =
+							AddMatchedContainerAndNode(pod, containerId, containerName,
+								nodeNameContainerObjectMetasMaps, nodeNameUidMap)
 					}
 				}
-				if len(containerNamesValue) > 0 {
-					for _, expectedName := range expectedContainerNames {
-						if expectedName == "" {
-							continue
-						}
-						if expectedName == containerName {
-							// matched
-							nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-								AddMatchedContainerAndNode(pod, containerId, containerName,
-									nodeNameContainerObjectMetasMaps, nodeNameUidMap)
-						}
+			} else if containerNamesValue != "" {
+				for _, expectedName := range expectedContainerNames {
+					if expectedName == "" {
+						continue
+					}
+					if expectedName == containerName {
+						// matched
+						nodeNameUidMap, nodeNameContainerObjectMetasMaps =
+							AddMatchedContainerAndNode(pod, containerId, containerName,
+								nodeNameContainerObjectMetasMaps, nodeNameUidMap)
 					}
 				}
 			}
 		}
+		if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue != "" {
+			idx, err := strconv.Atoi(containerIndexValue)
+			if err != nil {
+				return ctx, err
+			}
+			if idx > len(containerStatuses)-1 {
+				return ctx, fmt.Errorf("%s value is out of bound", containerIndexValue)
+			}
+			nodeNameUidMap, nodeNameContainerObjectMetasMaps =
+				AddMatchedContainerAndNode(pod, model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID),
+					containerStatuses[idx].Name, nodeNameContainerObjectMetasMaps, nodeNameUidMap)
+		}
 	}
 	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
 	ctx = context.WithValue(ctx, model.NodeNameContainerObjectMetasMapKey, nodeNameContainerObjectMetasMaps)
-	return ctx
+	return ctx, nil
 }
 
 func AddMatchedContainerAndNode(pod v1.Pod, containerId, containerName string, nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap,

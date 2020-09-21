@@ -163,10 +163,16 @@ var ContainerNamesFlag = &spec.ExpFlag{
 	Required: false,
 }
 
+var ContainerIndexFlag = &spec.ExpFlag{
+	Name: "container-index",
+	Desc: "Container index, default value is 0",
+}
+
 func GetContainerFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
 		ContainerIdsFlag,
 		ContainerNamesFlag,
+		ContainerIndexFlag,
 	}
 }
 
@@ -187,7 +193,9 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		ResourceNamespaceFlag.Name,
 		ResourceLabelsFlag.Name,
 		ContainerIdsFlag.Name,
-		ContainerNamesFlag.Name}
+		ContainerNamesFlag.Name,
+		ContainerIndexFlag.Name,
+	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {
 		names[name] = spec.Empty{}
