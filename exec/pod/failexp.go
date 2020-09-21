@@ -41,6 +41,9 @@ func NewFailPodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 				&spec.ExpFlag{},
 			},
 			ActionExecutor: &FailPodActionExecutor{client: client},
+			ActionExample: `# Specify POD exception
+blade create k8s pod-pod fail --labels "app=test" --namespace default
+`,
 		},
 	}
 }
