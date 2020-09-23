@@ -2,9 +2,6 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: chaosblades.chaosblade.io
-  annotations:
-    helm.sh/hook: crd-install
-    helm.sh/hook-delete-policy: before-hook-creation
 spec:
   group: chaosblade.io
   names:
@@ -18,20 +15,22 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: ChaosBlade is the Schema for the chaosblades API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
+          description: ChaosBladeSpec defines the desired state of ChaosBlade
           properties:
             experiments:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -73,15 +72,16 @@ spec:
                     description: Target is the experiment target, such as cpu, network
                     type: string
                 required:
+                - action
                 - scope
                 - target
-                - action
                 type: object
               type: array
           required:
           - experiments
           type: object
         status:
+          description: ChaosBladeStatus defines the observed state of ChaosBlade
           properties:
             expStatuses:
               description: 'Important: Run "operator-sdk generate k8s" to regenerate
@@ -103,14 +103,12 @@ spec:
                         id:
                           description: experiment uid in chaosblade
                           type: string
+                        identifier:
+                          description: 'Resource identifier, rules as following: container:
+                            Namespace/NodeName/PodName/ContainerName pod： Namespace/NodeName/PodName'
+                          type: string
                         kind:
                           description: Kind
-                          type: string
-                        name:
-                          description: resource name
-                          type: string
-                        nodeName:
-                          description: NodeName
                           type: string
                         state:
                           description: experiment state
@@ -118,12 +116,9 @@ spec:
                         success:
                           description: success
                           type: boolean
-                        uid:
-                          description: resource uid
-                          type: string
                       required:
-                      - state
                       - kind
+                      - state
                       - success
                       type: object
                     type: array
@@ -139,11 +134,11 @@ spec:
                   target:
                     type: string
                 required:
-                - scope
-                - target
                 - action
-                - success
+                - scope
                 - state
+                - success
+                - target
                 type: object
               type: array
             phase:
@@ -153,6 +148,7 @@ spec:
           required:
           - expStatuses
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

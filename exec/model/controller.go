@@ -42,7 +42,7 @@ type ExpController interface {
 type ExperimentController interface {
 	// controller Name
 	Name() string
-	// Create
+	// Create experiment
 	Create(ctx context.Context, expSpec v1alpha1.ExperimentSpec) *spec.Response
 	// Destroy
 	Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec, oldExpStatus v1alpha1.ExperimentStatus) *spec.Response
@@ -53,26 +53,33 @@ type BaseExperimentController struct {
 	ResourceModelSpec ResourceExpModelSpec
 }
 
-func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec,
-	_ v1alpha1.ExperimentStatus) *spec.Response {
+func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec) *spec.Response {
 	expModel := ExtractExpModelFromExperimentSpec(expSpec)
 	return b.Exec(ctx, expModel)
 }
 
+// Exec gets action executor and execute experiments
 func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrus.Infof("Start exec, expModel: %+v", expModel)
+	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
+	logrusField.Infof("start to execute: %+v", expModel)
 	// get action spec
 	actionSpec := b.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
 	if actionSpec == nil {
 		errMsg := "can not find the action handler"
+		logrusField.WithFields(logrus.Fields{
+			"target": expModel.Target,
+			"action": expModel.ActionName,
+		}).Errorf(errMsg)
 		return spec.ReturnFailWitResult(spec.Code[spec.HandlerNotFound], errMsg,
 			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
+	expModel.ActionPrograms = actionSpec.Programs()
 	// invoke action executor
 	response := actionSpec.Executor().Exec("", ctx, expModel)
 	return response
 }
 
+// ExtractExpModelFromExperimentSpec convert ExperimentSpec to ExpModel
 func ExtractExpModelFromExperimentSpec(experimentSpec v1alpha1.ExperimentSpec) *spec.ExpModel {
 	expModel := &spec.ExpModel{
 		Target:      experimentSpec.Target,
@@ -86,16 +93,6 @@ func ExtractExpModelFromExperimentSpec(experimentSpec v1alpha1.ExperimentSpec) *
 		}
 	}
 	return expModel
-}
-
-func ExtractExpModelFromExperimentStatus(experimentStatus v1alpha1.ExperimentStatus) *spec.ExpModel {
-	return &spec.ExpModel{
-		Target:     experimentStatus.Target,
-		Scope:      experimentStatus.Scope,
-		ActionName: experimentStatus.Action,
-		// unuseful for destroy operation
-		ActionFlags: make(map[string]string),
-	}
 }
 
 func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
@@ -142,39 +139,14 @@ func CreateDestroyedStatus(oldExpStatus v1alpha1.ExperimentStatus) v1alpha1.Expe
 			statuses = append(statuses, v1alpha1.ResourceStatus{
 				// experiment uid in chaosblade
 				Id: status.Id,
-				// resource uid
-				Uid: status.Uid,
-				// resource name
-				Name: status.Name,
-				Kind: status.Kind,
 				// experiment state
-				State:    v1alpha1.DestroyedState,
-				Success:  true,
-				NodeName: status.NodeName,
+				State:   v1alpha1.DestroyedState,
+				Success: true,
+				// resource name
+				Kind:       status.Kind,
+				Identifier: status.Identifier,
 			})
 		}
 	}
 	return v1alpha1.CreateDestroyedExperimentStatus(statuses)
-}
-
-func CreateErrorStatus(errorMsgs []string, oldExpStatus v1alpha1.ExperimentStatus) v1alpha1.ExperimentStatus {
-	statuses := make([]v1alpha1.ResourceStatus, 0)
-	if oldExpStatus.ResStatuses != nil {
-		for idx, status := range oldExpStatus.ResStatuses {
-			statuses = append(statuses, v1alpha1.ResourceStatus{
-				// experiment uid in chaosblade
-				Id: status.Id,
-				// resource uid
-				Uid: status.Uid,
-				// resource name
-				Name: status.Name,
-				Kind: status.Kind,
-				// experiment state
-				State:   v1alpha1.ErrorState,
-				Error:   errorMsgs[idx],
-				Success: false,
-			})
-		}
-	}
-	return v1alpha1.CreateFailExperimentStatus("see resStatus for the error details", statuses)
 }

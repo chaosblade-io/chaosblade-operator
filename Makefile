@@ -9,7 +9,7 @@ GO=env $(GO_ENV) $(GO_MODULE) go
 UNAME := $(shell uname)
 
 ifeq ($(BLADE_VERSION), )
-	BLADE_VERSION=0.6.0
+	BLADE_VERSION=0.7.0
 endif
 ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community
@@ -19,12 +19,13 @@ BUILD_TARGET=target
 BUILD_TARGET_DIR_NAME=chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_PKG_DIR=$(BUILD_TARGET)/chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_BIN=$(BUILD_TARGET_PKG_DIR)/bin
+BUILD_TARGET_YAML=$(BUILD_TARGET_PKG_DIR)/yaml
 BUILD_IMAGE_PATH=build/image/blade
 # cache downloaded file
 BUILD_TARGET_CACHE=$(BUILD_TARGET)/cache
 
 OS_YAML_FILE_NAME=chaosblade-k8s-spec-$(BLADE_VERSION).yaml
-OS_YAML_FILE_PATH=$(BUILD_TARGET_BIN)/$(OS_YAML_FILE_NAME)
+OS_YAML_FILE_PATH=$(BUILD_TARGET_YAML)/$(OS_YAML_FILE_NAME)
 
 VERSION_PKG=github.com/chaosblade-io/chaosblade-operator/version
 GO_X_FLAGS=-X=$(VERSION_PKG).CombinedVersion=$(BLADE_VERSION),$(BLADE_VENDOR)
@@ -51,7 +52,7 @@ build_linux:
 
 pre_build:
 	rm -rf $(BUILD_TARGET_PKG_DIR) $(BUILD_TARGET_PKG_FILE_PATH)
-	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_LIB)
+	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML)
 
 build_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH)

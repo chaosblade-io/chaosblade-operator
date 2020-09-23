@@ -32,7 +32,10 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	modelSpec := &ResourceModelSpec{
 		model.NewBaseResourceExpModelSpec("pod", client),
 	}
-	osExpModels := NewOSSubResourceModelSpec(client).ExpModels()
+	// os experiment models
+	osExpModels := model.NewOSSubResourceModelSpec().ExpModels()
+	spec.AddExecutorToModelSpec(&model.ExecCommandInPodExecutor{Client: client}, osExpModels...)
+	// pod-self experiment models
 	expModels := append(osExpModels, NewSelfExpModelCommandSpec(client))
 
 	spec.AddFlagsToModelSpec(getResourceFlags, expModels...)
@@ -197,7 +200,8 @@ blade create k8s pod-network loss --percent 100 --interface eth0 --remote-port 8
 func getResourceFlags() []spec.ExpFlagSpec {
 	coverageFlags := model.GetResourceCoverageFlags()
 	commonFlags := model.GetResourceCommonFlags()
-	return append(coverageFlags, commonFlags...)
+	chaosbladeFlags := model.GetChaosBladeFlags()
+	return append(append(coverageFlags, commonFlags...), chaosbladeFlags...)
 }
 
 type SelfExpModelCommandSpec struct {
@@ -232,4 +236,3 @@ func (*SelfExpModelCommandSpec) LongDesc() string {
 func (*SelfExpModelCommandSpec) Example() string {
 	return "blade c k8s pod-pod delete --names redis-slave-674d68586-n5s4q --namespace default --kubeconfig ~/.kube/config"
 }
-

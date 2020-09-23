@@ -27,11 +27,11 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-	"github.com/chaosblade-io/chaosblade-operator/exec/node"
 	"github.com/chaosblade-io/chaosblade-operator/exec/pod"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
+// ResourceDispatchedController contains all resource controllers exclude node resource
 type ResourceDispatchedController struct {
 	Controllers map[string]model.ExperimentController
 }
@@ -39,13 +39,14 @@ type ResourceDispatchedController struct {
 var executor *ResourceDispatchedController
 var once sync.Once
 
+// NewDispatcherExecutor initialized when operator starting
 func NewDispatcherExecutor(client *channel.Client) *ResourceDispatchedController {
 	once.Do(func() {
 		executor = &ResourceDispatchedController{
 			Controllers: make(map[string]model.ExperimentController, 0),
 		}
 		executor.register(
-			node.NewExpController(client),
+			// Delete node controller executed by chaosblade directly
 			pod.NewExpController(client),
 			container.NewExpController(client),
 		)
@@ -58,14 +59,17 @@ func (e *ResourceDispatchedController) Name() string {
 }
 
 func (e *ResourceDispatchedController) Create(bladeName string, expSpec v1alpha1.ExperimentSpec) v1alpha1.ExperimentStatus {
+	logrus.WithField("experiment", bladeName).Infof("start to create experiment")
 	controller := e.Controllers[expSpec.Scope]
 	if controller == nil {
+		logrus.WithField("experiment", bladeName).WithField("scope", expSpec.Scope).Errorf("controller not found")
 		return v1alpha1.ExperimentStatus{
 			State: "Error",
 			Error: "can not find the scope controller for creating",
 		}
 	}
-	response := controller.Create(context.Background(), expSpec)
+	ctx := model.SetExperimentIdToContext(context.Background(), bladeName)
+	response := controller.Create(ctx, expSpec)
 	experimentStatus := createExperimentStatusByResponse(response)
 	experimentStatus.Scope = expSpec.Scope
 	experimentStatus.Target = expSpec.Target
@@ -81,22 +85,43 @@ func (e *ResourceDispatchedController) Destroy(bladeName string, expSpec v1alpha
 			Error: "can not find the scope controller for destroying",
 		}
 	}
-
 	if oldExpStatus.ResStatuses == nil ||
 		len(oldExpStatus.ResStatuses) == 0 {
 		return model.CreateDestroyedStatus(oldExpStatus)
 	}
 	ctx := spec.SetDestroyFlag(context.Background(), bladeName)
-	ctx = setNodeNamesAndExpIdsToContextForDestroy(ctx, &oldExpStatus.ResStatuses)
-
+	ctx = model.SetExperimentIdToContext(ctx, bladeName)
 	response := controller.Destroy(ctx, expSpec, oldExpStatus)
 	newExpStatus := createExperimentStatusByResponse(response)
-	newExpStatus.Scope = oldExpStatus.Scope
-	newExpStatus.Target = oldExpStatus.Target
-	newExpStatus.Action = oldExpStatus.Action
+	newExpStatus = validateAndSetNecessaryFields(newExpStatus, oldExpStatus)
 	return newExpStatus
 }
 
+// validateAndSetNecessaryFields to resolve status overwriting when the experiment is destroyed.
+func validateAndSetNecessaryFields(status v1alpha1.ExperimentStatus, oldExpStatus v1alpha1.ExperimentStatus) v1alpha1.ExperimentStatus {
+	status.Scope = oldExpStatus.Scope
+	status.Target = oldExpStatus.Target
+	status.Action = oldExpStatus.Action
+	if status.State == "Error" {
+		status.State = oldExpStatus.State
+	}
+	if status.ResStatuses == nil {
+		return status
+	}
+	for _, s := range status.ResStatuses {
+		for _, os := range oldExpStatus.ResStatuses {
+			if s.Id != os.Id {
+				continue
+			}
+			if s.State == "Error" {
+				s.State = os.State
+			}
+		}
+	}
+	return status
+}
+
+// createExperimentStatusByResponse wraps experiment statuses
 func createExperimentStatusByResponse(response *spec.Response) v1alpha1.ExperimentStatus {
 	experimentStatus := v1alpha1.ExperimentStatus{}
 	if response.Result != nil {
@@ -109,33 +134,6 @@ func createExperimentStatusByResponse(response *spec.Response) v1alpha1.Experime
 		}
 	}
 	return experimentStatus
-}
-
-func setNodeNamesAndExpIdsToContextForDestroy(ctx context.Context, resourceStatus *[]v1alpha1.ResourceStatus) context.Context {
-	logrus.Infof("oldStatus for destroying, %+v", *resourceStatus)
-	nodeNameUidMap := model.NodeNameUidMap{}
-	nodeNameExpObjectMetaMap := model.NodeNameExpObjectMetasMap{}
-	for _, status := range *resourceStatus {
-		if status.Id == "" {
-			logrus.Warningf("the status id is empty, name: %s, uid: %s", status.Name, status.Uid)
-		}
-		// Because uid is unuseful in destroy operator
-		nodeNameUidMap[status.NodeName] = ""
-		expObjectMeta := model.ExpObjectMeta{
-			Id:   status.Id,
-			Name: status.Name,
-			Uid:  status.Uid,
-		}
-		expObjectMetas := nodeNameExpObjectMetaMap[status.NodeName]
-		if expObjectMetas == nil {
-			expObjectMetas = make([]model.ExpObjectMeta, 0)
-		}
-		expObjectMetas = append(expObjectMetas, expObjectMeta)
-		nodeNameExpObjectMetaMap[status.NodeName] = expObjectMetas
-	}
-	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
-	ctx = context.WithValue(ctx, model.NodeNameExpObjectMetaMapKey, nodeNameExpObjectMetaMap)
-	return ctx
 }
 
 func (e *ResourceDispatchedController) register(cs ...model.ExperimentController) {

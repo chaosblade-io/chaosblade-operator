@@ -58,8 +58,8 @@ func NewPodIOActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 					Desc: "I/O exception path or file",
 				},
 				&spec.ExpFlag{
-					Name: "random",
-					Desc: "random inject I/O code",
+					Name:   "random",
+					Desc:   "random inject I/O code",
 					NoArgs: true,
 				},
 				&spec.ExpFlag{
@@ -114,35 +114,34 @@ func (d *PodIOActionExecutor) Exec(uid string, ctx context.Context, model *spec.
 }
 
 func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
+	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
+	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
-	for _, meta := range podObjectMetaList {
+	for _, c := range containerMatchedList {
 		status := v1alpha1.ResourceStatus{
-			Uid:      meta.Uid,
-			Name:     meta.Name,
-			Kind:     v1alpha1.PodKind,
-			NodeName: meta.NodeName,
+			Kind:       v1alpha1.PodKind,
+			Identifier: c.GetIdentifier(),
 		}
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(), client.ObjectKey{Namespace: meta.Namespace, Name: meta.Name}, pod)
+		err := d.client.Get(context.TODO(), client.ObjectKey{Namespace: c.Namespace, Name: c.PodName}, pod)
 		if err != nil {
-			logrus.Errorf("get pod %s err, %v", meta.Name, err)
+			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}
 		if !isPodReady(pod) {
-			logrus.Infof("pod %s is not ready", meta.Name)
+			logrusField.Infof("pod %s is not ready", c.PodName)
 			statuses = append(statuses, status.CreateFailResourceStatus("pod is not read"))
 			continue
 		}
 		methods, ok := expModel.ActionFlags["method"]
 		if !ok && len(methods) != 0 {
-			logrus.Error("method cannot be empty")
+			logrusField.Error("method cannot be empty")
 			statuses = append(statuses, status.CreateFailResourceStatus("method cannot be empty"))
 			continue
 		}
@@ -152,7 +151,7 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		if ok && len(delayStr) != 0 {
 			delay, err = strconv.Atoi(delayStr)
 			if err != nil {
-				logrus.Error("delay must be integer")
+				logrusField.Error("delay must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 				continue
 			}
@@ -160,7 +159,7 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		percentStr, ok := expModel.ActionFlags["percent"]
 		if ok && len(percentStr) != 0 {
 			if percent, err = strconv.Atoi(percentStr); err != nil {
-				logrus.Error("percent must be integer")
+				logrusField.Error("percent must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 				continue
 			}
@@ -169,7 +168,7 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		errnoStr, ok := expModel.ActionFlags["errno"]
 		if ok && len(errnoStr) != 0 {
 			if errno, err = strconv.Atoi(errnoStr); err != nil {
-				logrus.Error("errno must be integer")
+				logrusField.Error("errno must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 				continue
 			}
@@ -192,13 +191,13 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 
 		chaosfsClient, err := getChaosfsClient(pod)
 		if err != nil {
-			logrus.Errorf("init chaosfs client failed: %v", meta.Name, request, err)
+			logrusField.Errorf("init chaosfs client failed: %v", c.PodName, request, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}
 		err = chaosfsClient.InjectFault(ctx, request)
 		if err != nil {
-			logrus.Errorf("inject io exception in pod %s failed, request %v, err: %v", meta.Name, request, err)
+			logrusField.Errorf("inject io exception in pod %s failed, request %v, err: %v", c.PodName, request, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}
@@ -215,42 +214,39 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 }
 
 func (d *PodIOActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrus.Info("start destroy io inject")
-	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
-	logrus.Infof("podObjectMetaList: %v", podObjectMetaList)
+	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
+	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses
-	for _, meta := range podObjectMetaList {
+	for _, c := range containerMatchedList {
 		status := v1alpha1.ResourceStatus{
-			Uid:      meta.Uid,
-			Name:     meta.Name,
-			Kind:     v1alpha1.PodKind,
-			NodeName: meta.NodeName,
+			Kind:       v1alpha1.PodKind,
+			Identifier: c.GetIdentifier(),
 		}
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(), client.ObjectKey{Namespace: meta.Namespace, Name: meta.Name}, pod)
+		err := d.client.Get(context.TODO(), client.ObjectKey{Namespace: c.Namespace, Name: c.PodName}, pod)
 		if err != nil {
-			logrus.Errorf("get pod %s err, %v", meta.Name, err)
+			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
 			continue
 		}
 		if !isPodReady(pod) {
-			logrus.Errorf("pod %s is not ready", meta.Name)
+			logrusField.Errorf("pod %s is not ready", c.PodName)
 			continue
 		}
 
 		chaosfsClient, err := getChaosfsClient(pod)
 		if err != nil {
-			logrus.Errorf("init chaosfs client failed in pod %v, err: %v", pod.Name, err)
+			logrusField.Errorf("init chaosfs client failed in pod %v, err: %v", pod.Name, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}
 		err = chaosfsClient.Revoke(ctx)
 		if err != nil {
-			logrus.Errorf("recover io exception failed in pod  %v, err: %v", meta.Name, err)
+			logrusField.Errorf("recover io exception failed in pod  %v, err: %v", c.PodName, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}

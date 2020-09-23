@@ -33,8 +33,6 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/exec"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/community"
-	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
 const chaosbladeFinalizer = "finalizer.chaosblade.io"
@@ -77,13 +75,13 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 	if err != nil {
 		return err
 	}
-	if community.Community == version.Product {
-		// deploy chaosblade tool
-		if err := deployChaosBladeTool(rcb); err != nil {
-			logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
-			return err
-		}
-	}
+	//if community.Community == version.Product {
+	//	// deploy chaosblade tool
+	//	if err := deployChaosBladeTool(rcb); err != nil {
+	//		logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
+	//		return err
+	//	}
+	//}
 	return nil
 }
 
