@@ -65,6 +65,12 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	}
 	logrusField.Infof("creating pod experiment, pod count is %d", len(pods))
 	containerObjectMetaList := getContainerMatchedList(experimentId, pods)
+	if len(containerObjectMetaList) == 0 {
+		msg := "pod container not found"
+		logrusField.Errorln(msg)
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], msg,
+			v1alpha1.CreateFailExperimentStatus(msg, nil))
+	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
 }
