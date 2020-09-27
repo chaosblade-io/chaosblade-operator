@@ -19,97 +19,80 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	"github.com/sirupsen/logrus"
 )
 
-const (
-	// For create operation
-	// nodeName:nodeUid
-	NodeNameUidMapKey = "NodeNameUidMap"
-	// nodeName: []{}
-	NodeNameContainerObjectMetasMapKey = "NodeNameContainerObjectMetasMapKey"
-	//[{Name: xx, Namespace: xx, Uid: xxx, NodeName: xxx}]
-	PodObjectMetaListKey = "PodObjectMetaListKey"
-
-	// For destroy operation
-	// nodeName:[{uid:expId}, {uid:expId}]
-	NodeNameExpObjectMetaMapKey = "NodeNameExpObjectMetasMap"
-)
-
-type NodeNameUidMap map[string]string
-
-type NodeNameExpObjectMetasMap map[string][]ExpObjectMeta
-
-type PodListOption client.ListOptions
-
-type ExpObjectMeta struct {
-	Id   string
-	Name string
-	Uid  string
-}
-
-type PodObjectMeta struct {
-	Name      string
-	Namespace string
-	Uid       string
-	NodeName  string
-}
+const ContainerObjectMetaListKey = "ContainerObjectMetaListKey"
+const ExperimentIdKey = "ExperimentIdKey"
 
 type ContainerObjectMeta struct {
-	Name     string
-	Uid      string
-	PodName  string
-	PodUid   string
-	NodeName string
+	// experiment id
+	Id            string
+	ContainerName string
+	PodName       string
+	NodeName      string
+	Namespace     string
 }
 
-type NodeNameContainerObjectMetasMap map[string][]ContainerObjectMeta
+type ContainerMatchedList []ContainerObjectMeta
 
-type PodObjectMetaList []PodObjectMeta
-
-func ExtractNodeNameUidMapFromContext(ctx context.Context) (NodeNameUidMap, error) {
-	nodeNameUidMapValue := ctx.Value(NodeNameUidMapKey)
-	if nodeNameUidMapValue == nil {
-		return nil, fmt.Errorf("less node names in context")
+// GetExperimentIdFromContext
+func GetExperimentIdFromContext(ctx context.Context) string {
+	experimentId := ctx.Value(ExperimentIdKey)
+	if experimentId == nil {
+		return "UnknownId"
 	}
-	nodeNameUidMap := nodeNameUidMapValue.(NodeNameUidMap)
-	return nodeNameUidMap, nil
+	return experimentId.(string)
 }
 
-func ExtractNodeNameExpObjectMetasMapFromContext(ctx context.Context) (NodeNameExpObjectMetasMap, error) {
-	nodeNameExpIdsMapValue := ctx.Value(NodeNameExpObjectMetaMapKey)
-	if nodeNameExpIdsMapValue == nil {
-		return nil, fmt.Errorf("less expriment ids in context")
-	}
-	nodeNameExpIdsMap := nodeNameExpIdsMapValue.(NodeNameExpObjectMetasMap)
-	return nodeNameExpIdsMap, nil
+// SetExperimentIdToContext
+func SetExperimentIdToContext(ctx context.Context, experimentId string) context.Context {
+	return context.WithValue(ctx, ExperimentIdKey, experimentId)
 }
 
-func ExtractNodeNameContainerMetasMapFromContext(ctx context.Context) (NodeNameContainerObjectMetasMap, error) {
-	containerObjectMetaValues := ctx.Value(NodeNameContainerObjectMetasMapKey)
-	if containerObjectMetaValues == nil {
-		return nil, fmt.Errorf("less container values in context")
+// GetContainerObjectMetaListFromContext returns the matched container list
+func GetContainerObjectMetaListFromContext(ctx context.Context) (ContainerMatchedList, error) {
+	containerObjectMetaListValue := ctx.Value(ContainerObjectMetaListKey)
+	if containerObjectMetaListValue == nil {
+		return nil, fmt.Errorf("less container object meta in context")
 	}
-	containerObjectMetas := containerObjectMetaValues.(NodeNameContainerObjectMetasMap)
-	return containerObjectMetas, nil
+	containerObjectMetaList := containerObjectMetaListValue.(ContainerMatchedList)
+	return containerObjectMetaList, nil
 }
 
-func ExtractPodObjectMetasFromContext(ctx context.Context) (PodObjectMetaList, error) {
-	podObjectMetaValues := ctx.Value(PodObjectMetaListKey)
-	if podObjectMetaValues == nil {
-		return nil, fmt.Errorf("less pod object meta parameter")
-	}
-	podObjectMetas := podObjectMetaValues.(PodObjectMetaList)
-	return podObjectMetas, nil
+// SetContainerObjectMetaListToContext
+func SetContainerObjectMetaListToContext(ctx context.Context, containerMatchedList ContainerMatchedList) context.Context {
+	logrus.WithField("experiment", GetExperimentIdFromContext(ctx)).Infof("set container list: %+v", containerMatchedList)
+	return context.WithValue(ctx, ContainerObjectMetaListKey, containerMatchedList)
 }
 
-func GetChaosBladePodListOptions() *client.ListOptions {
-	return &client.ListOptions{
-		Namespace:     chaosblade.Namespace,
-		LabelSelector: labels.SelectorFromSet(chaosblade.Constant.PodLabels),
+func (c *ContainerObjectMeta) GetIdentifier() string {
+	identifier := fmt.Sprintf("%s/%s/%s", c.Namespace, c.NodeName, c.PodName)
+	return fmt.Sprintf("%s/%s", identifier, c.ContainerName)
+}
+
+func ParseIdentifier(identifier string) ContainerObjectMeta {
+	ss := strings.SplitN(identifier, "/", 4)
+	meta := ContainerObjectMeta{}
+	switch len(ss) {
+	case 0:
+		return meta
+	case 1:
+		meta.Namespace = ss[0]
+	case 2:
+		meta.Namespace = ss[0]
+		meta.NodeName = ss[1]
+	case 3:
+		meta.Namespace = ss[0]
+		meta.NodeName = ss[1]
+		meta.PodName = ss[2]
+	case 4:
+		meta.Namespace = ss[0]
+		meta.NodeName = ss[1]
+		meta.PodName = ss[2]
+		meta.ContainerName = ss[3]
 	}
+	return meta
 }

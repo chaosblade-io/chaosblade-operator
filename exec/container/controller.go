@@ -51,50 +51,72 @@ func (*ExpController) Name() string {
 
 // Create an experiment about container
 func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentSpec) *spec.Response {
-	expModel, ctx, response := e.convert(ctx, expSpec)
-	if !response.Success {
-		return response
-	}
-	return e.Exec(ctx, expModel)
-}
-
-func (e *ExpController) convert(ctx context.Context, expSpec v1alpha1.ExperimentSpec) (*spec.ExpModel, context.Context, *spec.Response) {
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
-	// priority id > name > index
+	// priority: id > name > index
 	containerIdsValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerIdsFlag.Name])
 	containerNamesValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerNamesFlag.Name])
 	containerIndexValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerIndexFlag.Name])
-
+	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue == "" {
 		errMsg := fmt.Sprintf("must specify one flag in %s %s %s",
 			model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
-		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
+		logrusField.Errorln(errMsg)
+		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
 			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
-	pods, err := e.GetMatchedPodResources(*expModel)
+	pods, err := e.GetMatchedPodResources(ctx, *expModel)
 	if err != nil {
-		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+		logrusField.Errorf("get matched pod resources failed, %v", err)
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus("cannot find the target pods for container resource", nil))
+		msg := "cannot find the target pods for container resource"
+		logrusField.Errorln(msg)
+		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+			v1alpha1.CreateFailExperimentStatus(msg, nil))
 	}
-	ctx, err = setNecessaryObjectsToContext(ctx, pods, containerIdsValue, containerNamesValue, containerIndexValue)
+	containerObjectMetaList, err := getMatchedContainerMetaList(pods, containerIdsValue, containerNamesValue, containerIndexValue)
 	if err != nil {
-		return nil, nil, spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		logrusField.Errorf("get matched container meta list failed, %v", err)
+		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	return expModel, ctx, spec.ReturnSuccess("")
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return e.Exec(ctx, expModel)
 }
 
-// setNecessaryObjectsToContext which will be used in the executor
-func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
-	containerIdsValue, containerNamesValue, containerIndexValue string) (context.Context, error) {
-	nodeNameContainerObjectMetasMaps := model.NodeNameContainerObjectMetasMap{}
-	nodeNameUidMap := model.NodeNameUidMap{}
+// Destroy
+func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec, oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
+	logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).Infof("start to destroy")
+	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
+	statuses := oldExpStatus.ResStatuses
+	if statuses == nil {
+		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{}))
+	}
+	containerObjectMetaList := model.ContainerMatchedList{}
+	for _, status := range statuses {
+		if !status.Success {
+			// does not need to destroy
+			continue
+		}
+		containerObjectMeta := model.ParseIdentifier(status.Identifier)
+		containerObjectMeta.Id = status.Id
+		containerObjectMetaList = append(containerObjectMetaList, containerObjectMeta)
+	}
+	if len(containerObjectMetaList) == 0 {
+		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus(statuses))
+	}
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return e.Exec(ctx, expModel)
+}
+
+// getMatchedContainerMetaList which will be used in the executor
+func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerNamesValue, containerIndexValue string) (model.ContainerMatchedList, error) {
+	containerObjectMetaList := model.ContainerMatchedList{}
 	expectedContainerIds := strings.Split(containerIdsValue, ",")
 	expectedContainerNames := strings.Split(containerNamesValue, ",")
+	// priority id>name>index
 	for _, pod := range pods {
 		containerStatuses := pod.Status.ContainerStatuses
 		if containerStatuses == nil {
@@ -109,9 +131,12 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 						continue
 					}
 					if strings.HasPrefix(containerId, expectedContainerId) {
-						nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-							AddMatchedContainerAndNode(pod, containerId, containerName,
-								nodeNameContainerObjectMetasMaps, nodeNameUidMap)
+						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+							ContainerName: containerName,
+							PodName:       pod.Name,
+							Namespace:     pod.Namespace,
+							NodeName:      pod.Spec.NodeName,
+						})
 					}
 				}
 			} else if containerNamesValue != "" {
@@ -121,9 +146,12 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 					}
 					if expectedName == containerName {
 						// matched
-						nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-							AddMatchedContainerAndNode(pod, containerId, containerName,
-								nodeNameContainerObjectMetasMaps, nodeNameUidMap)
+						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+							ContainerName: containerName,
+							PodName:       pod.Name,
+							Namespace:     pod.Namespace,
+							NodeName:      pod.Spec.NodeName,
+						})
 					}
 				}
 			}
@@ -131,52 +159,18 @@ func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod,
 		if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue != "" {
 			idx, err := strconv.Atoi(containerIndexValue)
 			if err != nil {
-				return ctx, err
+				return containerObjectMetaList, err
 			}
 			if idx > len(containerStatuses)-1 {
-				return ctx, fmt.Errorf("%s value is out of bound", containerIndexValue)
+				return containerObjectMetaList, fmt.Errorf("%s value is out of bound", containerIndexValue)
 			}
-			nodeNameUidMap, nodeNameContainerObjectMetasMaps =
-				AddMatchedContainerAndNode(pod, model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID),
-					containerStatuses[idx].Name, nodeNameContainerObjectMetasMaps, nodeNameUidMap)
+			containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+				ContainerName: containerStatuses[idx].Name,
+				PodName:       pod.Name,
+				Namespace:     pod.Namespace,
+				NodeName:      pod.Spec.NodeName,
+			})
 		}
 	}
-	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
-	ctx = context.WithValue(ctx, model.NodeNameContainerObjectMetasMapKey, nodeNameContainerObjectMetasMaps)
-	return ctx, nil
-}
-
-func AddMatchedContainerAndNode(pod v1.Pod, containerId, containerName string, nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap,
-	nodeNameUidMap model.NodeNameUidMap) (model.NodeNameUidMap, model.NodeNameContainerObjectMetasMap) {
-	nodeName := pod.Spec.NodeName
-	logrus.Infof("Matched container: %s, pod: %s, node: %s", containerId, pod.Name, nodeName)
-	nameUidMap := AddMatchedNode(nodeName, nodeNameUidMap)
-	nodeNameContainerObjectMetasMap := AddMatchedContainer(pod, containerId, containerName, nodeName, nodeNameContainerObjectMetasMaps)
-	return nameUidMap, nodeNameContainerObjectMetasMap
-}
-
-// AddMatchedContainer to context
-func AddMatchedContainer(pod v1.Pod, containerId, containerName, nodeName string,
-	nodeNameContainerObjectMetasMaps model.NodeNameContainerObjectMetasMap) model.NodeNameContainerObjectMetasMap {
-	containerObjectMeta := model.ContainerObjectMeta{
-		Name:     containerName,
-		Uid:      containerId,
-		PodName:  pod.Name,
-		PodUid:   string(pod.UID),
-		NodeName: nodeName,
-	}
-	containerObjectMetas := nodeNameContainerObjectMetasMaps[nodeName]
-	if containerObjectMetas == nil {
-		containerObjectMetas = make([]model.ContainerObjectMeta, 0)
-	}
-	containerObjectMetas = append(containerObjectMetas, containerObjectMeta)
-	nodeNameContainerObjectMetasMaps[nodeName] = containerObjectMetas
-	return nodeNameContainerObjectMetasMaps
-}
-
-// AddMatchedNode to context
-func AddMatchedNode(nodeName string, nodeNameUidMap model.NodeNameUidMap) model.NodeNameUidMap {
-	// node uid is unuseful for pod experiments
-	nodeNameUidMap[nodeName] = ""
-	return nodeNameUidMap
+	return containerObjectMetaList, nil
 }

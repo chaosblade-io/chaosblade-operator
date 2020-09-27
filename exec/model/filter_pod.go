@@ -18,6 +18,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -64,7 +65,8 @@ func CheckPodFlags(flags map[string]string) error {
 	return nil
 }
 
-func (b *BaseExperimentController) GetMatchedPodResources(expModel spec.ExpModel) ([]v1.Pod, error) {
+// GetMatchedPodResources return matched pods
+func (b *BaseExperimentController) GetMatchedPodResources(ctx context.Context, expModel spec.ExpModel) ([]v1.Pod, error) {
 	flags := expModel.ActionFlags
 	if flags[ResourceNamespaceFlag.Name] == "" {
 		expModel.ActionFlags[ResourceNamespaceFlag.Name] = DefaultNamespace
@@ -72,7 +74,7 @@ func (b *BaseExperimentController) GetMatchedPodResources(expModel spec.ExpModel
 	if err := CheckPodFlags(flags); err != nil {
 		return nil, err
 	}
-	pods, err := resourceFunc(b.Client, flags)
+	pods, err := resourceFunc(ctx, b.Client, flags)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +127,11 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 }
 
 // resourceFunc is used to query the target resource
-var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.Pod, error) {
+var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Pod, error) {
 	namespace := flags[ResourceNamespaceFlag.Name]
 	labels := flags[ResourceLabelsFlag.Name]
 	labelsMap := parseLabels(labels)
-
+	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
 	pods := make([]v1.Pod, 0)
 	names := flags[ResourceNamesFlag.Name]
 	if names != "" {
@@ -138,18 +140,20 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 			pod := v1.Pod{}
 			err := client2.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, &pod)
 			if err != nil {
-				logrus.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
+				logrusField.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
 			if mapContains(pod.Labels, labelsMap) {
 				pods = append(pods, pod)
 			}
 		}
-		logrus.Infof("get pods by names %s, len is %d", names, len(pods))
+		logrusField.Infof("get pods by names %s, len is %d", names, len(pods))
 		return pods, nil
 	}
 	if labels != "" && len(labelsMap) == 0 {
-		return pods, fmt.Errorf("illegal labels %s", labels)
+		msg := fmt.Sprintf("illegal labels %s", labels)
+		logrusField.Warningln(msg)
+		return pods, errors.New(msg)
 	}
 	if len(labelsMap) > 0 {
 		podList := v1.PodList{}
@@ -162,7 +166,7 @@ var resourceFunc = func(client2 *channel.Client, flags map[string]string) ([]v1.
 			return pods, nil
 		}
 		pods = podList.Items
-		logrus.Infof("get pods by labels %s, len is %d", labels, len(pods))
+		logrusField.Infof("get pods by labels %s, len is %d", labels, len(pods))
 	}
 	return pods, nil
 }

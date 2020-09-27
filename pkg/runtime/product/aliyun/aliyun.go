@@ -44,11 +44,7 @@ func init() {
 	f.StringVar(&Environment, "aliyun-environment", "", "Environment for cloud provider")
 
 	chaosblade.Products[AHAS] = &chaosblade.ProductConstant{
-		Home:          "/opt/chaosblade",
-		BladeBin:      "/opt/chaosblade/blade",
-		PodName:       "ahas-agent",
 		ImageRepoFunc: ImageRepoForAliyun,
-		PodLabels:     map[string]string{"app": "ahas"},
 	}
 }
 

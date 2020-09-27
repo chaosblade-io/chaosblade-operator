@@ -14,20 +14,30 @@
  * limitations under the License.
  */
 
-package community
+package model
 
 import (
-	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec"
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 )
 
-const Community = "community"
-
-func init() {
-	chaosblade.Products[Community] = &chaosblade.ProductConstant{
-		ImageRepoFunc: ImageRepoForCommunity,
-	}
+type OSSubResourceModelSpec struct {
+	BaseSubResourceExpModelSpec
 }
 
-var ImageRepoForCommunity = func() string {
-	return chaosblade.ImageRepository
+func NewOSSubResourceModelSpec() SubResourceExpModelSpec {
+	modelSpec := &OSSubResourceModelSpec{
+		BaseSubResourceExpModelSpec{
+			ExpModelSpecs: []spec.ExpModelCommandSpec{
+				exec.NewCpuCommandModelSpec(),
+				exec.NewNetworkCommandSpec(),
+				exec.NewProcessCommandModelSpec(),
+				exec.NewDiskCommandSpec(),
+				exec.NewMemCommandModelSpec(),
+				exec.NewFileCommandSpec(),
+				exec.NewScriptCommandModelSpec(),
+			},
+		},
+	}
+	return modelSpec
 }

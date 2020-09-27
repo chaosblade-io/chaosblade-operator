@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
 var (
@@ -188,5 +189,5 @@ func GetSidecarImage() string {
 	if SidecarImage != "" {
 		return SidecarImage
 	}
-	return fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
+	return fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), version.Version)
 }

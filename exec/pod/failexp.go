@@ -19,6 +19,7 @@ package pod
 import (
 	"context"
 	"fmt"
+
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -84,37 +85,35 @@ func (d *FailPodActionExecutor) Exec(uid string, ctx context.Context, model *spe
 }
 
 func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
+	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
+	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
-	for _, meta := range podObjectMetaList {
+	for _, c := range containerMatchedList {
 		status := v1alpha1.ResourceStatus{
-			Uid:      meta.Uid,
-			Name:     meta.Name,
-			Kind:     v1alpha1.PodKind,
-			NodeName: meta.NodeName,
+			Kind:       v1alpha1.PodKind,
+			Identifier: c.GetIdentifier(),
 		}
-
-		objectMeta := types.NamespacedName{Name: meta.Name, Namespace: meta.Namespace}
+		objectMeta := types.NamespacedName{Name: c.PodName, Namespace: c.Namespace}
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(),objectMeta, pod)
+		err := d.client.Get(context.TODO(), objectMeta, pod)
 		if err != nil {
-			logrus.Errorf("get pod %s err, %v", meta.Name, err)
+			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error())
 		}
 
 		if !isPodReady(pod) {
-			logrus.Infof("pod %s is not ready", meta.Name)
+			logrusField.Infof("pod %s is not ready", c.PodName)
 			statuses = append(statuses, status.CreateFailResourceStatus("pod is not read"))
 			continue
 		}
 
 		if err := d.failPod(ctx, pod); err != nil {
-			logrus.Warningf("fail pod %s err, %v", meta.Name, err)
+			logrusField.Warningf("fail pod %s err, %v", c.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error())
 		} else {
 			status = status.CreateSuccessResourceStatus()
@@ -132,34 +131,31 @@ func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpMo
 }
 
 func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrus.Info("start destroy pod inject")
-	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
-	logrus.Infof("podObjectMetaList: %v", podObjectMetaList)
+	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
+	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses
-	for _, meta := range podObjectMetaList {
+	for _, c := range containerMatchedList {
 		status := v1alpha1.ResourceStatus{
-			Uid:      meta.Uid,
-			Name:     meta.Name,
-			Kind:     v1alpha1.PodKind,
-			NodeName: meta.NodeName,
+			Kind:       v1alpha1.PodKind,
+			Identifier: c.GetIdentifier(),
 		}
-		objectMeta := types.NamespacedName{Name: meta.Name, Namespace: meta.Namespace}
+		objectMeta := types.NamespacedName{Name: c.PodName, Namespace: c.Namespace}
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(),objectMeta, pod)
+		err := d.client.Get(context.TODO(), objectMeta, pod)
 		if err != nil {
-			logrus.Errorf("get pod %s err, %v", meta.Name, err)
+			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error())
 			continue
 		}
 
 		err = d.client.Delete(context.TODO(), pod)
 		if err != nil {
-			logrus.Errorf("delete pod %s err, %v", meta.Name, err)
+			logrusField.Errorf("delete pod %s err, %v", c.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error())
 			continue
 		}
@@ -169,9 +165,9 @@ func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpM
 }
 
 // failPod will exec failPod experiment
-func (d *FailPodActionExecutor) failPod(ctx context.Context,  pod *v1.Pod) error {
-	for i, container := range pod.Spec.Containers{
-		key := fmt.Sprintf("%s-%s","failPod", container.Name)
+func (d *FailPodActionExecutor) failPod(ctx context.Context, pod *v1.Pod) error {
+	for i, container := range pod.Spec.Containers {
+		key := fmt.Sprintf("%s-%s", "failPod", container.Name)
 		if pod.Annotations == nil {
 			pod.Annotations = make(map[string]string)
 		}
@@ -188,7 +184,7 @@ func (d *FailPodActionExecutor) failPod(ctx context.Context,  pod *v1.Pod) error
 }
 
 // isAnnotationExist will check this pod has been tested
-func isAnnotationExist(annotation map[string]string, key string)  bool {
+func isAnnotationExist(annotation map[string]string, key string) bool {
 	_, ok := annotation[key]
 	if !ok {
 		return false

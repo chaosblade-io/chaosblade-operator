@@ -17,10 +17,6 @@
 package runtime
 
 import (
-	"fmt"
-	"path"
-
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/spf13/pflag"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
@@ -48,16 +44,4 @@ func initRuntimeData() {
 
 func FlagSet() *pflag.FlagSet {
 	return flagSet
-}
-
-func GetOperatorNamespace() string {
-	operatorNs, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return chaosblade.Namespace
-	}
-	return operatorNs
-}
-
-func GetChaosBladePkgPath() string {
-	return path.Join(path.Dir(chaosblade.Constant.Home), fmt.Sprintf("chaosblade-%s.tar.gz", chaosblade.Version))
 }
