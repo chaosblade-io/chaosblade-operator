@@ -99,20 +99,19 @@ const (
 type ResourceStatus struct {
 	// experiment uid in chaosblade
 	Id string `json:"id,omitempty"`
-	// resource uid
-	Uid string `json:"uid,omitempty"`
-	// resource name
-	Name string `json:"name,omitempty"`
 	// experiment state
 	State string `json:"state"`
-	// Kind
-	Kind string `json:"kind"`
 	// experiment error
 	Error string `json:"error,omitempty"`
 	// success
 	Success bool `json:"success"`
-	// NodeName
-	NodeName string `json:"nodeName,omitempty"`
+
+	// Kind
+	Kind string `json:"kind"`
+	// Resource identifier, rules as following:
+	// container: Namespace/NodeName/PodName/ContainerName
+	// pod： Namespace/NodeName/PodName
+	Identifier string `json:"identifier,omitempty"`
 }
 
 const (

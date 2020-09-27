@@ -46,54 +46,65 @@ func (*ExpController) Name() string {
 	return "pod"
 }
 
+// Create pod resource experiments
 func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentSpec) *spec.Response {
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
-	pods, err := e.GetMatchedPodResources(*expModel)
+	experimentId := model.GetExperimentIdFromContext(ctx)
+	logrusField := logrus.WithField("experiment", experimentId)
+	pods, err := e.GetMatchedPodResources(ctx, *expModel)
 	if err != nil {
+		logrusField.Errorf("create pod experiment failed, %v", err)
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
-		errMsg := "cannot find the pods"
+		errMsg := "cannot find the pod resources"
+		logrusField.Errorf("create pod experiment failed, %s", errMsg)
 		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
 			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
-	ctx = setNecessaryObjectsToContext(ctx, pods)
+	logrusField.Infof("creating pod experiment, pod count is %d", len(pods))
+	containerObjectMetaList := getContainerMatchedList(experimentId, pods)
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
 }
 
-func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec,
-	oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
-	logrus.Infof("start to destroy experiment: %v", expSpec)
+func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec, oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
+	logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).Infoln("start to destroy")
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
-	pods, err := e.GetMatchedPodResources(*expModel)
-	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+	statuses := oldExpStatus.ResStatuses
+	if statuses == nil {
+		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{}))
 	}
-	if len(pods) == 0 {
-		errMsg := "cannot find the pods"
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+	containerObjectMetaList := model.ContainerMatchedList{}
+	for _, status := range statuses {
+		if !status.Success {
+			continue
+		}
+		containerObjectMeta := model.ParseIdentifier(status.Identifier)
+		containerObjectMeta.Id = status.Id
+		containerObjectMetaList = append(containerObjectMetaList, containerObjectMeta)
 	}
-	ctx = setNecessaryObjectsToContext(ctx, pods)
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
 }
 
-func setNecessaryObjectsToContext(ctx context.Context, pods []v1.Pod) context.Context {
-	podObjectMetas := model.PodObjectMetaList{}
-	nodeNameUidMap := model.NodeNameUidMap{}
-	for _, pod := range pods {
-		podObjectMeta := model.PodObjectMeta{
-			Name: pod.Name, Namespace: pod.Namespace, Uid: string(pod.UID), NodeName: pod.Spec.NodeName,
+// getContainerMatchedList transports selected pods
+func getContainerMatchedList(experimentId string, pods []v1.Pod) model.ContainerMatchedList {
+	containerObjectMetaList := model.ContainerMatchedList{}
+	for _, p := range pods {
+		containerName, err := model.GetOneAvailableContainerIdFromPod(p)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).WithField("pod", p.Name).
+				Errorf("get an available container failed, %v", err)
+			continue
 		}
-		podObjectMetas = append(podObjectMetas, podObjectMeta)
-		// node uid is unuseful for pod experiments
-		if _, ok := nodeNameUidMap[pod.Spec.NodeName]; !ok {
-			nodeNameUidMap[pod.Spec.NodeName] = ""
-		}
+		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+			ContainerName: containerName,
+			PodName:       p.Name,
+			NodeName:      p.Spec.NodeName,
+			Namespace:     p.Namespace,
+		})
 	}
-	ctx = context.WithValue(ctx, model.PodObjectMetaListKey, podObjectMetas)
-	ctx = context.WithValue(ctx, model.NodeNameUidMapKey, nodeNameUidMap)
-	return ctx
+	return containerObjectMetaList
 }

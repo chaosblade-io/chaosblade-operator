@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -47,7 +48,7 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 			},
 			ActionExecutor: &DeletePodActionExecutor{client: client},
 			ActionExample:
-`# Deletes the POD under the specified default namespace that is app=guestbook
+			`# Deletes the POD under the specified default namespace that is app=guestbook
 blade create k8s pod-pod delete --labels app=guestbook --namespace default --evict-count 2 --kubeconfig config`,
 		},
 	}
@@ -89,24 +90,23 @@ func (d *DeletePodActionExecutor) Exec(uid string, ctx context.Context, model *s
 }
 
 func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	podObjectMetaList, err := model.ExtractPodObjectMetasFromContext(ctx)
+	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
-	for _, meta := range podObjectMetaList {
+	for _, meta := range containerObjectMetaList {
 		status := v1alpha1.ResourceStatus{
-			Uid:      meta.Uid,
-			Name:     meta.Name,
-			Kind:     v1alpha1.PodKind,
-			NodeName: meta.NodeName,
+			Kind:       v1alpha1.PodKind,
+			Identifier: fmt.Sprintf("%s/%s/%s", meta.Namespace, meta.NodeName, meta.PodName),
 		}
-		objectMeta := metav1.ObjectMeta{Name: meta.Name, Namespace: meta.Namespace}
+		objectMeta := metav1.ObjectMeta{Name: meta.PodName, Namespace: meta.Namespace}
 		err := d.client.Delete(context.TODO(), &v1.Pod{ObjectMeta: objectMeta})
 		if err != nil {
-			logrus.Warningf("delete pod %s err, %v", meta.Name, err)
+			logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).
+				Warningf("delete pod %s err, %v", meta.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error())
 		} else {
 			status = status.CreateSuccessResourceStatus()
@@ -124,26 +124,22 @@ func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.Exp
 }
 
 func (d *DeletePodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	expObjectMetasMaps, err := model.ExtractNodeNameExpObjectMetasMapFromContext(ctx)
+	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses
-	for nodeName, objectMetas := range expObjectMetasMaps {
-		for _, objectMeta := range objectMetas {
-			status := v1alpha1.ResourceStatus{
-				Id:       objectMeta.Id,
-				Uid:      objectMeta.Uid,
-				Name:     objectMeta.Name,
-				Kind:     v1alpha1.PodKind,
-				NodeName: nodeName,
-				State:    v1alpha1.DestroyedState,
-				Success:  true,
-			}
-			statuses = append(statuses, status)
+	for _, c := range containerObjectMetaList {
+		status := v1alpha1.ResourceStatus{
+			Id:         c.Id,
+			Kind:       v1alpha1.PodKind,
+			State:      v1alpha1.DestroyedState,
+			Success:    true,
+			Identifier: c.GetIdentifier(),
 		}
+		statuses = append(statuses, status)
 	}
 	experimentStatus.ResStatuses = statuses
 	return spec.ReturnResultIgnoreCode(experimentStatus)

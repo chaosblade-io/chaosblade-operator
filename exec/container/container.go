@@ -30,15 +30,18 @@ type ResourceModelSpec struct {
 
 // NewResourceModelSpec returns the container model spec
 func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
-	modelSpec := &ResourceModelSpec{
+	resourceModelSpec := &ResourceModelSpec{
 		model.NewBaseResourceExpModelSpec("container", client),
 	}
-	dockerModelSpecs := NewDockerSubResourceModelSpec(client).ExpModels()
+	subExpModelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)
+	osSubExpModelSpecs := model.NewOSSubResourceModelSpec().ExpModels()
+	subExpModelCommandSpecs = append(append(subExpModelCommandSpecs, osSubExpModelSpecs...), getJvmModels()...)
+	spec.AddExecutorToModelSpec(&model.ExecCommandInPodExecutor{Client: client}, subExpModelCommandSpecs...)
 
-	spec.AddFlagsToModelSpec(getResourceFlags, dockerModelSpecs...)
-	modelSpec.RegisterExpModels(dockerModelSpecs...)
-	addActionExamples(modelSpec)
-	return modelSpec
+	spec.AddFlagsToModelSpec(getResourceFlags, subExpModelCommandSpecs...)
+	resourceModelSpec.RegisterExpModels(subExpModelCommandSpecs...)
+	addActionExamples(resourceModelSpec)
+	return resourceModelSpec
 }
 
 func addActionExamples(modelSpec *ResourceModelSpec) {
@@ -240,5 +243,6 @@ func getResourceFlags() []spec.ExpFlagSpec {
 	coverageFlags := model.GetResourceCoverageFlags()
 	commonFlags := model.GetResourceCommonFlags()
 	containerFlags := model.GetContainerFlags()
-	return append(append(coverageFlags, commonFlags...), containerFlags...)
+	chaosbladeFlags := model.GetChaosBladeFlags()
+	return append(append(append(coverageFlags, commonFlags...), containerFlags...), chaosbladeFlags...)
 }

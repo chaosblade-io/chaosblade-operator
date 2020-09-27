@@ -40,6 +40,7 @@ func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool
 	logrus.Infof("trigger create event, name: %s", obj.Name)
 	logrus.Debugf("creating obj: %+v", obj)
 	if obj.GetDeletionTimestamp() != nil {
+		logrus.Infof("unexpected phase for cb creating, name: %s, phase: %s", obj.Name, obj.Status.Phase)
 		return false
 	}
 	if obj.Status.Phase == v1alpha1.ClusterPhaseInitial {

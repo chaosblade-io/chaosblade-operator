@@ -165,7 +165,12 @@ var ContainerNamesFlag = &spec.ExpFlag{
 
 var ContainerIndexFlag = &spec.ExpFlag{
 	Name: "container-index",
-	Desc: "Container index, default value is 0",
+	Desc: "Container index, start from 0",
+}
+
+var ChaosBladeDeployedPathFlag = &spec.ExpFlag{
+	Name: "chaosblade-deployed-path",
+	Desc: "Chaosblade tool deployed path, default value is /opt",
 }
 
 func GetContainerFlags() []spec.ExpFlagSpec {
@@ -185,6 +190,12 @@ func GetResourceCommonFlags() []spec.ExpFlagSpec {
 	}
 }
 
+func GetChaosBladeFlags() []spec.ExpFlagSpec {
+	return []spec.ExpFlagSpec{
+		ChaosBladeDeployedPathFlag,
+	}
+}
+
 func GetResourceFlagNames() map[string]spec.Empty {
 	flagNames := []string{
 		ResourceCountFlag.Name,
@@ -195,6 +206,7 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		ContainerIdsFlag.Name,
 		ContainerNamesFlag.Name,
 		ContainerIndexFlag.Name,
+		ChaosBladeDeployedPathFlag.Name,
 	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {

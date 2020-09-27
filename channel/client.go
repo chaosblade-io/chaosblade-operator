@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -42,7 +41,7 @@ import (
 type Client struct {
 	kubernetes.Interface
 	client.Client
-	config *rest.Config
+	Config *rest.Config
 }
 
 // NewClientFunc returns the controller client
@@ -63,70 +62,100 @@ func NewClientFunc() manager.NewClientFunc {
 			Writer:       c,
 			StatusClient: c,
 		}
-		cli.config = config
+		cli.Config = config
 		return cli, nil
 	}
 }
 
+type IOStreams struct {
+	In     io.Reader
+	Out    io.Writer
+	ErrOut io.Writer
+}
+
+type StreamOptions struct {
+	IOStreams
+	Stdin      bool
+	TTY        bool
+	OutDecoder func(bytes []byte) interface{}
+	ErrDecoder func(bytes []byte) interface{}
+}
+
+type ExecOptions struct {
+	StreamOptions
+	PodName       string
+	PodNamespace  string
+	ContainerName string
+	Command       []string
+	IgnoreOutput  bool
+}
+
 // Exec command in pod
-func (c *Client) Exec(pod *corev1.Pod, containerName string, command string, timeout time.Duration) *spec.Response {
+func (c *Client) Exec(options *ExecOptions) interface{} {
 	logFields := logrus.WithFields(logrus.Fields{
-		"command":      command,
-		"podName":      pod.Name,
-		"podNamespace": pod.Namespace,
-		"container":    containerName,
+		"command":      options.Command,
+		"podName":      options.PodName,
+		"podNamespace": options.PodNamespace,
+		"container":    options.ContainerName,
 	})
 	logFields.Infof("Exec command in pod")
-	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-		error := fmt.Sprintf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
-		logFields.Errorln(error)
-		return spec.ReturnFail(spec.Code[spec.IllegalParameters], error)
-	}
-	const TTY = false
 	request := c.CoreV1().RESTClient().Post().
 		Resource("pods").
-		Name(pod.Name).
-		Namespace(pod.Namespace).
+		Name(options.PodName).
+		Namespace(options.PodNamespace).
 		SubResource("exec").
 		VersionedParams(
 			&corev1.PodExecOptions{
-				Container: containerName,
-				Command:   []string{"/bin/sh", "-c", command},
-				Stdin:     false,
+				Container: options.ContainerName,
+				Command:   options.Command,
+				Stdin:     options.Stdin,
 				Stdout:    true,
 				Stderr:    true,
-				TTY:       TTY,
+				TTY:       options.TTY,
 			}, scheme.ParameterCodec)
+	output := bytes.NewBuffer([]byte{})
+	options.Out = output
+	errput := bytes.NewBuffer([]byte{})
+	options.ErrOut = errput
 
-	var stdout, stderr bytes.Buffer
-
-	err := execute("POST", request.URL(), c.config, &stdout, &stderr, TTY)
-	if err != nil {
-		logFields.WithError(err).Errorln("Invoke exec command error")
-	}
-	errMsg := strings.TrimSpace(stderr.String())
-	outMsg := strings.TrimSpace(stdout.String())
-	logFields.Infof("err: %s; out: %s", errMsg, outMsg)
+	err := execute("POST", request.URL(), c.Config, options)
+	errMsg := strings.TrimSpace(errput.String())
+	outMsg := strings.TrimSpace(output.String())
+	execLog := logFields.WithFields(logrus.Fields{
+		"err": errMsg,
+		"out": outMsg,
+	})
 	if errMsg != "" {
-		return spec.Decode(errMsg, spec.ReturnFail(spec.Code[spec.K8sInvokeError], errMsg))
+		execLog.Infof("get err message")
+		return options.ErrDecoder(errput.Bytes())
+	}
+	if err != nil {
+		execLog.WithError(err).Errorln("Invoke exec command error")
+		return spec.ReturnFail(spec.Code[spec.K8sInvokeError], err.Error())
 	}
 	if outMsg != "" {
-		return spec.Decode(outMsg, spec.ReturnFail(spec.Code[spec.K8sInvokeError], outMsg))
+		execLog.Infof("get output message")
+		return options.OutDecoder(output.Bytes())
+	}
+	if options.IgnoreOutput {
+		return nil
 	}
 	return spec.ReturnFail(spec.Code[spec.K8sInvokeError],
-		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found", pod.Name))
+		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found",
+			options.PodName))
 }
 
 // "172.21.1.11:8080/api/v1/namespaces/default/pods/my-nginx-3855515330-l1uqk/exec
 // ?container=my-nginx&stdin=1&stdout=1&stderr=1&tty=1&command=%2Fbin%2Fbash"
-func execute(method string, url *url.URL, config *rest.Config, stdout, stderr io.Writer, tty bool) error {
+func execute(method string, url *url.URL, config *rest.Config, options *ExecOptions) error {
 	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
 	if err != nil {
 		return err
 	}
 	return exec.Stream(remotecommand.StreamOptions{
-		Stdout: stdout,
-		Stderr: stderr,
-		Tty:    tty,
+		Stdin:  options.StreamOptions.In,
+		Stdout: options.StreamOptions.Out,
+		Stderr: options.StreamOptions.ErrOut,
+		Tty:    options.StreamOptions.TTY,
 	})
 }

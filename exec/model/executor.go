@@ -17,53 +17,38 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"path"
 	"strings"
-	"time"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
-// ExperimentIdentifier contains the necessary experiment fields of the resource
-type ExperimentIdentifier struct {
-	Id      string
-	Uid     string
-	Name    string
-	Command string
-	Error   string
+type ExperimentIdentifierInPod struct {
+	Id            string
+	Command       string
+	Error         string
+	ContainerName string
+	PodName       string
+	Namespace     string
+	NodeName      string
 }
 
-func NewExperimentIdentifier(id, uid, name, command string) ExperimentIdentifier {
-	return ExperimentIdentifier{
-		Id:      id,
-		Uid:     uid,
-		Name:    name,
-		Command: command,
-	}
-}
-
-func NewExperimentIdentifierWithError(id, uid, name, error string) ExperimentIdentifier {
-	return ExperimentIdentifier{
-		Id:    id,
-		Uid:   uid,
-		Name:  name,
-		Error: error,
-	}
+func (e *ExperimentIdentifierInPod) GetIdentifier() string {
+	return fmt.Sprintf("%s/%s/%s/%s", e.Namespace, e.NodeName, e.PodName, e.ContainerName)
 }
 
 type ExecCommandInPodExecutor struct {
-	Client      *channel.Client
-	CommandFunc func(ctx context.Context, model *spec.ExpModel,
-		resourceIdentifier *ResourceIdentifier) ([]ExperimentIdentifier, error) `json:"-"`
+	Client *channel.Client
 }
 
 func (e *ExecCommandInPodExecutor) Name() string {
@@ -74,82 +59,82 @@ func (e *ExecCommandInPodExecutor) SetChannel(channel spec.Channel) {
 }
 
 func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	nodeNameUidMap, err := ExtractNodeNameUidMapFromContext(ctx)
+	return e.execInMatchedPod(ctx, expModel)
+}
+
+// getExperimentIdentifiers
+func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context, expModel *spec.ExpModel) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList, err := GetContainerObjectMetaListFromContext(ctx)
+	if err != nil {
+		return []ExperimentIdentifierInPod{}, err
+	}
+	excludeFlagsFunc := ExcludeKeyFunc()
+	isContainerSelfTarget := expModel.Target == "container"
+	if isContainerSelfTarget {
+		return nil, fmt.Errorf("not support delete container action")
+	}
+	matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
+	experimentId := GetExperimentIdFromContext(ctx)
+	if _, ok := spec.IsDestroy(ctx); ok {
+		return e.generateDestroyCommands(experimentId, expModel, containerObjectMetaList, matchers)
+	}
+	return e.generateCreateCommands(experimentId, expModel, containerObjectMetaList, matchers)
+}
+
+// execInMatchedPod will execute the experiment in the target pod
+func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
+	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
+	experimentStatus := v1alpha1.ExperimentStatus{
+		ResStatuses: make([]v1alpha1.ResourceStatus, 0),
+	}
+	experimentIdentifiers, err := e.getExperimentIdentifiers(ctx, expModel)
 	if err != nil {
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
-	podList := &v1.PodList{}
-	if err := e.Client.List(context.TODO(), podList, GetChaosBladePodListOptions()); err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
-	}
-	return e.execInMatchedPod(ctx, nodeNameUidMap, podList, expModel)
-}
+	logrusField.Infof("experiment identifiers: %v", experimentIdentifiers)
 
-// ResourceIdentifier is used to pass the necessary values in context
-type ResourceIdentifier struct {
-	NodeName string
-	NodeUid  string
-}
-
-func NewResourceIdentifier(nodeName, nodeUid string) *ResourceIdentifier {
-	return &ResourceIdentifier{
-		NodeName: nodeName,
-		NodeUid:  nodeUid,
-	}
-}
-
-// execInMatchedPod will execute the experiment in the target pod
-func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNameUidMap NodeNameUidMap,
-	podList *v1.PodList, expModel *spec.ExpModel) *spec.Response {
-
-	experimentStatus := v1alpha1.ExperimentStatus{
-		ResStatuses: make([]v1alpha1.ResourceStatus, 0),
-	}
 	statuses := experimentStatus.ResStatuses
-	success := false
-	for nodeName, nodeUid := range nodeNameUidMap {
+	success := true
+	ok := false
+	for _, identifier := range experimentIdentifiers {
 		rsStatus := v1alpha1.ResourceStatus{
-			Kind:     expModel.Scope,
-			NodeName: nodeName,
+			Kind:       expModel.Scope,
+			Identifier: identifier.GetIdentifier(),
 		}
+		if identifier.Error != "" {
+			continue
+		}
+		rsStatus.Id = identifier.Id
 		if _, ok := spec.IsDestroy(ctx); ok {
-			// Destroy
-			nodeNameExpObjectMetasMaps, err := ExtractNodeNameExpObjectMetasMapFromContext(ctx)
+			ctx = spec.SetDestroyFlag(ctx, identifier.Id)
+			// check pod state
+			pod := &v1.Pod{}
+			err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
+				Name: identifier.PodName}, pod)
 			if err != nil {
-				return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-					v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
-			}
-			expObjectMetas := nodeNameExpObjectMetasMaps[nodeName]
-			if len(expObjectMetas) == 0 {
-				rsStatus.CreateFailResourceStatus("can not find the experiment id")
+				// If the resource cannot be found, the execution is considered successful.
+				msg := fmt.Sprintf("%s pod in %s namespace not found, skip to execute command in it",
+					identifier.PodName, identifier.Namespace)
+				logrusField.Warningln(msg)
+				rsStatus.CreateSuccessResourceStatus()
+				rsStatus.Error = msg
 				statuses = append(statuses, rsStatus)
 				continue
 			}
-			expIdSet := sets.String{}
-			for _, objectMeta := range expObjectMetas {
-				expIdSet.Insert(objectMeta.Id)
-			}
-			if expIdSet.Len() == 0 {
-				rsStatus.CreateFailResourceStatus(fmt.Sprintf("cannot find the experiment id for %s node", nodeName))
-				statuses = append(statuses, rsStatus)
-				continue
-			}
-			expIds := strings.Join(expIdSet.List(), ",")
-			ctx = spec.SetDestroyFlag(ctx, expIds)
 		}
-
-		targetExcCommandPod := e.getExecPod(nodeName, podList)
-		if targetExcCommandPod == nil {
-			rsStatus.CreateFailResourceStatus(fmt.Sprintf("can not find the target exec pod on %s node", nodeName))
+		if identifier.PodName == "" && identifier.Namespace == "" {
+			rsStatus.CreateFailResourceStatus(fmt.Sprintf("less pod name or pod namespace to find the target exec pod"))
 			statuses = append(statuses, rsStatus)
 			continue
 		}
-		resourceIdentifier := NewResourceIdentifier(nodeName, nodeUid)
-		success, statuses = e.execCommands(ctx, expModel, rsStatus, targetExcCommandPod, statuses, resourceIdentifier)
+		logrusField.Infof("execute identifier: %+v", identifier)
+		ok, statuses = e.execCommands(ctx, rsStatus, identifier, statuses)
+		// If false occurs once, the result is false.
+		success = success && ok
 	}
-	logrus.Infof("success: %t, statuses: %+v", success, statuses)
+
+	logrusField.Infof("success: %t, statuses: %+v", success, statuses)
 	if success {
 		experimentStatus.State = v1alpha1.SuccessState
 	} else {
@@ -165,52 +150,164 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, nodeNam
 	return spec.ReturnResultIgnoreCode(experimentStatus)
 }
 
-func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, expModel *spec.ExpModel,
-	rsStatus v1alpha1.ResourceStatus, targetExecPod *v1.Pod, statuses []v1alpha1.ResourceStatus,
-	resourceIdentifier *ResourceIdentifier) (bool, []v1alpha1.ResourceStatus) {
-
+func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1alpha1.ResourceStatus,
+	identifier ExperimentIdentifierInPod, statuses []v1alpha1.ResourceStatus) (bool, []v1alpha1.ResourceStatus) {
 	success := false
-	experimentIdentifiers, err := e.CommandFunc(ctx, expModel, resourceIdentifier)
-	logrus.Infof("ExperimentIdentifiers: %+v", experimentIdentifiers)
-	if err != nil {
-		newStatus := rsStatus.CreateFailResourceStatus(err.Error())
-		statuses = append(statuses, newStatus)
-		return success, statuses
-	}
-	for _, identifier := range experimentIdentifiers {
-		newStatus := rsStatus
-		newStatus.Id = identifier.Id
-		newStatus.Uid = identifier.Uid
-		newStatus.Name = identifier.Name
-
-		if identifier.Error != "" {
-			newStatus = newStatus.CreateFailResourceStatus(identifier.Error)
-		} else {
-			response := e.Client.Exec(targetExecPod, chaosblade.Constant.PodName, identifier.Command, time.Second*30)
-			if response.Success {
-				if _, ok := spec.IsDestroy(ctx); !ok {
-					newStatus.Id = response.Result.(string)
-				}
-				newStatus = newStatus.CreateSuccessResourceStatus()
-				success = true
-			} else {
-				newStatus = newStatus.CreateFailResourceStatus(response.Err)
-			}
+	response := e.Client.Exec(&channel.ExecOptions{
+		StreamOptions: channel.StreamOptions{
+			IOStreams: channel.IOStreams{
+				Out:    bytes.NewBuffer([]byte{}),
+				ErrOut: bytes.NewBuffer([]byte{}),
+			},
+			ErrDecoder: func(bytes []byte) interface{} {
+				content := string(bytes)
+				return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+			},
+			OutDecoder: func(bytes []byte) interface{} {
+				content := string(bytes)
+				return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+			},
+		},
+		PodName:       identifier.PodName,
+		PodNamespace:  identifier.Namespace,
+		ContainerName: identifier.ContainerName,
+		Command:       strings.Split(identifier.Command, " "),
+	}).(*spec.Response)
+	if response.Success {
+		if _, ok := spec.IsDestroy(ctx); !ok {
+			rsStatus.Id = response.Result.(string)
 		}
-		statuses = append(statuses, newStatus)
+		rsStatus = rsStatus.CreateSuccessResourceStatus()
+		success = true
+	} else {
+		rsStatus = rsStatus.CreateFailResourceStatus(response.Err)
 	}
+	statuses = append(statuses, rsStatus)
 	return success, statuses
 }
 
-func (e *ExecCommandInPodExecutor) getExecPod(nodeName string, podList *v1.PodList) *v1.Pod {
-	var targetPod *v1.Pod
-	for _, pod := range podList.Items {
-		if pod.Spec.NodeName == nodeName {
-			targetPod = &pod
-			break
+func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	override := expModel.ActionFlags["override"] == "true"
+	for _, obj := range containerObjectMetaList {
+		if obj.Id != "" {
+			command = fmt.Sprintf("%s --uid %s", command, obj.Id)
+		}
+		identifierInPod := ExperimentIdentifierInPod{
+			Id:            obj.Id,
+			Command:       command,
+			ContainerName: obj.ContainerName,
+			PodName:       obj.PodName,
+			Namespace:     obj.Namespace,
+			NodeName:      obj.NodeName,
+		}
+		err := e.deployChaosBlade(experimentId, expModel, obj, override)
+		if err != nil {
+			identifierInPod.Error = err.Error()
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) generateCreateCommands(experimentId string, expModel *spec.ExpModel, containerObjectMetaList ContainerMatchedList,
+	matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s create %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	override := expModel.ActionFlags["override"] == "true"
+	for _, obj := range containerObjectMetaList {
+		identifierInPod := ExperimentIdentifierInPod{
+			Command:       command,
+			ContainerName: obj.ContainerName,
+			PodName:       obj.PodName,
+			Namespace:     obj.Namespace,
+			NodeName:      obj.NodeName,
+		}
+		err := e.deployChaosBlade(experimentId, expModel, obj, override)
+		if err != nil {
+			identifierInPod.Error = err.Error()
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expModel *spec.ExpModel,
+	obj ContainerObjectMeta, override bool) error {
+	logrusField := logrus.WithField("experiment", experimentId)
+	chaosBladePath := getTargetChaosBladePath(expModel)
+	options := CopyOptions{
+		Container: obj.ContainerName,
+		Namespace: obj.Namespace,
+		PodName:   obj.PodName,
+		client:    e.Client,
+	}
+
+	logrusField.Infof("deploy chaosblade under override with %t value", override)
+	// 校验 chaosblade 目录是否存在
+	chaosBladeBinPath := path.Join(chaosBladePath, "bin")
+	if err := options.CheckFileExists(chaosBladeBinPath); err != nil {
+		// create chaosblade path
+		if err := options.CreateDir(chaosBladeBinPath); err != nil {
+			return fmt.Errorf("create chaosblade dir failed, %v", err)
 		}
 	}
-	return targetPod
+	// 部署 blade 和 yaml 文件
+	bladePath := path.Join(chaosBladePath, "blade")
+	if override || options.CheckFileExists(bladePath) != nil {
+		if err := options.CopyToPod(chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
+			return fmt.Errorf("deploy blade failed, %v", err)
+		}
+	}
+	yamlPath := path.Join(chaosBladePath, "yaml")
+	if override || options.CheckFileExists(yamlPath) != nil {
+		if err := options.CopyToPod(chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
+			return fmt.Errorf("deploy yaml failed, %v", err)
+		}
+	}
+	// 按需复制
+	for _, program := range expModel.ActionPrograms {
+		var programFile, operatorProgramFile string
+		switch program {
+		case "java":
+			programFile = path.Join(chaosBladePath, "lib")
+			operatorProgramFile = chaosblade.OperatorChaosBladeLib
+		default:
+			programFile = path.Join(chaosBladePath, "bin", program)
+			operatorProgramFile = path.Join(chaosblade.OperatorChaosBladeBin, program)
+		}
+		if !override && options.CheckFileExists(programFile) == nil {
+			logrusField.WithField("program", programFile).Infof("program exists")
+			continue
+		}
+		err := options.CopyToPod(operatorProgramFile, programFile)
+		logrusField = logrusField.WithFields(logrus.Fields{
+			"container": obj.ContainerName,
+			"pod":       obj.PodName,
+			"namespace": obj.Namespace,
+		})
+		if err != nil {
+			return fmt.Errorf("copy chaosblade to pod failed, %v", err)
+		}
+		logrusField.Infof("deploy %s success", programFile)
+	}
+	return nil
+}
+
+// getTargetChaosBladePath return the chaosblade deployed path in target container
+func getTargetChaosBladePath(expModel *spec.ExpModel) string {
+	deployedPath := expModel.ActionFlags[ChaosBladeDeployedPathFlag.Name]
+	if deployedPath == "" {
+		return chaosblade.OperatorChaosBladePath
+	}
+	return path.Join(deployedPath, "chaosblade")
+}
+
+// getTargetChaosBladeBin returns the blade deployed path in target container
+func getTargetChaosBladeBin(expModel *spec.ExpModel) string {
+	return path.Join(getTargetChaosBladePath(expModel), "blade")
 }
 
 func ExcludeKeyFunc() func() map[string]spec.Empty {
