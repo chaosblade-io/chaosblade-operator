@@ -82,6 +82,12 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
 			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
+	if len(containerObjectMetaList) == 0 {
+		msg := "container not found"
+		logrusField.Errorln(msg)
+		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], msg,
+			v1alpha1.CreateFailExperimentStatus(msg, nil))
+	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
 }
