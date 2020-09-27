@@ -191,7 +191,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 
 		chaosfsClient, err := getChaosfsClient(pod)
 		if err != nil {
-			logrusField.Errorf("init chaosfs client failed: %v", c.PodName, request, err)
+			logrusField.WithField("pod", c.PodName).WithField("request", request).
+				Errorf("init chaosfs client failed: %v", err)
 			statuses = append(statuses, status.CreateFailResourceStatus(err.Error()))
 			continue
 		}

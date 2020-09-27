@@ -30,10 +30,12 @@ import (
 
 // main creates the yaml file of the experiments about kubernetes
 func main() {
-	if len(os.Args) != 2 {
+	if len(os.Args) < 2 {
 		log.Panicln("less yaml file path")
 	}
-	container.JvmSpecFileForYaml = "/Users/Shared/ChaosBladeProjects/chaosblade-opensource/chaosblade-operator/src/github.com/chaosblade-io/chaosblade-operator/build/cache/chaosblade/yaml/chaosblade-jvm-spec-0.6.0.yaml"
+	if len(os.Args) == 3 {
+		container.JvmSpecFileForYaml = os.Args[2]
+	}
 	err := util.CreateYamlFile(getModels(), os.Args[1])
 	if err != nil {
 		log.Panicf("create yaml file error, %v", err)

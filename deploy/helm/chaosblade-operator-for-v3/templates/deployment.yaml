@@ -20,6 +20,9 @@ spec:
           image: {{ .Values.operator.repository }}:{{ .Values.operator.version }}
           command: ["chaosblade-operator"]
           args:
+          {{- if .Values.blade.repository }}
+          - '--chaosblade-image-repository={{ .Values.blade.repository }}'
+          {{- end }}
           {{- if .Values.env.zapLevel }}
           - '--zap-level={{ .Values.env.zapLevel }}'
           {{- end }}

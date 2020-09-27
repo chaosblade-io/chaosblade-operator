@@ -2,14 +2,18 @@
 
 # chaosblade-operator
 operator:
-#  repository: chaosbladeio/chaosblade-operator
+  #  repository: chaosbladeio/chaosblade-operator
   repository: "registry-vpc.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-operator"
   version: 0.7.0-dev
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
 
+blade:
+  #  repository: chaosbladeio/chaosblade-tool
+  repository: registry-vpc.cn-hangzhou.aliyuncs.com/chaosblade/chaosblade-tool
+
 env:
   logLevel: info
 
 webhook:
-  enable: false
+  enable: true
