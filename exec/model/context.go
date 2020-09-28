@@ -30,6 +30,7 @@ const ExperimentIdKey = "ExperimentIdKey"
 type ContainerObjectMeta struct {
 	// experiment id
 	Id            string
+	ContainerId   string
 	ContainerName string
 	PodName       string
 	NodeName      string
@@ -70,11 +71,18 @@ func SetContainerObjectMetaListToContext(ctx context.Context, containerMatchedLi
 
 func (c *ContainerObjectMeta) GetIdentifier() string {
 	identifier := fmt.Sprintf("%s/%s/%s", c.Namespace, c.NodeName, c.PodName)
-	return fmt.Sprintf("%s/%s", identifier, c.ContainerName)
+	if c.ContainerName != "" {
+		identifier = fmt.Sprintf("%s/%s", identifier, c.ContainerName)
+	}
+	if c.ContainerId != "" {
+		identifier = fmt.Sprintf("%s/%s", identifier, c.ContainerId)
+	}
+	return identifier
 }
 
+// Namespace/Node/Pod/ContainerName/ContainerId(12 length)
 func ParseIdentifier(identifier string) ContainerObjectMeta {
-	ss := strings.SplitN(identifier, "/", 4)
+	ss := strings.SplitN(identifier, "/", 5)
 	meta := ContainerObjectMeta{}
 	switch len(ss) {
 	case 0:
@@ -93,6 +101,12 @@ func ParseIdentifier(identifier string) ContainerObjectMeta {
 		meta.NodeName = ss[1]
 		meta.PodName = ss[2]
 		meta.ContainerName = ss[3]
+	case 5:
+		meta.Namespace = ss[0]
+		meta.NodeName = ss[1]
+		meta.PodName = ss[2]
+		meta.ContainerName = ss[3]
+		meta.ContainerId = ss[4]
 	}
 	return meta
 }

@@ -19,6 +19,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -26,7 +27,9 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
@@ -34,17 +37,13 @@ import (
 )
 
 type ExperimentIdentifierInPod struct {
-	Id            string
-	Command       string
-	Error         string
-	ContainerName string
-	PodName       string
-	Namespace     string
-	NodeName      string
-}
-
-func (e *ExperimentIdentifierInPod) GetIdentifier() string {
-	return fmt.Sprintf("%s/%s/%s/%s", e.Namespace, e.NodeName, e.PodName, e.ContainerName)
+	ContainerObjectMeta
+	Command string
+	Error   string
+	// For daemonset
+	ChaosBladePodName       string
+	ChaosBladeNamespace     string
+	ChaosBladeContainerName string
 }
 
 type ExecCommandInPodExecutor struct {
@@ -69,13 +68,20 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 		return []ExperimentIdentifierInPod{}, err
 	}
 	excludeFlagsFunc := ExcludeKeyFunc()
-	isContainerSelfTarget := expModel.Target == "container"
-	if isContainerSelfTarget {
-		return nil, fmt.Errorf("not support delete container action")
-	}
 	matchers := spec.ConvertExpMatchersToString(expModel, excludeFlagsFunc)
 	experimentId := GetExperimentIdFromContext(ctx)
-	if _, ok := spec.IsDestroy(ctx); ok {
+	_, destroy := spec.IsDestroy(ctx)
+
+	isContainerSelfTarget := expModel.Target == "container"
+	isContainerNetworkTarget := expModel.Target == "network"
+	if chaosblade.DaemonsetEnable && (isContainerSelfTarget || isContainerNetworkTarget) {
+		return e.getDockerExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
+	}
+	if isContainerSelfTarget {
+		return []ExperimentIdentifierInPod{},
+			errors.New("daemonset-enable must be true to execute container-self chaos experiments")
+	}
+	if destroy {
 		return e.generateDestroyCommands(experimentId, expModel, containerObjectMetaList, matchers)
 	}
 	return e.generateCreateCommands(experimentId, expModel, containerObjectMetaList, matchers)
@@ -153,6 +159,15 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1alpha1.ResourceStatus,
 	identifier ExperimentIdentifierInPod, statuses []v1alpha1.ResourceStatus) (bool, []v1alpha1.ResourceStatus) {
 	success := false
+	// handle chaos experiments using daemonset mode
+	podName := identifier.PodName
+	podNamespace := identifier.Namespace
+	containerName := identifier.ContainerName
+	if identifier.ChaosBladePodName != "" {
+		podName = identifier.ChaosBladePodName
+		podNamespace = identifier.ChaosBladeNamespace
+		containerName = identifier.ChaosBladeContainerName
+	}
 	response := e.Client.Exec(&channel.ExecOptions{
 		StreamOptions: channel.StreamOptions{
 			IOStreams: channel.IOStreams{
@@ -168,9 +183,9 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1
 				return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 			},
 		},
-		PodName:       identifier.PodName,
-		PodNamespace:  identifier.Namespace,
-		ContainerName: identifier.ContainerName,
+		PodName:       podName,
+		PodNamespace:  podNamespace,
+		ContainerName: containerName,
 		Command:       strings.Split(identifier.Command, " "),
 	}).(*spec.Response)
 	if response.Success {
@@ -191,17 +206,13 @@ func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, 
 	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	override := expModel.ActionFlags["override"] == "true"
-	for _, obj := range containerObjectMetaList {
+	for idx, obj := range containerObjectMetaList {
 		if obj.Id != "" {
 			command = fmt.Sprintf("%s --uid %s", command, obj.Id)
 		}
 		identifierInPod := ExperimentIdentifierInPod{
-			Id:            obj.Id,
-			Command:       command,
-			ContainerName: obj.ContainerName,
-			PodName:       obj.PodName,
-			Namespace:     obj.Namespace,
-			NodeName:      obj.NodeName,
+			ContainerObjectMeta: containerObjectMetaList[idx],
+			Command:             command,
 		}
 		err := e.deployChaosBlade(experimentId, expModel, obj, override)
 		if err != nil {
@@ -217,13 +228,10 @@ func (e *ExecCommandInPodExecutor) generateCreateCommands(experimentId string, e
 	command := fmt.Sprintf("%s create %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	override := expModel.ActionFlags["override"] == "true"
-	for _, obj := range containerObjectMetaList {
+	for idx, obj := range containerObjectMetaList {
 		identifierInPod := ExperimentIdentifierInPod{
-			Command:       command,
-			ContainerName: obj.ContainerName,
-			PodName:       obj.PodName,
-			Namespace:     obj.Namespace,
-			NodeName:      obj.NodeName,
+			ContainerObjectMeta: containerObjectMetaList[idx],
+			Command:             command,
 		}
 		err := e.deployChaosBlade(experimentId, expModel, obj, override)
 		if err != nil {
@@ -294,6 +302,112 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 		logrusField.Infof("deploy %s success", programFile)
 	}
 	return nil
+}
+
+func (e *ExecCommandInPodExecutor) getDockerExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
+	if isNetworkTarget {
+		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
+			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
+	}
+	if destroy {
+		return e.generateDestroyDockerCommands(experimentId, expModel, containerObjectMetaList, matchers)
+	}
+	return e.generateCreateDockerCommands(experimentId, expModel, containerObjectMetaList, matchers)
+}
+
+// GetChaosBladeDaemonsetPodName
+func (e *ExecCommandInPodExecutor) GetChaosBladeDaemonsetPodName(nodeName string) (string, error) {
+	podName := chaosblade.DaemonsetPodNames[nodeName]
+	if podName == "" {
+		if err := e.refreshChaosBladeDaemonsetPodNames(); err != nil {
+			return "", err
+		}
+		return chaosblade.DaemonsetPodNames[nodeName], nil
+	}
+	// check
+	pod := v1.Pod{}
+	err := e.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: chaosblade.DaemonsetPodNamespace,
+		Name:      podName,
+	}, &pod)
+	if err == nil {
+		return podName, nil
+	}
+	// refresh
+	if err := e.refreshChaosBladeDaemonsetPodNames(); err != nil {
+		return "", err
+	}
+	return chaosblade.DaemonsetPodNames[nodeName], nil
+}
+
+func (e *ExecCommandInPodExecutor) refreshChaosBladeDaemonsetPodNames() error {
+	podList := v1.PodList{}
+	opts := client.ListOptions{
+		Namespace:     chaosblade.DaemonsetPodNamespace,
+		LabelSelector: pkglabels.SelectorFromSet(chaosblade.DaemonsetPodLabels),
+	}
+	if err := e.Client.List(context.TODO(), &podList, &opts); err != nil {
+		return err
+	}
+	podNames := make(map[string]string, len(podList.Items))
+	for _, pod := range podList.Items {
+		podNames[pod.Spec.NodeName] = pod.Name
+	}
+	chaosblade.DaemonsetPodNames = podNames
+	return nil
+}
+
+func (e *ExecCommandInPodExecutor) generateDestroyDockerCommands(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s destroy docker %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		if obj.Id != "" {
+			command = fmt.Sprintf("%s --uid %s", command, obj.Id)
+		}
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for destroying failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
+		command = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 command,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) generateCreateDockerCommands(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s create docker %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for creating failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
+		command = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 command,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
 }
 
 // getTargetChaosBladePath return the chaosblade deployed path in target container

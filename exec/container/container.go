@@ -17,6 +17,7 @@
 package container
 
 import (
+	dockerexec "github.com/chaosblade-io/chaosblade-exec-docker/exec"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
@@ -33,9 +34,14 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	resourceModelSpec := &ResourceModelSpec{
 		model.NewBaseResourceExpModelSpec("container", client),
 	}
-	subExpModelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)
+
 	osSubExpModelSpecs := model.NewOSSubResourceModelSpec().ExpModels()
-	subExpModelCommandSpecs = append(append(subExpModelCommandSpecs, osSubExpModelSpecs...), getJvmModels()...)
+	containerSelfModelSpec := dockerexec.NewContainerCommandSpec()
+	javaExpModelSpecs := getJvmModels()
+
+	subExpModelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)
+	subExpModelCommandSpecs = append(subExpModelCommandSpecs, containerSelfModelSpec)
+	subExpModelCommandSpecs = append(append(subExpModelCommandSpecs, osSubExpModelSpecs...), javaExpModelSpecs...)
 	spec.AddExecutorToModelSpec(&model.ExecCommandInPodExecutor{Client: client}, subExpModelCommandSpecs...)
 
 	spec.AddFlagsToModelSpec(getResourceFlags, subExpModelCommandSpecs...)

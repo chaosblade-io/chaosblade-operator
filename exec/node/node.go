@@ -38,7 +38,6 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	selfModelSpec := NewSelfExpModelCommandSpec()
 	expModelSpecs := append(osModelSpecs, selfModelSpec)
 
-	spec.AddFlagsToModelSpec(getResourceFlags, expModelSpecs...)
 	spec.AddFlagsToModelSpec(osModel.GetSSHExpFlags, expModelSpecs...)
 	modelSpec.RegisterExpModels(osModelSpecs...)
 	addActionExamples(modelSpec)

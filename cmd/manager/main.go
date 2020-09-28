@@ -44,6 +44,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
 	operator "github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 	webhookcfg "github.com/chaosblade-io/chaosblade-operator/pkg/webhook"
 	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 	"github.com/chaosblade-io/chaosblade-operator/version"
@@ -55,6 +56,7 @@ func printVersion() {
 	logrus.Infof("Version of operator-sdk: %v", sdkVersion.Version)
 	logrus.Infof("Operator Version: %v", version.Version)
 	logrus.Infof("Operator Product: %v", version.Product)
+	logrus.Infof("Daemonset Enable: %t", chaosblade.DaemonsetEnable)
 }
 
 func main() {

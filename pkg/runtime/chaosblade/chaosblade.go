@@ -18,12 +18,15 @@ package chaosblade
 
 import (
 	"github.com/spf13/pflag"
+
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
 var (
 	ImageRepository string
 	Version         string
 	PullPolicy      string
+	DaemonsetEnable bool
 )
 
 const (
@@ -33,6 +36,16 @@ const (
 	OperatorChaosBladeYaml  = "/opt/chaosblade/yaml"
 	OperatorChaosBladeBlade = "/opt/chaosblade/blade"
 )
+
+const DaemonsetPodName = "chaosblade-tool"
+
+var DaemonsetPodLabels = map[string]string{
+	"app": "chaosblade-tool",
+}
+
+// set in runtime
+var DaemonsetPodNamespace string
+var DaemonsetPodNames = map[string]string{}
 
 var Products = map[string]*ProductConstant{}
 
@@ -47,8 +60,10 @@ var f *pflag.FlagSet
 func init() {
 	f = pflag.NewFlagSet("chaosblade", pflag.ExitOnError)
 	// chaosblade config
+	f.StringVar(&Version, "chaosblade-version", version.Version, "Chaosblade tool version")
 	f.StringVar(&ImageRepository, "chaosblade-image-repository", "chaosbladeio/chaosblade-tool", "Image repository of chaosblade tool")
-	f.StringVar(&PullPolicy, "chaosblade-image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent. (Deprecated)")
+	f.StringVar(&PullPolicy, "chaosblade-image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent.")
+	f.BoolVar(&DaemonsetEnable, "daemonset-enable", false, "Deploy chaosblade daemonset to resolve chaos experiment environment of network, default value is false.")
 }
 
 func FlagSet() *pflag.FlagSet {

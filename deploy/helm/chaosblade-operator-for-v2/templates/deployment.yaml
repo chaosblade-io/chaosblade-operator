@@ -23,6 +23,12 @@ spec:
           {{- if .Values.blade.repository }}
           - '--chaosblade-image-repository={{ .Values.blade.repository }}'
           {{- end }}
+          {{- if .Values.blade.version }}
+          - '--chaosblade-version={{ .Values.blade.version }}'
+          {{- end }}
+          {{- if .Values.blade.pullPolicy }}
+          - '--chaosblade-image-pull-policy={{ .Values.blade.pullPolicy }}'
+          {{- end }}
           {{- if .Values.env.zapLevel }}
           - '--zap-level={{ .Values.env.zapLevel }}'
           {{- end }}
@@ -31,6 +37,9 @@ spec:
           {{- end }}
           {{- if .Values.webhook.enable }}
           - '--webhook-enable'
+          {{- end }}
+          {{- if .Values.daemonset.enable }}
+          - '--daemonset-enable'
           {{- end }}
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
