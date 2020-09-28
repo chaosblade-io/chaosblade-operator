@@ -22,16 +22,17 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerName string, err error) {
+func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName string, err error) {
 	containerStatuses := pod.Status.ContainerStatuses
 	if containerStatuses == nil || len(containerStatuses) == 0 {
-		return "", fmt.Errorf("the container statues is empty in %s pod", pod.Name)
+		return "", "", fmt.Errorf("the container statues is empty in %s pod", pod.Name)
 	}
 	for _, containerStatus := range containerStatuses {
 		if containerStatus.State.Running == nil {
 			continue
 		}
-		return containerStatus.Name, nil
+		containerId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+		return containerId, containerStatus.Name, nil
 	}
-	return "", fmt.Errorf("cannot find a valiable container in %s pod", pod.Name)
+	return "", "", fmt.Errorf("cannot find a valiable container in %s pod", pod.Name)
 }
