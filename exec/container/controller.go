@@ -138,6 +138,7 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					}
 					if strings.HasPrefix(containerId, expectedContainerId) {
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+							ContainerId:   containerId[:12],
 							ContainerName: containerName,
 							PodName:       pod.Name,
 							Namespace:     pod.Namespace,
@@ -153,6 +154,7 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					if expectedName == containerName {
 						// matched
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+							ContainerId:   containerId[:12],
 							ContainerName: containerName,
 							PodName:       pod.Name,
 							Namespace:     pod.Namespace,
@@ -170,7 +172,9 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			if idx > len(containerStatuses)-1 {
 				return containerObjectMetaList, fmt.Errorf("%s value is out of bound", containerIndexValue)
 			}
+			containerId := model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID)
 			containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+				ContainerId:   containerId[:12],
 				ContainerName: containerStatuses[idx].Name,
 				PodName:       pod.Name,
 				Namespace:     pod.Namespace,

@@ -99,13 +99,14 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 func getContainerMatchedList(experimentId string, pods []v1.Pod) model.ContainerMatchedList {
 	containerObjectMetaList := model.ContainerMatchedList{}
 	for _, p := range pods {
-		containerName, err := model.GetOneAvailableContainerIdFromPod(p)
+		containerId, containerName, err := model.GetOneAvailableContainerIdFromPod(p)
 		if err != nil {
 			logrus.WithField("experiment", experimentId).WithField("pod", p.Name).
 				Errorf("get an available container failed, %v", err)
 			continue
 		}
 		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
+			ContainerId:   containerId[:12],
 			ContainerName: containerName,
 			PodName:       p.Name,
 			NodeName:      p.Spec.NodeName,
