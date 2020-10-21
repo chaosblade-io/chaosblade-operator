@@ -17,8 +17,10 @@
 package node
 
 import (
+	"fmt"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"strings"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -80,7 +82,7 @@ blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 
 			case *exec.DropActionSpec:
 				action.SetExample(
 					`# Experimental scenario of network shielding
-blade create k8s node-network drop --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
+blade create k8s node-network drop --source-port 80 --network-traffic in --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
 			case *exec.DnsActionSpec:
 				action.SetExample(
 					`# The domain name www.baidu.com is not accessible
@@ -156,7 +158,7 @@ blade create k8s node-disk burn --write --path /home --channel ssh --ssh-host 19
 
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is
 blade create k8s node-disk burn --read --write --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
-			case exec.MemCommandModelSpec:
+			case *exec.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
 				action.SetExample(
 					`# The execution memory footprint is 50%
@@ -173,6 +175,25 @@ blade create k8s node-mem load --mode ram --mem-percent 50 --timeout 200 --chann
 
 # 200M memory is reserved
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
+			case *exec.ScriptDelayActionCommand:
+				action.SetExample(`
+# Add commands to the script "start0() { sleep 10.000000 ...}"
+blade create k8s node-script delay --time 10000 --file test.sh --function-name start0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
+			case *exec.ScriptExitActionCommand:
+				action.SetExample(`
+# Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
+blade create k8s node-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root`)
+			default:
+				action.SetExample(strings.Replace(action.Example(),
+					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade create k8s node-%s %s --names nginx-app --channel ssh --ssh-host 192.168.1.100 --ssh-user root", expModelSpec.Name(), action.Name()),
+					-1,
+				))
+				action.SetExample(strings.Replace(action.Example(),
+					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade c k8s node-%s %s --names nginx-app --channel ssh --ssh-host 192.168.1.100 --ssh-user root", expModelSpec.Name(), action.Name()),
+					-1,
+				))
 			}
 		}
 	}
