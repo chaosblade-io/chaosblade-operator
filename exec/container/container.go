@@ -123,7 +123,7 @@ blade create k8s container-disk burn --write --path /home --names nginx-app --co
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is /
 blade create k8s container-disk burn --read --write --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
 
-			case exec.MemLoadActionCommand:
+			case *exec.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
 				action.SetExample(
 					`# The execution memory footprint is 50%
@@ -252,17 +252,17 @@ blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-mess
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
-					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
-					fmt.Sprintf("blade c k8s container-%s %s --names nginx-app --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade c k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create docker %s %s", expModelSpec.Name(), action.Name()),
-					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
 			}
