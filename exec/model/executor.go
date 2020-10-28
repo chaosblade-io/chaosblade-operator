@@ -21,8 +21,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
@@ -153,7 +156,100 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 	}
 	experimentStatus.Success = success
 	experimentStatus.ResStatuses = statuses
+
+	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e)
 	return spec.ReturnResultIgnoreCode(experimentStatus)
+}
+
+func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuses []v1alpha1.ResourceStatus, identifiers []ExperimentIdentifierInPod, e *ExecCommandInPodExecutor) {
+	tt := expModel.ActionFlags["timeout"]
+	if _, ok := spec.IsDestroy(ctx); !ok && tt != "" && len(statuses) > 0 {
+		experimentId := GetExperimentIdFromContext(ctx)
+		go func() {
+			timeout, err := strconv.ParseUint(tt, 10, 64)
+			if err != nil {
+				// the err checked in RunE function
+				timeDuartion, _ := time.ParseDuration(tt)
+				timeout = uint64(timeDuartion.Seconds())
+			}
+			time.Sleep(time.Duration(timeout) * time.Second)
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+			defer cancel()
+
+			ticker := time.NewTicker(time.Second)
+		TickerLoop:
+			for range ticker.C {
+				select {
+				case <-ctx.Done():
+					ticker.Stop()
+					break TickerLoop
+				default:
+					isDestroyed := true
+					for i, status := range statuses {
+						if !status.Success {
+							continue
+						}
+						containerObjectMeta := ParseIdentifier(status.Identifier)
+						identifier := identifiers[i]
+						podName := containerObjectMeta.PodName
+						podNamespace := containerObjectMeta.Namespace
+						containerName := containerObjectMeta.ContainerName
+						if identifier.ChaosBladePodName != "" {
+							podName = identifier.ChaosBladePodName
+							podNamespace = identifier.ChaosBladeNamespace
+							containerName = identifier.ChaosBladeContainerName
+						}
+						response := e.Client.Exec(&channel.ExecOptions{
+							StreamOptions: channel.StreamOptions{
+								ErrDecoder: func(bytes []byte) interface{} {
+									content := string(bytes)
+									return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+								},
+								OutDecoder: func(bytes []byte) interface{} {
+									content := string(bytes)
+									return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+								},
+							},
+							PodName:       podName,
+							PodNamespace:  podNamespace,
+							ContainerName: containerName,
+							Command:       []string{getTargetChaosBladeBin(expModel), "status", status.Id},
+							IgnoreOutput:  false,
+						}).(*spec.Response)
+						if response.Success {
+							result := response.Result.(map[string]interface{})
+							if result["Status"] != v1alpha1.DestroyedState {
+								isDestroyed = false
+								break
+							}
+						} else {
+							isDestroyed = false
+							break
+						}
+					}
+
+					if isDestroyed {
+						logrus.Info("The experiment was destroyed, ExperimentId: ", experimentId)
+						cli := e.Client.Client
+						objectMeta := metav1.ObjectMeta{Name: experimentId}
+						err := cli.Delete(context.TODO(), &v1alpha1.ChaosBlade{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: "chaosblade.io/v1alpha1",
+								Kind:       "ChaosBlade",
+							},
+							ObjectMeta: objectMeta,
+						})
+						if err != nil {
+							logrus.Warn(err.Error())
+						} else {
+							ticker.Stop()
+						}
+					}
+				}
+			}
+		}()
+	}
 }
 
 func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1alpha1.ResourceStatus,
