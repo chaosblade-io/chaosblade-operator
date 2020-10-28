@@ -75,8 +75,8 @@ blade create k8s pod-disk burn --write --path /home --names nginx-app --kubeconf
 
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is /
 blade create k8s pod-disk burn --read --write --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case exec.MemCommandModelSpec:
-				action.SetLongDesc("The memory fill experiment scenario in container")
+			case *exec.MemLoadActionCommand:
+				action.SetLongDesc("The memory fill experiment scenario in the pod")
 				action.SetExample(
 					`# The execution memory footprint is 50%
 blade create k8s pod-mem load --mode ram --mem-percent 50 --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -93,7 +93,7 @@ blade create k8s pod-mem load --mode ram --mem-percent 50 --timeout 200 --names 
 # 200M memory is reserved
 blade create k8s pod-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
 			case *exec.FileAppendActionSpec:
-				action.SetLongDesc("The file append experiment scenario in container")
+				action.SetLongDesc("The file append experiment scenario in the pod")
 				action.SetExample(
 					`# Appends the content "HELLO WORLD" to the /home/logs/nginx.log file
 blade create k8s pod-file append --filepath=/home/logs/nginx.log --content="HELL WORLD" --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -108,7 +108,7 @@ blade create k8s pod-file append --filepath=/home/logs/nginx.log --content=SEVMT
 blade create k8s pod-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
 			case *exec.FileAddActionSpec:
-				action.SetLongDesc("The file add experiment scenario in container")
+				action.SetLongDesc("The file add experiment scenario in the pod")
 				action.SetExample(
 					`# Create a file named nginx.log in the /home directory
 blade create k8s pod-file add --filepath /home/nginx.log --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -124,12 +124,12 @@ blade create k8s pod-file add --directory --filepath /temp/nginx --auto-create-d
 `)
 
 			case *exec.FileChmodActionSpec:
-				action.SetLongDesc("The file permission modification scenario in container")
+				action.SetLongDesc("The file permission modification scenario in the pod")
 				action.SetExample(`# Modify /home/logs/nginx.log file permissions to 777
 blade create k8s pod-file chmod --filepath /home/logs/nginx.log --mark=777 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
 			case *exec.FileDeleteActionSpec:
-				action.SetLongDesc("The file delete scenario in container")
+				action.SetLongDesc("The file delete scenario in the pod")
 				action.SetExample(
 					`# Delete the file /home/logs/nginx.log
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -138,7 +138,7 @@ blade create k8s pod-file delete --filepath /home/logs/nginx.log --names nginx-a
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
 			case *exec.FileMoveActionSpec:
-				action.SetExample("The file move scenario in container")
+				action.SetExample("The file move scenario in the pod")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /tmp --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
@@ -220,12 +220,12 @@ blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-mess
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
-					fmt.Sprintf("blade create k8s pod-%s %s --names nginx-app --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade create k8s pod-%s %s --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
-					fmt.Sprintf("blade c k8s pod-%s %s --names nginx-app --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
+					fmt.Sprintf("blade c k8s pod-%s %s --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
 			}
