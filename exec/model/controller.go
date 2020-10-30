@@ -61,11 +61,6 @@ func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1
 // Exec gets action executor and execute experiments
 func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
-	if expModel.Scope == "node" {
-		errMsg := "please add --channel ssh to use ssh channel to execute node chaos experiments"
-		return spec.ReturnFailWitResult(spec.Code[spec.HandlerNotFound], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
-	}
 	logrusField.Infof("start to execute: %+v", expModel)
 	// get action spec
 	actionSpec := b.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
