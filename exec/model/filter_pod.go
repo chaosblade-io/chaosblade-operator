@@ -46,23 +46,7 @@ func CheckPodFlags(flags map[string]string) error {
 	if len(namespacesValue) > 1 {
 		return fmt.Errorf("only one %s value can be specified", ResourceNamespaceFlag.Name)
 	}
-	// Must include one flag in the count, percent, labels and names
-	expFlags := []*spec.ExpFlag{
-		ResourceCountFlag,
-		ResourcePercentFlag,
-		ResourceLabelsFlag,
-		ResourceNamesFlag,
-	}
-	value := ""
-	flagsNames := make([]string, 0)
-	for _, flag := range expFlags {
-		flagsNames = append(flagsNames, flag.Name)
-		value = fmt.Sprintf("%s%s", value, flags[flag.Name])
-	}
-	if value == "" {
-		return fmt.Errorf("must specify one flag in %s", strings.Join(flagsNames, ","))
-	}
-	return nil
+	return CheckFlags(flags)
 }
 
 // GetMatchedPodResources return matched pods
@@ -130,7 +114,7 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Pod, error) {
 	namespace := flags[ResourceNamespaceFlag.Name]
 	labels := flags[ResourceLabelsFlag.Name]
-	labelsMap := parseLabels(labels)
+	labelsMap := ParseLabels(labels)
 	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
 	pods := make([]v1.Pod, 0)
 	names := flags[ResourceNamesFlag.Name]
@@ -143,7 +127,7 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
-			if mapContains(pod.Labels, labelsMap) {
+			if MapContains(pod.Labels, labelsMap) {
 				pods = append(pods, pod)
 			}
 		}
@@ -181,33 +165,4 @@ func randomPodSelected(pods []v1.Pod, count int) []v1.Pod {
 		pods[i], pods[num] = pods[num], pods[i]
 	}
 	return pods[:count]
-}
-
-func parseLabels(labels string) map[string]string {
-	labelsMap := make(map[string]string, 0)
-	if labels == "" {
-		return labelsMap
-	}
-	labelArr := strings.Split(labels, ",")
-	for _, label := range labelArr {
-		keyValue := strings.SplitN(label, "=", 2)
-		if len(keyValue) != 2 {
-			logrus.Warningf("label %s is illegal", label)
-			continue
-		}
-		labelsMap[keyValue[0]] = keyValue[1]
-	}
-	return labelsMap
-}
-
-func mapContains(bigMap map[string]string, subMap map[string]string) bool {
-	if bigMap == nil || subMap == nil {
-		return false
-	}
-	for k, v := range subMap {
-		if bigMap[k] != v {
-			return false
-		}
-	}
-	return true
 }
