@@ -21,11 +21,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
@@ -77,6 +78,10 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 
 	isContainerSelfTarget := expModel.Target == "container"
 	isContainerNetworkTarget := expModel.Target == "network"
+	isNodeScope := expModel.Scope == "node"
+	if isNodeScope {
+		return e.getNodeExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy)
+	}
 	if chaosblade.DaemonsetEnable && (isContainerSelfTarget || isContainerNetworkTarget) {
 		return e.getDockerExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
 	}
@@ -117,25 +122,22 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 		rsStatus.Id = identifier.Id
 		if _, ok := spec.IsDestroy(ctx); ok {
 			ctx = spec.SetDestroyFlag(ctx, identifier.Id)
-			// check pod state
-			pod := &v1.Pod{}
-			err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
-				Name: identifier.PodName}, pod)
-			if err != nil {
-				// If the resource cannot be found, the execution is considered successful.
-				msg := fmt.Sprintf("%s pod in %s namespace not found, skip to execute command in it",
-					identifier.PodName, identifier.Namespace)
-				logrusField.Warningln(msg)
-				rsStatus.CreateSuccessResourceStatus()
-				rsStatus.Error = msg
-				statuses = append(statuses, rsStatus)
-				continue
+			if expModel.Scope != "node" {
+				// check pod state
+				pod := &v1.Pod{}
+				err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
+					Name: identifier.PodName}, pod)
+				if err != nil {
+					// If the resource cannot be found, the execution is considered successful.
+					msg := fmt.Sprintf("%s pod in %s namespace not found, skip to execute command in it",
+						identifier.PodName, identifier.Namespace)
+					logrusField.Warningln(msg)
+					rsStatus.CreateSuccessResourceStatus()
+					rsStatus.Error = msg
+					statuses = append(statuses, rsStatus)
+					continue
+				}
 			}
-		}
-		if identifier.PodName == "" && identifier.Namespace == "" {
-			rsStatus.CreateFailResourceStatus(fmt.Sprintf("less pod name or pod namespace to find the target exec pod"))
-			statuses = append(statuses, rsStatus)
-			continue
 		}
 		logrusField.Infof("execute identifier: %+v", identifier)
 		ok, statuses = e.execCommands(ctx, rsStatus, identifier, statuses)
@@ -494,6 +496,60 @@ func (e *ExecCommandInPodExecutor) generateCreateDockerCommands(experimentId str
 			return identifiers, err
 		}
 		command = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 command,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) getNodeExperimentIdentifiers(experimentId string, expModel *spec.ExpModel, containerMatchedList ContainerMatchedList, matchers string, destroy bool) ([]ExperimentIdentifierInPod, error) {
+	if destroy {
+		return e.generateDestroyNodeCommands(experimentId, expModel, containerMatchedList, matchers)
+	}
+	return e.generateCreateNodeCommands(experimentId, expModel, containerMatchedList, matchers)
+}
+
+func (e *ExecCommandInPodExecutor) generateDestroyNodeCommands(experimentId string, expModel *spec.ExpModel, containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		if obj.Id != "" {
+			command = fmt.Sprintf("%s --uid %s", command, obj.Id)
+		}
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for destroying failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 command,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) generateCreateNodeCommands(experimentId string, expModel *spec.ExpModel, containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s create %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for creating failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 command,

@@ -18,7 +18,10 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
 
@@ -35,4 +38,53 @@ func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName s
 		return containerId, containerStatus.Name, nil
 	}
 	return "", "", fmt.Errorf("cannot find a valiable container in %s pod", pod.Name)
+}
+
+func ParseLabels(labels string) map[string]string {
+	labelsMap := make(map[string]string, 0)
+	if labels == "" {
+		return labelsMap
+	}
+	labelArr := strings.Split(labels, ",")
+	for _, label := range labelArr {
+		keyValue := strings.SplitN(label, "=", 2)
+		if len(keyValue) != 2 {
+			logrus.Warningf("label %s is illegal", label)
+			continue
+		}
+		labelsMap[keyValue[0]] = keyValue[1]
+	}
+	return labelsMap
+}
+
+func MapContains(bigMap map[string]string, subMap map[string]string) bool {
+	if bigMap == nil || subMap == nil {
+		return false
+	}
+	for k, v := range subMap {
+		if bigMap[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func CheckFlags(flags map[string]string) error {
+	// Must include one flag in the count, percent, labels and names
+	expFlags := []*spec.ExpFlag{
+		ResourceCountFlag,
+		ResourcePercentFlag,
+		ResourceLabelsFlag,
+		ResourceNamesFlag,
+	}
+	value := ""
+	flagsNames := make([]string, 0)
+	for _, flag := range expFlags {
+		flagsNames = append(flagsNames, flag.Name)
+		value = fmt.Sprintf("%s%s", value, flags[flag.Name])
+	}
+	if value == "" {
+		return fmt.Errorf("must specify one flag in %s", strings.Join(flagsNames, ","))
+	}
+	return nil
 }

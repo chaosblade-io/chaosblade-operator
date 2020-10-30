@@ -27,6 +27,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
+	"github.com/chaosblade-io/chaosblade-operator/exec/node"
 	"github.com/chaosblade-io/chaosblade-operator/exec/pod"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
@@ -46,7 +47,7 @@ func NewDispatcherExecutor(client *channel.Client) *ResourceDispatchedController
 			Controllers: make(map[string]model.ExperimentController, 0),
 		}
 		executor.register(
-			// Delete node controller executed by chaosblade directly
+			node.NewExpController(client),
 			pod.NewExpController(client),
 			container.NewExpController(client),
 		)
