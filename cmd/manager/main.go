@@ -77,6 +77,7 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("Become leader error, %v", err)
 	}
+	cfg.QPS = operator.QPS
 	mgr, err := createManager(cfg)
 	if err != nil {
 		logrus.Fatalf("Create operator manager error, %v", err)

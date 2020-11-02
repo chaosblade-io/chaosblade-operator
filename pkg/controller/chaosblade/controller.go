@@ -34,6 +34,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/exec"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	runtime2 "github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 	"github.com/chaosblade-io/chaosblade-operator/version"
 )
@@ -64,7 +65,10 @@ func newReconciler(mgr manager.Manager) *ReconcileChaosBlade {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 	// Create a new controller
-	c, err := controller.New("chaosblade-controller", mgr, controller.Options{Reconciler: rcb})
+	c, err := controller.New("chaosblade-controller", mgr, controller.Options{
+		Reconciler:              rcb,
+		MaxConcurrentReconciles: runtime2.MaxConcurrentReconciles,
+	})
 	if err != nil {
 		return err
 	}
