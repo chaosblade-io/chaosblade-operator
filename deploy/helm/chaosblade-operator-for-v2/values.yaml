@@ -6,6 +6,8 @@ operator:
   version: 0.7.0
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
+  qps: 20
+  reconcileCount: 20
 
 blade:
   repository: chaosbladeio/chaosblade-tool
