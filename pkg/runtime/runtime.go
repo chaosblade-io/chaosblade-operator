@@ -27,10 +27,14 @@ import (
 
 var flagSet *pflag.FlagSet
 var LogLevel string
+var MaxConcurrentReconciles int
+var QPS float32
 
 func init() {
 	flagSet = pflag.NewFlagSet("operator", pflag.ExitOnError)
 	flagSet.StringVar(&LogLevel, "log-level", "info", "Log level, such as panic|fatal|error|warn|info|debug|trace")
+	flagSet.IntVar(&MaxConcurrentReconciles, "reconcile-count", 20, "Max concurrent reconciles count, default value is 20")
+	flagSet.Float32Var(&QPS, "qps", 20, "qps of kubernetes client")
 
 	flagSet.AddFlagSet(aliyun.FlagSet())
 	flagSet.AddFlagSet(chaosblade.FlagSet())
