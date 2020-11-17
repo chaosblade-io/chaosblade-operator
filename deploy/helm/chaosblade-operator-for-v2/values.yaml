@@ -22,3 +22,7 @@ webhook:
 
 daemonset:
   enable: true
+
+remove:
+  blade:
+    interval: 72h
