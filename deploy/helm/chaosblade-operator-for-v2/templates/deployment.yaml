@@ -41,6 +41,9 @@ spec:
           {{- if .Values.daemonset.enable }}
           - '--daemonset-enable'
           {{- end }}
+          {{- if .Values.remove.blade.interval }}
+          - '--remove-blade-interval={{ .Values.remove.blade.interval }}'
+          {{- end }}
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE

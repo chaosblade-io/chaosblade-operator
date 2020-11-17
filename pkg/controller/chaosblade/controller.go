@@ -20,6 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/sirupsen/logrus"
@@ -49,7 +53,14 @@ const chaosbladeFinalizer = "finalizer.chaosblade.io"
 // Add creates a new ChaosBlade Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	if err := add(mgr, newReconciler(mgr)); err != nil {
+		return err
+	}
+	// add periodically clean up blade ticker
+	return mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		startPeriodicallyCleanUpBlade(mgr)
+		return nil
+	}))
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -95,6 +106,61 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 		}
 	}
 	return nil
+}
+
+// if blade status is destroying
+func startPeriodicallyCleanUpBlade(mgr manager.Manager) {
+	go func() {
+		cli := mgr.GetClient()
+		duration, err := time.ParseDuration(chaosblade.RemoveBladeInterval)
+		if err != nil {
+			logrus.Errorf("parse interval error: %v, use default interval: %s", err, chaosblade.DefaultRemoveBladeInterval)
+			duration, err = time.ParseDuration(chaosblade.DefaultRemoveBladeInterval)
+			chaosblade.RemoveBladeInterval = chaosblade.DefaultRemoveBladeInterval
+			if err != nil {
+				logrus.Fatalf("start periodically clean up blade, ticker error: %v", err)
+			}
+		}
+		// first clean up
+		periodicallyCleanUpBlade(cli, duration)
+
+		// ticker clean up
+		ticker := time.NewTicker(time.Second * time.Duration(duration.Seconds()))
+		logrus.Infof("start periodically clean up blade ticker, interval: %s", chaosblade.RemoveBladeInterval)
+		for range ticker.C {
+			periodicallyCleanUpBlade(cli, duration)
+		}
+	}()
+}
+
+func periodicallyCleanUpBlade(cli client.Client, interval time.Duration) {
+	results := &v1alpha1.ChaosBladeList{}
+	if err := cli.List(context.TODO(), results, &client.ListOptions{}); err != nil {
+		logrus.Errorf("periodically clean up, list blade error: %v", err)
+	}
+	logrus.Infof("periodically clean up blade, blade size: %d", len(results.Items))
+	for _, item := range results.Items {
+		if item.DeletionTimestamp == nil {
+			continue
+		}
+		sub := time.Now().Sub(item.DeletionTimestamp.Time)
+		if item.Status.Phase == v1alpha1.ClusterPhaseDestroying && sub.Seconds() > interval.Seconds() {
+			logrus.Infof("periodically clean up blade %s, deletion time: %s", item.Name, item.DeletionTimestamp.String())
+			// patch blade
+			if err := cli.Patch(context.TODO(),
+				&v1alpha1.ChaosBlade{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "chaosblade.io/v1alpha1",
+						Kind:       "ChaosBlade",
+					},
+					ObjectMeta: metav1.ObjectMeta{Name: item.Name},
+				},
+				client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)),
+			); err != nil {
+				logrus.Errorf("patch blade: %s, error: %v", item.Name, err)
+			}
+		}
+	}
 }
 
 // blank assignment to verify that ReconcileChaosBlade implements reconcile.Reconciler
