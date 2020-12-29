@@ -53,6 +53,8 @@ build_linux:
 	docker run --rm \
 		-v $(shell echo -n ${GOPATH}):/go \
 		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
+		-v /Users/caimingxia/go/chaosblade-spec-go:/Users/caimingxia/go/chaosblade-spec-go \
+        -v /Users/caimingxia/go/chaosblade-exec-os:/Users/caimingxia/go/chaosblade-exec-os \
 		chaosblade-operator-build-musl:latest
 
 pre_chaosblade:

@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -166,7 +167,12 @@ func (o *CopyOptions) CopyToPod(src, dest string) error {
 		defer writer.Close()
 		err := makeTar(src, dest, writer)
 		if err != nil {
-			return spec.ReturnFail(spec.Code[spec.K8sInvokeError], err.Error())
+			//todo less uid 除了之前有的log，新增的log都用util里的方法
+			util.Errorf("", util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
+			return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+				fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
+
+			//return spec.ReturnFail(spec.Code[spec.K8sInvokeError], err.Error())
 		}
 		return nil
 	}()

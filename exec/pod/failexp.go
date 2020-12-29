@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,8 +90,13 @@ func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpMo
 	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		// todo : less uid
+		util.Errorf("", util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -134,8 +140,13 @@ func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpMo
 func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		// todo : less uid
+		util.Errorf("", util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})

@@ -57,36 +57,54 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	containerNamesValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerNamesFlag.Name])
 	containerIndexValue := strings.TrimSpace(expModel.ActionFlags[model.ContainerIndexFlag.Name])
 	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
+	lessParameter := fmt.Sprintf("%s|%s|%s", model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
 	if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue == "" {
 		errMsg := fmt.Sprintf("must specify one flag in %s %s %s",
 			model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
 		logrusField.Errorln(errMsg)
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, lessParameter),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, lessParameter), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], errMsg,
+		//	v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	pods, err := e.GetMatchedPodResources(ctx, *expModel)
 	if err != nil {
 		logrusField.Errorf("get matched pod resources failed, %v", err)
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		// todo less uid
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetMatchedPodResources", err.Error()), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(pods) == 0 {
 		msg := "cannot find the target pods for container resource"
 		logrusField.Errorln(msg)
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+		// todo less uid
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
 			v1alpha1.CreateFailExperimentStatus(msg, nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(msg, nil))
 	}
 	containerObjectMetaList, err := getMatchedContainerMetaList(pods, containerIdsValue, containerNamesValue, containerIndexValue)
 	if err != nil {
 		logrusField.Errorf("get matched container meta list failed, %v", err)
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		return spec.ResponseFailWaitResult(spec.ParameterIllegal, fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].Err, "container-index"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].Err+" ,"+err.Error(), "container-index"), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if len(containerObjectMetaList) == 0 {
-		msg := "container not found"
+		msg := fmt.Sprintf("container not found by `%s`", lessParameter)
 		logrusField.Errorln(msg)
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], msg,
-			v1alpha1.CreateFailExperimentStatus(msg, nil))
+		return spec.ResponseFailWaitResult(spec.ParameterInvalid, fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalid].Err, lessParameter),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, lessParameter), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], msg,
+		//	v1alpha1.CreateFailExperimentStatus(msg, nil))
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)

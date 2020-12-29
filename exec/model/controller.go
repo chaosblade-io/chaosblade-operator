@@ -18,6 +18,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -70,8 +71,12 @@ func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpM
 			"target": expModel.Target,
 			"action": expModel.ActionName,
 		}).Errorf(errMsg)
-		return spec.ReturnFailWitResult(spec.Code[spec.HandlerNotFound], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+		targetAction := fmt.Sprintf("%s.%s", expModel.Target, expModel.ActionName)
+		return spec.ResponseFailWaitResult(spec.HandlerExecNotFound, fmt.Sprintf(spec.ResponseErr[spec.HandlerExecNotFound].Err, targetAction),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.HandlerExecNotFound].ErrInfo, targetAction), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.HandlerNotFound], errMsg,
+		//	v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	expModel.ActionPrograms = actionSpec.Programs()
 	// invoke action executor

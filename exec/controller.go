@@ -64,6 +64,7 @@ func (e *ResourceDispatchedController) Create(bladeName string, expSpec v1alpha1
 	controller := e.Controllers[expSpec.Scope]
 	if controller == nil {
 		logrus.WithField("experiment", bladeName).WithField("scope", expSpec.Scope).Errorf("controller not found")
+		//todo : 这里貌似可以用not found来替换，但是需要和下面的统一
 		return v1alpha1.ExperimentStatus{
 			State: "Error",
 			Error: "can not find the scope controller for creating",
@@ -81,6 +82,7 @@ func (e *ResourceDispatchedController) Create(bladeName string, expSpec v1alpha1
 func (e *ResourceDispatchedController) Destroy(bladeName string, expSpec v1alpha1.ExperimentSpec, oldExpStatus v1alpha1.ExperimentStatus) v1alpha1.ExperimentStatus {
 	controller := e.Controllers[expSpec.Scope]
 	if controller == nil {
+		// todo: 同上
 		return v1alpha1.ExperimentStatus{
 			State: "Error",
 			Error: "can not find the scope controller for destroying",

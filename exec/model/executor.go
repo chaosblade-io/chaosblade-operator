@@ -103,8 +103,14 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 	}
 	experimentIdentifiers, err := e.getExperimentIdentifiers(ctx, expModel)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		logrusField.Errorf("get experiment identifiers failed, err: %s", err.Error())
+		// todo : less uid
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo,
+				"getExperimentIdentifiers", err.Error()), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	logrusField.Infof("experiment identifiers: %v", experimentIdentifiers)
 
@@ -213,11 +219,17 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 							StreamOptions: channel.StreamOptions{
 								ErrDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
-									return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+									//todo : less uid
+									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+										fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
+									//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 								},
 								OutDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
-									return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+									//todo : less uid
+									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+										fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
+									//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 								},
 							},
 							PodName:       podName,
@@ -281,11 +293,17 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1
 			},
 			ErrDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
-				return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+				//todo : less uid
+				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
+				//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
-				return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
+				//todo : less uid
+				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
+				//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 			},
 		},
 		PodName:       podName,

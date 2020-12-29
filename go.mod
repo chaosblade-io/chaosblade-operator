@@ -20,6 +20,9 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
+
+	github.com/chaosblade-io/chaosblade-spec-go => /Users/caimingxia/go/chaosblade-spec-go
+	github.com/chaosblade-io/chaosblade-exec-os => /Users/caimingxia/go/chaosblade-exec-os
 )
 
 go 1.13

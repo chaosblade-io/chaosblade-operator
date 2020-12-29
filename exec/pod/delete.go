@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,8 +48,7 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 				},
 			},
 			ActionExecutor: &DeletePodActionExecutor{client: client},
-			ActionExample:
-			`# Deletes the POD under the specified default namespace that is app=guestbook
+			ActionExample: `# Deletes the POD under the specified default namespace that is app=guestbook
 blade create k8s pod-pod delete --labels app=guestbook --namespace default --evict-count 2 --kubeconfig ~/.kube/config`,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
@@ -93,8 +93,13 @@ func (d *DeletePodActionExecutor) Exec(uid string, ctx context.Context, model *s
 func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		// todo : less uid
+		util.Errorf("", util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -127,8 +132,13 @@ func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.Exp
 func (d *DeletePodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		// todo : less uid
+		util.Errorf("", util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+
+		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
+		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses

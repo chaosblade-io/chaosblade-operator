@@ -130,6 +130,9 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 		return options.ErrDecoder(errput.Bytes())
 	}
 	if err != nil {
+		//// todo uid ??
+		//util.Errorf()
+
 		execLog.WithError(err).Errorln("Invoke exec command error")
 		return spec.ReturnFail(spec.Code[spec.K8sInvokeError], err.Error())
 	}
