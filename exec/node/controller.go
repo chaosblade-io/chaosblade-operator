@@ -53,21 +53,13 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	// get nodes
 	nodes, err := e.getMatchedNodeResources(ctx, *expModel)
 	if err != nil {
-		//todo : less uid
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
 			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "getMatchedNodeResources", err.Error()), nil))
-
-		//return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	if nodes == nil || len(nodes) == 0 {
 		errMsg := "cannot find the target nodes"
-		//todo : less uid
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
 			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "getMatchedNodeResources", errMsg), nil))
-
-		//return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
-		//	v1alpha1.CreateFailExperimentStatus(errMsg, nil))
 	}
 	logrusField.Infof("creating node experiment, node count is %d", len(nodes))
 	containerMatchedList := getContainerMatchedList(nodes)

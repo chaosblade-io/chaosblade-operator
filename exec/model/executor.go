@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -62,7 +63,7 @@ func (e *ExecCommandInPodExecutor) SetChannel(channel spec.Channel) {
 }
 
 func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	return e.execInMatchedPod(ctx, expModel)
+	return e.execInMatchedPod(uid, ctx, expModel)
 }
 
 // getExperimentIdentifiers
@@ -96,7 +97,7 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 }
 
 // execInMatchedPod will execute the experiment in the target pod
-func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
+func (e *ExecCommandInPodExecutor) execInMatchedPod(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
 	experimentStatus := v1alpha1.ExperimentStatus{
 		ResStatuses: make([]v1alpha1.ResourceStatus, 0),
@@ -104,13 +105,9 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 	experimentIdentifiers, err := e.getExperimentIdentifiers(ctx, expModel)
 	if err != nil {
 		logrusField.Errorf("get experiment identifiers failed, err: %s", err.Error())
-		// todo : less uid
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, uid),
 			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo,
 				"getExperimentIdentifiers", err.Error()), nil))
-
-		//return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-		//	v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
 	}
 	logrusField.Infof("experiment identifiers: %v", experimentIdentifiers)
 
@@ -219,17 +216,15 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 							StreamOptions: channel.StreamOptions{
 								ErrDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
-									//todo : less uid
-									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+									util.Errorf(identifier.Id, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content))
+									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
 										fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
-									//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 								},
 								OutDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
-									//todo : less uid
-									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+									util.Errorf(identifier.Id, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content))
+									return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
 										fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
-									//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 								},
 							},
 							PodName:       podName,
@@ -293,17 +288,15 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1
 			},
 			ErrDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
-				//todo : less uid
-				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+				util.Errorf(identifier.Id, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content))
+				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, identifier.Id),
 					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
-				//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
-				//todo : less uid
-				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, ""),
+				util.Errorf(identifier.Id, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content))
+				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, identifier.Id),
 					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
-				//return spec.Decode(content, spec.ReturnFail(spec.Code[spec.K8sInvokeError], content))
 			},
 		},
 		PodName:       podName,
@@ -318,7 +311,7 @@ func (e *ExecCommandInPodExecutor) execCommands(ctx context.Context, rsStatus v1
 		rsStatus = rsStatus.CreateSuccessResourceStatus()
 		success = true
 	} else {
-		rsStatus = rsStatus.CreateFailResourceStatus(response.Err)
+		rsStatus = rsStatus.CreateFailResourceStatus(response.Err, response.Code)
 	}
 	statuses = append(statuses, rsStatus)
 	return success, statuses
@@ -388,13 +381,13 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 	// 部署 blade 和 yaml 文件
 	bladePath := path.Join(chaosBladePath, "blade")
 	if override || options.CheckFileExists(bladePath) != nil {
-		if err := options.CopyToPod(chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
+		if err := options.CopyToPod(experimentId, chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
 			return fmt.Errorf("deploy blade failed, %v", err)
 		}
 	}
 	yamlPath := path.Join(chaosBladePath, "yaml")
 	if override || options.CheckFileExists(yamlPath) != nil {
-		if err := options.CopyToPod(chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
+		if err := options.CopyToPod(experimentId, chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
 			return fmt.Errorf("deploy yaml failed, %v", err)
 		}
 	}
@@ -413,7 +406,7 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 			logrusField.WithField("program", programFile).Infof("program exists")
 			continue
 		}
-		err := options.CopyToPod(operatorProgramFile, programFile)
+		err := options.CopyToPod(experimentId, operatorProgramFile, programFile)
 		logrusField = logrusField.WithFields(logrus.Fields{
 			"container": obj.ContainerName,
 			"pod":       obj.PodName,
