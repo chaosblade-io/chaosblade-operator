@@ -22,4 +22,6 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
 )
 
+replace github.com/chaosblade-io/chaosblade-spec-go => /Users/Shared/ChaosBladeProjects/chaosblade-opensource/chaosblade-spec-go/src/github.com/chaosblade-io/chaosblade-spec-go
+
 go 1.13
