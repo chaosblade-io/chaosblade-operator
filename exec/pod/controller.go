@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -53,23 +54,23 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	logrusField := logrus.WithField("experiment", experimentId)
 	pods, err := e.GetMatchedPodResources(ctx, *expModel)
 	if err != nil {
-		logrusField.Errorf("create pod experiment failed, %v", err)
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		logrusField.Errorf("pod experiment failed, %v", err)
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetMatchedPodResources", err.Error()), nil))
 	}
 	if len(pods) == 0 {
 		errMsg := "cannot find the pod resources"
 		logrusField.Errorf("create pod experiment failed, %s", errMsg)
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetMatchedPodResources", errMsg), nil))
 	}
 	logrusField.Infof("creating pod experiment, pod count is %d", len(pods))
 	containerObjectMetaList := getContainerMatchedList(experimentId, pods)
 	if len(containerObjectMetaList) == 0 {
 		msg := "pod container not found"
 		logrusField.Errorln(msg)
-		return spec.ReturnFailWitResult(spec.Code[spec.IgnoreCode], msg,
-			v1alpha1.CreateFailExperimentStatus(msg, nil))
+		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "getContainerMatchedList", msg), nil))
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)

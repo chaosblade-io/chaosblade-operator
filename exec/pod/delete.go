@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,17 +85,18 @@ func (*DeletePodActionExecutor) SetChannel(channel spec.Channel) {
 
 func (d *DeletePodActionExecutor) Exec(uid string, ctx context.Context, model *spec.ExpModel) *spec.Response {
 	if _, ok := spec.IsDestroy(ctx); ok {
-		return d.destroy(ctx, model)
+		return d.destroy(uid, ctx, model)
 	} else {
-		return d.create(ctx, model)
+		return d.create(uid, ctx, model)
 	}
 }
 
-func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
+func (d *DeletePodActionExecutor) create(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		util.Errorf(uid, util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -108,7 +110,7 @@ func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.Exp
 		if err != nil {
 			logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).
 				Warningf("delete pod %s err, %v", meta.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error())
+			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
 		} else {
 			status = status.CreateSuccessResourceStatus()
 			success = true
@@ -124,11 +126,12 @@ func (d *DeletePodActionExecutor) create(ctx context.Context, expModel *spec.Exp
 	return spec.ReturnResultIgnoreCode(experimentStatus)
 }
 
-func (d *DeletePodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
+func (d *DeletePodActionExecutor) destroy(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
-		return spec.ReturnFailWitResult(spec.Code[spec.IllegalParameters], err.Error(),
-			v1alpha1.CreateFailExperimentStatus(err.Error(), nil))
+		util.Errorf(uid, util.GetRunFuncName(), err.Error())
+		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
 	}
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses
