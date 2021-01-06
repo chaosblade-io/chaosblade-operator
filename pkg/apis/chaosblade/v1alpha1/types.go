@@ -77,10 +77,11 @@ type ChaosBladeStatus struct {
 	ExpStatuses []ExperimentStatus `json:"expStatuses"`
 }
 
-func (in *ResourceStatus) CreateFailResourceStatus(err string) ResourceStatus {
+func (in *ResourceStatus) CreateFailResourceStatus(err string, code int32) ResourceStatus {
 	in.State = ErrorState
 	in.Error = err
 	in.Success = false
+	in.Code = code
 	return *in
 }
 
@@ -101,6 +102,8 @@ type ResourceStatus struct {
 	Id string `json:"id,omitempty"`
 	// experiment state
 	State string `json:"state"`
+	// experiment code
+	Code int32 `json:"code,omitempty"`
 	// experiment error
 	Error string `json:"error,omitempty"`
 	// success
