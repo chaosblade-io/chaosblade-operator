@@ -4,7 +4,7 @@ ENV OPERATOR=/usr/local/bin/chaosblade-operator
 COPY build/_output/bin/chaosblade-operator /usr/local/bin/
 
 FROM registry.access.redhat.com/ubi7/ubi-minimal:latest
-#FROM registry.redhat.io/ubi7/ubi-minimal:latest
+
 ENV OPERATOR=/usr/local/bin/chaosblade-operator \
     CHAOSBLADE_HOME=/opt/chaosblade
 
