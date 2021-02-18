@@ -50,6 +50,7 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 			ActionExample:
 			`# Deletes the POD under the specified default namespace that is app=guestbook
 blade create k8s pod-pod delete --labels app=guestbook --namespace default --evict-count 2 --kubeconfig ~/.kube/config`,
+			ActionCategories: []string{model.CategorySystemContainer},
 		},
 	}
 }
