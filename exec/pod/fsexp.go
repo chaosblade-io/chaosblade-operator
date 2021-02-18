@@ -74,6 +74,7 @@ func NewPodIOActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 			ActionExecutor: &PodIOActionExecutor{client: client},
 			ActionExample: `# Two types of exceptions were injected for the READ operation, with an exception rate of 60 percent
 blade create k8s pod-pod IO --method read --delay 1000 --path /home --percent 60 --errno 28 --labels "app=test" --namespace default`,
+			ActionCategories: []string{model.CategorySystemContainer},
 		},
 	}
 }
