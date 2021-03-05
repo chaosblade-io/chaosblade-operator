@@ -117,6 +117,13 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 			Identifier: identifier.GetIdentifier(),
 		}
 		if identifier.Error != "" {
+			// TODO，不能忽略掉此错误，需要透出
+			rsStatus.Id = identifier.Id
+			rsStatus.Error = identifier.Error
+			rsStatus.State = "Error"
+			rsStatus.Success = false
+			experimentStatus.ResStatuses = append(experimentStatus.ResStatuses, rsStatus)
+			success = false
 			continue
 		}
 		rsStatus.Id = identifier.Id
@@ -157,7 +164,7 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(ctx context.Context, expMode
 		}
 	}
 	experimentStatus.Success = success
-	experimentStatus.ResStatuses = statuses
+	experimentStatus.ResStatuses = append(experimentStatus.ResStatuses, statuses...)
 
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e)
 	return spec.ReturnResultIgnoreCode(experimentStatus)
