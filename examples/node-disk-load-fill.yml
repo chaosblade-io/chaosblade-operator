@@ -1,0 +1,20 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: node-disk-load-fill
+spec:
+  experiments:
+  - scope: node
+    target: disk
+    action : "fill"
+    desc: "increase disk fill by names"
+    matchers:
+    - name: names
+      value:
+      - "1111-2222--38"
+    - name: path
+      value:
+      - "/"
+    - name: size
+      value:
+      - "2048"
