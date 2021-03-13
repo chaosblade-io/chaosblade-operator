@@ -1,0 +1,20 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: node-mem-load
+spec:
+  experiments:
+  - scope: node
+    target: mem
+    action : "load"
+    desc: "increase node mem load by names"
+    matchers:
+    - name: names
+      value:
+      - "1111-2222--38"
+    - name: mode
+      value:
+      - "ram"
+    - name: mem-percent
+      value:
+      - "80"
