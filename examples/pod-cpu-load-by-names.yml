@@ -11,7 +11,7 @@ spec:
     matchers:
     - name: names
       value:
-      - "caas-statefulset-0"
+      - "pod-example-01"
     - name: cpu-percent
       value:
       - "80"

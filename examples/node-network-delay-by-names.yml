@@ -10,9 +10,9 @@ spec:
     desc: "delay pod network by names"
     matchers:
     - name: names
-      value: ["1111-2222--38"]
+      value: ["node-example-01"]
     - name: interface
-      value: ["ens9"]
+      value: ["eth0"]
     - name: time
       value: ["3000"]
     - name: offset
