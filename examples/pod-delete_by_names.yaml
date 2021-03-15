@@ -1,0 +1,17 @@
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: delete-pod-by-names
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: delete
+    desc: "delete pod by names"
+    matchers:
+    - name: names
+      value:
+      - "mypod"
+    - name: namespace
+      value:
+      - "default"

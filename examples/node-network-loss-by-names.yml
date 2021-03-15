@@ -10,8 +10,8 @@ spec:
     desc: "node network loss"
     matchers:
     - name: names
-      value: ["1111-2222--38"]
+      value: ["node-example-01"]
     - name: percent
       value: ["1"]
     - name: interface
-      value: ["ens3"]
+      value: ["eth0"]
