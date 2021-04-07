@@ -18,6 +18,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -60,7 +61,8 @@ func (b *BaseExperimentController) Destroy(ctx context.Context, expSpec v1alpha1
 
 // Exec gets action executor and execute experiments
 func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpModel) *spec.Response {
-	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
+	experimentId := GetExperimentIdFromContext(ctx)
+	logrusField := logrus.WithField("experiment", experimentId)
 	logrusField.Infof("start to execute: %+v", expModel)
 	// get action spec
 	actionSpec := b.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
@@ -70,12 +72,13 @@ func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpM
 			"target": expModel.Target,
 			"action": expModel.ActionName,
 		}).Errorf(errMsg)
-		return spec.ReturnFailWitResult(spec.Code[spec.HandlerNotFound], errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, nil))
+		errMsg = fmt.Sprintf(spec.ResponseErr[spec.HandlerExecNotFound].ErrInfo, fmt.Sprintf("%s.%s", expModel.Target, expModel.ActionName))
+		return spec.ResponseFailWaitResult(spec.HandlerExecNotFound, errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, v1alpha1.CreateFailResStatuses(spec.HandlerExecNotFound, errMsg, experimentId)))
 	}
 	expModel.ActionPrograms = actionSpec.Programs()
 	// invoke action executor
-	response := actionSpec.Executor().Exec("", ctx, expModel)
+	response := actionSpec.Executor().Exec(experimentId, ctx, expModel)
 	return response
 }
 
@@ -95,7 +98,7 @@ func ExtractExpModelFromExperimentSpec(experimentSpec v1alpha1.ExperimentSpec) *
 	return expModel
 }
 
-func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
+func GetResourceCount(resourceCount int, flags map[string]string) (int, error, int32) {
 	count := math.MaxInt32
 	percent := 100
 	var err error
@@ -103,10 +106,10 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 	if countValue != "" {
 		count, err = strconv.Atoi(countValue)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, ResourceCountFlag.Name), spec.ParameterIllegal
 		}
 		if count == 0 {
-			return 0, nil
+			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, ResourceCountFlag.Name), spec.ParameterInvalid
 		}
 	}
 
@@ -114,10 +117,10 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 	if percentValue != "" {
 		percent, err = strconv.Atoi(percentValue)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, ResourcePercentFlag.Name), spec.ParameterIllegal
 		}
 		if percent == 0 {
-			return 0, nil
+			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, ResourcePercentFlag.Name), spec.ParameterInvalid
 		}
 	}
 
@@ -126,9 +129,9 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error) {
 		count = percentCount
 	}
 	if count > resourceCount {
-		return resourceCount, nil
+		return resourceCount, nil, spec.Success
 	}
-	return count, nil
+	return count, nil, spec.Success
 }
 
 // CreateDestroyedStatus returns the ExperimentStatus with destroyed state
