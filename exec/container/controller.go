@@ -61,35 +61,34 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	logrusField := logrus.WithField("experiment", experimentId).WithField("location", util.GetRunFuncName())
 	lessParameter := fmt.Sprintf("%s|%s|%s", model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
 	if containerIdsValue == "" && containerNamesValue == "" && containerIndexValue == "" {
-		errMsg := fmt.Sprintf("uid: %s, must specify one flag in %s %s %s", experimentId,
-			model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name)
+		errMsg := fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, lessParameter)
 		logrusField.Errorln(errMsg)
-		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, lessParameter),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, lessParameter), nil))
+		return spec.ResponseFailWaitResult(spec.ParameterLess, errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, v1alpha1.CreateFailResStatuses(spec.ParameterLess, errMsg, experimentId)))
 	}
-	pods, err := e.GetMatchedPodResources(ctx, *expModel)
+	pods, err, code := e.GetMatchedPodResources(ctx, *expModel)
 	if err != nil {
 		logrusField.Errorf("uid: %s, get matched pod resources failed, %v", experimentId, err)
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetMatchedPodResources", err.Error()), nil))
+		return spec.ResponseFailWaitResult(code, err.Error(), v1alpha1.CreateFailExperimentStatus(err.Error(), v1alpha1.CreateFailResStatuses(code, err.Error(), experimentId)))
 	}
 	if len(pods) == 0 {
-		msg := "cannot find the target pods for container resource"
+		msg := fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalidK8sPodQuery].Err, "namespace|labels")
 		logrusField.Errorln(msg)
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
-			v1alpha1.CreateFailExperimentStatus(msg, nil))
+		return spec.ResponseFailWaitResult(spec.ParameterInvalidK8sPodQuery, msg,
+			v1alpha1.CreateFailExperimentStatus(msg, v1alpha1.CreateFailResStatuses(spec.ParameterInvalidK8sPodQuery, msg, experimentId)))
 	}
 	containerObjectMetaList, err := getMatchedContainerMetaList(pods, containerIdsValue, containerNamesValue, containerIndexValue)
 	if err != nil {
+		errMsg := fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].Err+" ,"+err.Error(), "container-index")
 		logrusField.Errorf("get matched container meta list failed, %v", err)
 		return spec.ResponseFailWaitResult(spec.ParameterIllegal, fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].Err, "container-index"),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].Err+" ,"+err.Error(), "container-index"), nil))
+			v1alpha1.CreateFailExperimentStatus(errMsg, v1alpha1.CreateFailResStatuses(spec.ParameterIllegal, errMsg, experimentId)))
 	}
 	if len(containerObjectMetaList) == 0 {
-		msg := fmt.Sprintf("container not found by `%s`", lessParameter)
-		logrusField.Errorln(msg)
-		return spec.ResponseFailWaitResult(spec.ParameterInvalid, fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalid].Err, lessParameter),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, lessParameter), nil))
+		errMsg := fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo+" ,"+"container not found by `%s`", lessParameter, lessParameter)
+		logrusField.Errorln(errMsg)
+		return spec.ResponseFailWaitResult(spec.ParameterInvalid, errMsg,
+			v1alpha1.CreateFailExperimentStatus(errMsg, v1alpha1.CreateFailResStatuses(spec.ParameterInvalid, errMsg, experimentId)))
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)

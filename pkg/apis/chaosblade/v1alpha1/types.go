@@ -135,6 +135,17 @@ func CreateDestroyedExperimentStatus(ResStatuses []ResourceStatus) ExperimentSta
 	return ExperimentStatus{Success: true, State: DestroyedState, ResStatuses: ResStatuses}
 }
 
+func CreateFailResStatuses(code int32, err, uid string) []ResourceStatus {
+	statuses := make([]ResourceStatus, 0)
+	statuses = append(statuses, ResourceStatus{
+		Error:   err,
+		Code:    code,
+		Id:      uid,
+		Success: false,
+	})
+	return statuses
+}
+
 type ExperimentStatus struct {
 	// experiment scope for cache
 	Scope  string `json:"scope"`
