@@ -410,6 +410,14 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 			return fmt.Errorf("deploy yaml failed, %v", err), spec.ParameterInvalidBladePathError
 		}
 	}
+	chaosOSPath := path.Join(chaosBladePath, "bin", "chaos_os")
+	if override || options.CheckFileExists(chaosOSPath) != nil {
+		if err := options.CopyToPod(experimentId, path.Join(chaosblade.OperatorChaosBladeBin, "chaos_os"), chaosOSPath); err != nil {
+			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy chaos_os failed! dir: %s, err: %s", chaosOSPath, err.Error()))
+			return fmt.Errorf("deploy chaos_os failed, %v", err), spec.ParameterInvalidBladePathError
+		}
+	}
+
 	// 按需复制
 	for _, program := range expModel.ActionPrograms {
 		var programFile, operatorProgramFile string
