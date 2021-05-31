@@ -131,7 +131,7 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(uid string, ctx context.Cont
 		}
 
 		if identifier.Error != "" {
-			rsStatus.CreateFailResourceStatus(identifier.Error)
+			rsStatus.CreateFailResourceStatus(identifier.Error, spec.K8sExecFailed)
 			execSuccess = false
 		} else {
 			// check if pod exist
@@ -151,7 +151,7 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(uid string, ctx context.Cont
 					// if get pod error, the execution is considered failure.
 					msg := fmt.Sprintf("get pod: %s in %s error",
 						identifier.PodName, identifier.Namespace)
-					rsStatus.CreateFailResourceStatus(msg)
+					rsStatus.CreateFailResourceStatus(msg, spec.K8sExecFailed)
 					execSuccess = false
 				}
 			}
