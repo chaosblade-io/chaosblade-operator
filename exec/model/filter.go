@@ -69,7 +69,7 @@ func MapContains(bigMap map[string]string, subMap map[string]string) bool {
 	return true
 }
 
-func CheckFlags(flags map[string]string) error {
+func CheckFlags(flags map[string]string) (error, int32) {
 	// Must include one flag in the count, percent, labels and names
 	expFlags := []*spec.ExpFlag{
 		ResourceCountFlag,
@@ -84,7 +84,7 @@ func CheckFlags(flags map[string]string) error {
 		value = fmt.Sprintf("%s%s", value, flags[flag.Name])
 	}
 	if value == "" {
-		return fmt.Errorf("must specify one flag in %s", strings.Join(flagsNames, ","))
+		return fmt.Errorf(spec.ResponseErr[spec.ParameterLess].ErrInfo, strings.Join(flagsNames, "|")), spec.ParameterLess
 	}
-	return nil
+	return nil, spec.Success
 }

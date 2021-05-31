@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -151,7 +152,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 }
 
 // CopyToPod copies src file or directory to specify container
-func (o *CopyOptions) CopyToPod(src, dest string) error {
+func (o *CopyOptions) CopyToPod(experimentId, src, dest string) error {
 	if len(src) == 0 || len(dest) == 0 {
 		return errors.New("filepath can not be empty")
 	}
@@ -166,7 +167,9 @@ func (o *CopyOptions) CopyToPod(src, dest string) error {
 		defer writer.Close()
 		err := makeTar(src, dest, writer)
 		if err != nil {
-			return spec.ReturnFail(spec.Code[spec.K8sInvokeError], err.Error())
+			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
+			return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
+				fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
 		}
 		return nil
 	}()
