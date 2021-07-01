@@ -9,7 +9,7 @@ GO=env $(GO_ENV) $(GO_MODULE) go
 UNAME := $(shell uname)
 
 ifeq ($(BLADE_VERSION), )
-	BLADE_VERSION=1.2.0
+	BLADE_VERSION=1.3.0
 endif
 ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community

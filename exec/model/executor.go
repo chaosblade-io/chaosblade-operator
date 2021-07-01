@@ -517,7 +517,7 @@ func (e *ExecCommandInPodExecutor) generateDestroyDockerCommands(experimentId st
 				Errorf("get chaosblade tool pod for destroying failed on %s node, %v", obj.NodeName, err)
 			return identifiers, err
 		}
-		generatedCommand = fmt.Sprintf("%s --container-id %s", generatedCommand, obj.ContainerId)
+		generatedCommand = fmt.Sprintf("%s --container-name %s", generatedCommand, obj.ContainerName)
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 generatedCommand,
