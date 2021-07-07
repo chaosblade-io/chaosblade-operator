@@ -20,12 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -94,16 +94,18 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 		return err
 	}
 	if chaosblade.DaemonsetEnable {
-		namespace, err := k8sutil.GetOperatorNamespace()
-		if err != nil {
-			return err
-		}
-		chaosblade.DaemonsetPodNamespace = namespace
-		// deploy chaosblade tool
-		if err := deployChaosBladeTool(rcb); err != nil {
-			logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
-			return err
-		}
+		//namespace, err := k8sutil.GetOperatorNamespace()
+		//if err != nil {
+		//	return err
+		//}
+		//chaosblade.DaemonsetPodNamespace = namespace
+		//// deploy chaosblade tool
+		//if err := deployChaosBladeTool(rcb); err != nil {
+		//	logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
+		//	return err
+		//}
+		logrus.WithField("product", version.Product).WithField("daemonset.enable", chaosblade.DaemonsetEnable).
+			Infoln("enable chaosblade-tool deamonset")
 	}
 	return nil
 }
