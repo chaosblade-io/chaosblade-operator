@@ -17,6 +17,7 @@
 package model
 
 import (
+	"github.com/chaosblade-io/chaosblade-exec-docker/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -168,9 +169,9 @@ var ContainerIndexFlag = &spec.ExpFlag{
 	Desc: "Container index, start from 0",
 }
 
-var ChaosBladeDeployedPathFlag = &spec.ExpFlag{
-	Name: "chaosblade-deployed-path",
-	Desc: "Chaosblade tool deployed path, default value is /opt",
+var ChaosBladePathFlag = &spec.ExpFlag{
+	Name: "chaosblade-path",
+	Desc: "Chaosblade tool deployment path, default value is /opt. Please select a path with write permission",
 }
 
 func GetContainerFlags() []spec.ExpFlagSpec {
@@ -192,7 +193,8 @@ func GetResourceCommonFlags() []spec.ExpFlagSpec {
 
 func GetChaosBladeFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
-		ChaosBladeDeployedPathFlag,
+		ChaosBladePathFlag,
+		exec.ChaosBladeOverrideFlag,
 	}
 }
 
@@ -206,7 +208,8 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		ContainerIdsFlag.Name,
 		ContainerNamesFlag.Name,
 		ContainerIndexFlag.Name,
-		ChaosBladeDeployedPathFlag.Name,
+		ChaosBladePathFlag.Name,
+		exec.ChaosBladeOverrideFlag.Name,
 	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {
