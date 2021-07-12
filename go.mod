@@ -1,7 +1,7 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v1.3.0-dev
+	github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210708073938-6ee892c5329a
 	github.com/chaosblade-io/chaosblade-exec-os v1.2.0
 	github.com/chaosblade-io/chaosblade-spec-go v1.3.0-dev
 	github.com/ethercflow/hookfs v0.3.0

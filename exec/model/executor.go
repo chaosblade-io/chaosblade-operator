@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chaosblade-io/chaosblade-exec-docker/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -306,9 +307,9 @@ func (e *ExecCommandInPodExecutor) execCommands(isDestroy bool, rsStatus v1alpha
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
-				util.Errorf(identifier.Id, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content))
+				util.Infof(identifier.Id, util.GetRunFuncName(), fmt.Sprintf("exec output: %s", content))
 				return spec.Decode(content, spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, identifier.Id),
-					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec", content)))
+					fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "decode output failed", content)))
 			},
 		},
 		PodName:       podName,
@@ -333,7 +334,7 @@ func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, 
 	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
-	override := expModel.ActionFlags["override"] == "true"
+	chaosBladeOverride := expModel.ActionFlags[exec.ChaosBladeOverrideFlag.Name] == "true"
 	for idx, obj := range containerObjectMetaList {
 		generatedCommand := command
 		if obj.Id != "" {
@@ -343,7 +344,7 @@ func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, 
 			ContainerObjectMeta: containerObjectMetaList[idx],
 			Command:             generatedCommand,
 		}
-		err, code := e.deployChaosBlade(experimentId, expModel, obj, override)
+		err, code := e.deployChaosBlade(experimentId, expModel, obj, chaosBladeOverride)
 		if err != nil {
 			identifierInPod.Error = err.Error()
 			identifierInPod.Code = code
@@ -357,13 +358,13 @@ func (e *ExecCommandInPodExecutor) generateCreateCommands(experimentId string, e
 	matchers string) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s create %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
-	override := expModel.ActionFlags["override"] == "true"
+	chaosBladeOverride := expModel.ActionFlags[exec.ChaosBladeOverrideFlag.Name] == "true"
 	for idx, obj := range containerObjectMetaList {
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta: containerObjectMetaList[idx],
 			Command:             command,
 		}
-		err, code := e.deployChaosBlade(experimentId, expModel, obj, override)
+		err, code := e.deployChaosBlade(experimentId, expModel, obj, chaosBladeOverride)
 		if err != nil {
 			identifierInPod.Error = err.Error()
 			identifierInPod.Code = code
@@ -612,11 +613,11 @@ func (e *ExecCommandInPodExecutor) generateCreateNodeCommands(experimentId strin
 
 // getTargetChaosBladePath return the chaosblade deployed path in target container
 func getTargetChaosBladePath(expModel *spec.ExpModel) string {
-	deployedPath := expModel.ActionFlags[ChaosBladeDeployedPathFlag.Name]
-	if deployedPath == "" {
+	chaosbladePath := expModel.ActionFlags[ChaosBladePathFlag.Name]
+	if chaosbladePath == "" {
 		return chaosblade.OperatorChaosBladePath
 	}
-	return path.Join(deployedPath, "chaosblade")
+	return path.Join(chaosbladePath, "chaosblade")
 }
 
 // getTargetChaosBladeBin returns the blade deployed path in target container
