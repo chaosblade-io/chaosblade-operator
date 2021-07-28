@@ -18,7 +18,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
@@ -51,16 +50,11 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 	// get nodes
-	nodes, err, code := e.getMatchedNodeResources(ctx, *expModel)
-	if err != nil {
-		logrusField.Errorf("uid: %s, get matched node resources failed, %v", experimentId, err)
-		return spec.ResponseFailWaitResult(code, err.Error(), v1alpha1.CreateFailExperimentStatus(err.Error(), v1alpha1.CreateFailResStatuses(code, err.Error(), experimentId)))
-	}
-	if nodes == nil || len(nodes) == 0 {
-		msg := fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalidK8sNodeQuery].Err, "labels")
-		logrusField.Errorln(msg)
-		return spec.ResponseFailWaitResult(spec.ParameterInvalidK8sNodeQuery, msg,
-			v1alpha1.CreateFailExperimentStatus(msg, v1alpha1.CreateFailResStatuses(spec.ParameterInvalidK8sNodeQuery, msg, experimentId)))
+	nodes, resp := e.getMatchedNodeResources(ctx, *expModel)
+	if !resp.Success {
+		logrusField.Errorf("uid: %s, get matched node resources failed, %v", experimentId, resp.Err)
+		resp.Result = v1alpha1.CreateFailExperimentStatus(resp.Err, []v1alpha1.ResourceStatus{})
+		return resp
 	}
 	logrusField.Infof("creating node experiment, node count is %d", len(nodes))
 	containerMatchedList := getContainerMatchedList(nodes)

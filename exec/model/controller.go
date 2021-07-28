@@ -72,9 +72,10 @@ func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpM
 			"target": expModel.Target,
 			"action": expModel.ActionName,
 		}).Errorf(errMsg)
-		errMsg = fmt.Sprintf(spec.ResponseErr[spec.HandlerExecNotFound].ErrInfo, fmt.Sprintf("%s.%s", expModel.Target, expModel.ActionName))
-		return spec.ResponseFailWaitResult(spec.HandlerExecNotFound, errMsg,
-			v1alpha1.CreateFailExperimentStatus(errMsg, v1alpha1.CreateFailResStatuses(spec.HandlerExecNotFound, errMsg, experimentId)))
+		handler := fmt.Sprintf("%s.%s", expModel.Target, expModel.ActionName)
+		errMsg = spec.HandlerExecNotFound.Sprintf(handler)
+		return spec.ResponseFailWithResult(spec.HandlerExecNotFound,
+			v1alpha1.CreateFailExperimentStatus(errMsg, []v1alpha1.ResourceStatus{}), handler)
 	}
 	expModel.ActionPrograms = actionSpec.Programs()
 	// invoke action executor
@@ -98,7 +99,10 @@ func ExtractExpModelFromExperimentSpec(experimentSpec v1alpha1.ExperimentSpec) *
 	return expModel
 }
 
-func GetResourceCount(resourceCount int, flags map[string]string) (int, error, int32) {
+func GetResourceCount(resourceCount int, flags map[string]string) (int, *spec.Response) {
+	if resourceCount == 0 {
+		return 0, spec.Success()
+	}
 	count := math.MaxInt32
 	percent := 100
 	var err error
@@ -106,32 +110,32 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, error, i
 	if countValue != "" {
 		count, err = strconv.Atoi(countValue)
 		if err != nil {
-			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, ResourceCountFlag.Name), spec.ParameterIllegal
+			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourceCountFlag.Name, countValue, err)
 		}
 		if count == 0 {
-			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, ResourceCountFlag.Name), spec.ParameterInvalid
+			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourceCountFlag.Name, countValue,
+				"it must be a positive integer")
 		}
 	}
-
 	percentValue := flags[ResourcePercentFlag.Name]
 	if percentValue != "" {
 		percent, err = strconv.Atoi(percentValue)
 		if err != nil {
-			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, ResourcePercentFlag.Name), spec.ParameterIllegal
+			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourcePercentFlag.Name, percentValue, err)
 		}
 		if percent == 0 {
-			return 0, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalid].ErrInfo, ResourcePercentFlag.Name), spec.ParameterInvalid
+			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourcePercentFlag.Name, percentValue,
+				"it must be a positive integer")
 		}
 	}
-
 	percentCount := int(math.Round(float64(percent) / 100.0 * float64(resourceCount)))
 	if count > percentCount {
 		count = percentCount
 	}
 	if count > resourceCount {
-		return resourceCount, nil, spec.Success
+		return resourceCount, spec.Success()
 	}
-	return count, nil, spec.Success
+	return count, spec.Success()
 }
 
 // CreateDestroyedStatus returns the ExperimentStatus with destroyed state

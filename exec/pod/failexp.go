@@ -92,8 +92,8 @@ func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpMo
 	containerMatchedList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		util.Errorf(experimentId, util.GetRunFuncName(), err.Error())
-		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+		return spec.ResponseFailWithResult(spec.ContainerInContextNotFound,
+			v1alpha1.CreateFailExperimentStatus(spec.ContainerInContextNotFound.Msg, []v1alpha1.ResourceStatus{}))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -107,18 +107,19 @@ func (d *FailPodActionExecutor) create(ctx context.Context, expModel *spec.ExpMo
 		err := d.client.Get(context.TODO(), objectMeta, pod)
 		if err != nil {
 			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
+			status = status.CreateFailResourceStatus(spec.K8sExecFailed.Sprintf("get", err), spec.K8sExecFailed.Code)
 		}
 
 		if !isPodReady(pod) {
 			logrusField.Infof("pod %s is not ready", c.PodName)
-			statuses = append(statuses, status.CreateFailResourceStatus("pod is not read", spec.K8sExecFailed))
+			statuses = append(statuses, status.CreateFailResourceStatus(spec.PodNotReady.Sprintf(c.PodName),
+				spec.PodNotReady.Code))
 			continue
 		}
 
 		if err := d.failPod(ctx, pod); err != nil {
 			logrusField.Warningf("fail pod %s err, %v", c.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
+			status = status.CreateFailResourceStatus(spec.K8sExecFailed.Sprintf("update", err), spec.K8sExecFailed.Code)
 		} else {
 			status = status.CreateSuccessResourceStatus()
 			success = true
@@ -139,8 +140,8 @@ func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpM
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	if err != nil {
 		util.Errorf(experimentId, util.GetRunFuncName(), err.Error())
-		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+		return spec.ResponseFailWithResult(spec.ContainerInContextNotFound,
+			v1alpha1.CreateFailExperimentStatus(spec.ContainerInContextNotFound.Msg, []v1alpha1.ResourceStatus{}))
 	}
 	logrusField := logrus.WithField("experiment", experimentId)
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
@@ -155,14 +156,14 @@ func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpM
 		err := d.client.Get(context.TODO(), objectMeta, pod)
 		if err != nil {
 			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
+			status = status.CreateFailResourceStatus(spec.K8sExecFailed.Sprintf("get", err), spec.K8sExecFailed.Code)
 			continue
 		}
 
 		err = d.client.Delete(context.TODO(), pod)
 		if err != nil {
 			logrusField.Errorf("delete pod %s err, %v", c.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
+			status = status.CreateFailResourceStatus(spec.K8sExecFailed.Sprintf("delete", err), spec.K8sExecFailed.Code)
 			continue
 		}
 	}

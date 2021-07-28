@@ -18,7 +18,6 @@ package pod
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -52,24 +51,17 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
-	pods, err, code := e.GetMatchedPodResources(ctx, *expModel)
-	if err != nil {
-		logrusField.Errorf("uid: %s, get matched pod experiment failed, %v", experimentId, err)
-		return spec.ResponseFailWaitResult(code, err.Error(), v1alpha1.CreateFailExperimentStatus(err.Error(), v1alpha1.CreateFailResStatuses(code, err.Error(), experimentId)))
-	}
-	if len(pods) == 0 {
-		msg := fmt.Sprintf(spec.ResponseErr[spec.ParameterInvalidK8sPodQuery].Err, "namespace|labels")
-		logrusField.Errorln(msg)
-		return spec.ResponseFailWaitResult(spec.ParameterInvalidK8sPodQuery, msg,
-			v1alpha1.CreateFailExperimentStatus(msg, v1alpha1.CreateFailResStatuses(spec.ParameterInvalidK8sPodQuery, msg, experimentId)))
+	pods, resp := e.GetMatchedPodResources(ctx, *expModel)
+	if !resp.Success {
+		logrusField.Errorf("uid: %s, get matched pod experiment failed, %v", experimentId, resp.Err)
+		resp.Result = v1alpha1.CreateFailExperimentStatus(resp.Err, []v1alpha1.ResourceStatus{})
 	}
 	logrusField.Infof("creating pod experiment, pod count is %d", len(pods))
 	containerObjectMetaList := getContainerMatchedList(experimentId, pods)
 	if len(containerObjectMetaList) == 0 {
-		msg := fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "getContainerMatchedList", "pod container not found")
-		logrusField.Errorln(msg)
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
-			v1alpha1.CreateFailExperimentStatus(msg, v1alpha1.CreateFailResStatuses(spec.K8sExecFailed, msg, experimentId)))
+		logrusField.Errorf("uid: %s, get container from context failed", experimentId)
+		return spec.ResponseFailWithResult(spec.ContainerInContextNotFound,
+			v1alpha1.CreateFailExperimentStatus(spec.ContainerInContextNotFound.Msg, []v1alpha1.ResourceStatus{}))
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
