@@ -131,8 +131,7 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 	}
 	if err != nil {
 		execLog.WithError(err).Errorln("Invoke exec command error")
-		return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec cmd", err.Error()),
-			fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "exec cmd", err.Error()))
+		return spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", err)
 	}
 	if outMsg != "" {
 		execLog.Infof("get output message")
@@ -141,7 +140,7 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 	if options.IgnoreOutput {
 		return nil
 	}
-	return spec.ReturnFail(spec.Code[spec.K8sInvokeError],
+	return spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec",
 		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found",
 			options.PodName))
 }

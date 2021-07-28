@@ -18,8 +18,6 @@ package model
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math/rand"
 	"strings"
 	"time"
@@ -37,49 +35,46 @@ import (
 
 const DefaultNamespace = "default"
 
-func CheckPodFlags(flags map[string]string) (error, int32) {
+func CheckPodFlags(flags map[string]string) *spec.Response {
 	namespace := flags[ResourceNamespaceFlag.Name]
 	if namespace == "" {
-		return fmt.Errorf(spec.ResponseErr[spec.ParameterLess].ErrInfo, ResourceNamespaceFlag.Name), spec.ParameterLess
+		return spec.ResponseFailWithFlags(spec.ParameterLess, ResourceNamespaceFlag.Name)
 	}
 	namespacesValue := strings.Split(namespace, ",")
 	if len(namespacesValue) > 1 {
-		return fmt.Errorf(spec.ResponseErr[spec.ParameterInvalidNSNotOne].ErrInfo, ResourceNamespaceFlag.Name), spec.ParameterInvalidNSNotOne
+		return spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, ResourceNamespaceFlag.Name)
 	}
 	return CheckFlags(flags)
 }
 
 // GetMatchedPodResources return matched pods
-func (b *BaseExperimentController) GetMatchedPodResources(ctx context.Context, expModel spec.ExpModel) ([]v1.Pod, error, int32) {
+func (b *BaseExperimentController) GetMatchedPodResources(ctx context.Context, expModel spec.ExpModel) ([]v1.Pod, *spec.Response) {
 	flags := expModel.ActionFlags
 	if flags[ResourceNamespaceFlag.Name] == "" {
 		expModel.ActionFlags[ResourceNamespaceFlag.Name] = DefaultNamespace
 	}
-	if err, code := CheckPodFlags(flags); err != nil {
-		return nil, err, code
+	if resp := CheckPodFlags(flags); !resp.Success {
+		return nil, resp
 	}
-	pods, err, code := resourceFunc(ctx, b.Client, flags)
-	if err != nil {
-		return nil, err, code
-	}
-	if pods == nil || len(pods) == 0 {
-		return pods, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalidK8sPodQuery].ErrInfo, ResourceNamespaceFlag.Name+"|"+ResourceLabelsFlag.Name), spec.ParameterInvalidK8sPodQuery
+	pods, resp := resourceFunc(ctx, b.Client, flags)
+	if !resp.Success {
+		return pods, resp
 	}
 	return b.filterByOtherFlags(pods, flags)
 }
 
-func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[string]string) ([]v1.Pod, error, int32) {
+func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[string]string) ([]v1.Pod, *spec.Response) {
 	random := flags["random"] == "true"
 	groupKey := flags[ResourceGroupKeyFlag.Name]
 	if groupKey == "" {
-		count, err, code := GetResourceCount(len(pods), flags)
-		if err != nil {
-			return nil, err, code
+		count, resp := GetResourceCount(len(pods), flags)
+		if !resp.Success {
+			return pods[:count], resp
 		}
 		if random {
-			return randomPodSelected(pods, count), nil, spec.Success
+			return randomPodSelected(pods, count), spec.Success()
 		}
-		return pods[:count], nil, spec.Success
+		return pods[:count], spec.Success()
 	}
 	groupPods := make(map[string][]v1.Pod, 0)
 	keys := strings.Split(groupKey, ",")
@@ -96,9 +91,9 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 	}
 	result := make([]v1.Pod, 0)
 	for _, podList := range groupPods {
-		count, err, code := GetResourceCount(len(podList), flags)
-		if err != nil {
-			return nil, err, code
+		count, resp := GetResourceCount(len(podList), flags)
+		if !resp.Success {
+			return pods[:count], resp
 		}
 		if random {
 			result = append(result, randomPodSelected(podList, count)...)
@@ -106,11 +101,14 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 			result = append(result, podList[:count]...)
 		}
 	}
-	return result, nil, spec.Success
+	if len(result) == 0 {
+		return result, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sPodQuery, ResourceGroupKeyFlag.Name)
+	}
+	return result, spec.Success()
 }
 
 // resourceFunc is used to query the target resource
-var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Pod, error, int32) {
+var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Pod, *spec.Response) {
 	namespace := flags[ResourceNamespaceFlag.Name]
 	labels := flags[ResourceLabelsFlag.Name]
 	labelsMap := ParseLabels(labels)
@@ -131,27 +129,30 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 			}
 		}
 		logrusField.Infof("get pods by names %s, len is %d", names, len(pods))
-		return pods, nil, spec.Success
+		if len(pods) == 0 {
+			return pods, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sPodQuery, names)
+		}
+		return pods, spec.Success()
 	}
 	if labels != "" && len(labelsMap) == 0 {
-		msg := fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, ResourceLabelsFlag.Name)
+		msg := spec.ParameterIllegal.Sprintf(ResourceLabelsFlag.Name, labels, "data format error")
 		logrusField.Warningln(msg)
-		return pods, errors.New(msg), spec.ParameterIllegal
+		return pods, spec.ResponseFailWithFlags(spec.ParameterLess, ResourceLabelsFlag.Name, labels, "data format error, example: key=value")
 	}
 	if len(labelsMap) > 0 {
 		podList := v1.PodList{}
 		opts := client.ListOptions{Namespace: namespace, LabelSelector: pkglabels.SelectorFromSet(labelsMap)}
 		err := client2.List(context.TODO(), &podList, &opts)
 		if err != nil {
-			return pods, fmt.Errorf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetPodList", err.Error()), spec.K8sExecFailed
+			return pods, spec.ResponseFailWithFlags(spec.K8sExecFailed, "PodList", err)
 		}
 		if len(podList.Items) == 0 {
-			return pods, nil, spec.Success
+			return pods, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sPodQuery, ResourceLabelsFlag.Name)
 		}
 		pods = podList.Items
 		logrusField.Infof("get pods by labels %s, len is %d", labels, len(pods))
 	}
-	return pods, nil, spec.Success
+	return pods, spec.Success()
 }
 
 func randomPodSelected(pods []v1.Pod, count int) []v1.Pod {

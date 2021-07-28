@@ -95,8 +95,8 @@ func (d *DeletePodActionExecutor) create(uid string, ctx context.Context, expMod
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		util.Errorf(uid, util.GetRunFuncName(), err.Error())
-		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+		return spec.ResponseFailWithResult(spec.ContainerInContextNotFound,
+			v1alpha1.CreateFailExperimentStatus(spec.ContainerInContextNotFound.Msg, []v1alpha1.ResourceStatus{}))
 	}
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -110,7 +110,7 @@ func (d *DeletePodActionExecutor) create(uid string, ctx context.Context, expMod
 		if err != nil {
 			logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).
 				Warningf("delete pod %s err, %v", meta.PodName, err)
-			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed)
+			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 		} else {
 			status = status.CreateSuccessResourceStatus()
 			success = true
@@ -130,8 +130,8 @@ func (d *DeletePodActionExecutor) destroy(uid string, ctx context.Context, expMo
 	containerObjectMetaList, err := model.GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		util.Errorf(uid, util.GetRunFuncName(), err.Error())
-		return spec.ResponseFailWaitResult(spec.ParameterLess, fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].Err, "container object meta"),
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf(spec.ResponseErr[spec.ParameterLess].ErrInfo, "container object meta"), nil))
+		return spec.ResponseFailWithResult(spec.ContainerInContextNotFound,
+			v1alpha1.CreateFailExperimentStatus(spec.ContainerInContextNotFound.Msg, []v1alpha1.ResourceStatus{}))
 	}
 	experimentStatus := v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{})
 	statuses := experimentStatus.ResStatuses

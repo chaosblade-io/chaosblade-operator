@@ -18,8 +18,6 @@ package node
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -34,29 +32,23 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 )
 
-func (e *ExpController) getMatchedNodeResources(ctx context.Context, expModel spec.ExpModel) ([]v1.Node, error, int32) {
+func (e *ExpController) getMatchedNodeResources(ctx context.Context, expModel spec.ExpModel) ([]v1.Node, *spec.Response) {
 	flags := expModel.ActionFlags
-	if err, code := model.CheckFlags(flags); err != nil {
-		return nil, err, code
+	if resp := model.CheckFlags(flags); !resp.Success {
+		return nil, resp
 	}
-	nodes, err, code := resourceFunc(ctx, e.Client, flags)
-	if err != nil {
-		return nil, err, code
-	}
-	if nodes == nil || len(nodes) == 0 {
-		return nodes, fmt.Errorf(spec.ResponseErr[spec.ParameterInvalidK8sNodeQuery].ErrInfo, "labels"), spec.ParameterInvalidK8sNodeQuery
+	nodes, resp := resourceFunc(ctx, e.Client, flags)
+	if !resp.Success {
+		return nil, resp
 	}
 	return e.filterByOtherFlags(nodes, flags)
 }
 
-func (e *ExpController) filterByOtherFlags(nodes []v1.Node, flags map[string]string) ([]v1.Node, error, int32) {
+func (e *ExpController) filterByOtherFlags(nodes []v1.Node, flags map[string]string) ([]v1.Node, *spec.Response) {
 	groupKey := flags[model.ResourceGroupKeyFlag.Name]
 	if groupKey == "" {
-		count, err, code := model.GetResourceCount(len(nodes), flags)
-		if err != nil {
-			return nil, err, code
-		}
-		return nodes[:count], nil, spec.Success
+		count, resp := model.GetResourceCount(len(nodes), flags)
+		return nodes[:count], resp
 	}
 	groupNodes := make(map[string][]v1.Node, 0)
 	keys := strings.Split(groupKey, ",")
@@ -71,18 +63,18 @@ func (e *ExpController) filterByOtherFlags(nodes []v1.Node, flags map[string]str
 	}
 	result := make([]v1.Node, 0)
 	for _, nodeList := range groupNodes {
-		count, err, code := model.GetResourceCount(len(nodeList), flags)
-		if err != nil {
-			return nil, err, code
+		count, resp := model.GetResourceCount(len(nodeList), flags)
+		if !resp.Success {
+			return nodes[:count], resp
 		}
 		result = append(result, nodeList[:count]...)
 	}
-	return result, nil, spec.Success
+	return result, spec.Success()
 }
 
-var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Node, error, int32) {
+var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Node, *spec.Response) {
 	labels := flags[model.ResourceLabelsFlag.Name]
-	lablesMap := model.ParseLabels(labels)
+	labelsMap := model.ParseLabels(labels)
 	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	nodes := make([]v1.Node, 0)
 	names := flags[model.ResourceNamesFlag.Name]
@@ -92,33 +84,36 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 			node := v1.Node{}
 			err := client2.Get(context.TODO(), types.NamespacedName{Name: name}, &node)
 			if err != nil {
+				// Skip the invalid name
 				logrusField.Warningf("can not find the node by %s name, %v", name, err)
 				continue
 			}
-			if model.MapContains(node.Labels, lablesMap) {
+			if model.MapContains(node.Labels, labelsMap) {
 				nodes = append(nodes, node)
 			}
 		}
 		logrusField.Infof("get nodes by name %s, len is %d", names, len(nodes))
-		return nodes, nil, spec.Success
+		if len(nodes) == 0 {
+			return nodes, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sNodeQuery, names)
+		}
+		return nodes, spec.Success()
 	}
-	if labels != "" && len(lablesMap) == 0 {
-		msg := fmt.Sprintf(spec.ResponseErr[spec.ParameterIllegal].ErrInfo, model.ResourceLabelsFlag.Name)
-		logrusField.Warningln(msg)
-		return nodes, errors.New(msg), spec.ParameterIllegal
+	if labels != "" && len(labelsMap) == 0 {
+		logrusField.Warningln(spec.ParameterIllegal.Sprintf(model.ResourceLabelsFlag.Name, labels, "illegal labels"))
+		return nodes, spec.ResponseFailWithFlags(spec.ParameterIllegal, model.ResourceLabelsFlag.Name, labels, "illegal labels")
 	}
-	if len(lablesMap) > 0 {
+	if len(labelsMap) > 0 {
 		nodeList := v1.NodeList{}
-		opts := client.ListOptions{LabelSelector: pkglabels.SelectorFromSet(lablesMap)}
+		opts := client.ListOptions{LabelSelector: pkglabels.SelectorFromSet(labelsMap)}
 		err := client2.List(context.TODO(), &nodeList, &opts)
 		if err != nil {
-			return nodes, fmt.Errorf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "GetNodeList", err.Error()), spec.K8sExecFailed
-		}
-		if len(nodeList.Items) == 0 {
-			return nodes, nil, spec.Success
+			return nodes, spec.ResponseFailWithFlags(spec.K8sExecFailed, "ListNode", err)
 		}
 		nodes = nodeList.Items
 		logrusField.Infof("get nodes by labels %s, len is %d", labels, len(nodes))
 	}
-	return nodes, nil, spec.Success
+	if len(nodes) == 0 {
+		return nodes, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sNodeQuery, labels)
+	}
+	return nodes, spec.Success()
 }

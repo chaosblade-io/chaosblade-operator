@@ -167,9 +167,8 @@ func (o *CopyOptions) CopyToPod(experimentId, src, dest string) error {
 		defer writer.Close()
 		err := makeTar(src, dest, writer)
 		if err != nil {
-			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
-			return spec.ResponseFailWaitResult(spec.K8sExecFailed, fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].Err, experimentId),
-				fmt.Sprintf(spec.ResponseErr[spec.K8sExecFailed].ErrInfo, "makeTar", err.Error()))
+			util.Errorf(experimentId, util.GetRunFuncName(), spec.K8sExecFailed.Sprintf("tar", err.Error()))
+			return spec.ResponseFailWithFlags(spec.K8sExecFailed, "tar", err)
 		}
 		return nil
 	}()
