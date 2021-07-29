@@ -135,8 +135,12 @@ github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XL
 github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5/go.mod h1:/iP1qXHoty45bqomnu2LM+VVyAEdWN+vtSHGlQgyxbw=
 github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210728031159-9d3ff7ef66d9 h1:RVl32h3fUIkc1kdIJHsaTdG0HmqPX12oKIgDiKg/X7M=
 github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210728031159-9d3ff7ef66d9/go.mod h1:6VxTMwVD3gX6sVBIwLOj9ajIuW9Md4FDXyS3C5iG+8w=
+github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210729014221-ad5e3249df50 h1:Dwk9KMIDhT5hpVv80txFFEPHSSZv3MbgjftTbT3FJDM=
+github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210729014221-ad5e3249df50/go.mod h1:5s1stiygTWe1YPtAhu7IIjw8er/EgYinPcVPf9dkSGY=
 github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210728020317-5dbba71fd0f2 h1:jb+qwIzBlHesgXVFmPrSqeNxiXaQkPHo4t2lietauJM=
 github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210728020317-5dbba71fd0f2/go.mod h1:lBmLoJtBTERqcy55nflIsroy1kYoO5uOHPaeqLMLU6Y=
+github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210729013851-5146c45a6d13 h1:bEKpoW4FXHYkNYrvpsj+vf6wYjhLokBgV+Rnw52aja8=
+github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210729013851-5146c45a6d13/go.mod h1:lBmLoJtBTERqcy55nflIsroy1kYoO5uOHPaeqLMLU6Y=
 github.com/chaosblade-io/chaosblade-spec-go v1.2.1-0.20210727105127-cb88024e3ec2 h1:VdnCoIMB0FrRZkHUf0LsUb1qI4buP6Qk03+FVZqTkfM=
 github.com/chaosblade-io/chaosblade-spec-go v1.2.1-0.20210727105127-cb88024e3ec2/go.mod h1:xUF+8r54FphQjBR8fVPnweVqzu7EitE15UsnZ57O5gk=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6Dob7S7YxXgwXpfOuvO54S+tGdZdw9fuRZt25Ag=

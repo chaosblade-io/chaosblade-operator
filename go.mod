@@ -1,8 +1,8 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210728031159-9d3ff7ef66d9
-	github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210728020317-5dbba71fd0f2
+	github.com/chaosblade-io/chaosblade-exec-docker v1.2.1-0.20210729014221-ad5e3249df50
+	github.com/chaosblade-io/chaosblade-exec-os v1.2.1-0.20210729013851-5146c45a6d13
 	github.com/chaosblade-io/chaosblade-spec-go v1.2.1-0.20210727105127-cb88024e3ec2
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-openapi/spec v0.19.4
