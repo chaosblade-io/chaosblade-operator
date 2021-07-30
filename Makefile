@@ -40,9 +40,9 @@ ifeq ($(GOOS), linux)
 	GO_FLAGS=-ldflags="-linkmode external -extldflags -static $(GO_X_FLAGS)"
 endif
 
-build: pre_build build_yaml build_fuse
+build: build_yaml build_fuse
 
-build_all: build build_image
+build_all: build pre_chaosblade build_image
 
 build_image:
 	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
@@ -63,18 +63,16 @@ ifneq ($(CHAOSBLADE_PATH), $(wildcard $(CHAOSBLADE_PATH)))
 	rm -rf $(CACHE_PATH)/$(CHAOSBLADE_FILE)
 endif
 
-pre_build: pre_mkdir pre_chaosblade
-
-pre_mkdir:
-	rm -rf $(BUILD_TARGET_PKG_DIR) $(BUILD_TARGET_PKG_FILE_PATH)
+pre_build:
 	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML) $(CACHE_PATH)
 
-build_yaml: build/spec.go
+build_spec_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH) $(CHAOSBLADE_PATH)/yaml/chaosblade-jvm-spec-$(BLADE_VERSION).yaml
+
+build_yaml: pre_build build_spec_yaml
 
 build_fuse:
 	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse  cmd/hookfs/main.go
-
 
 # test
 test:
