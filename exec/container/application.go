@@ -39,7 +39,7 @@ func getJvmModels() []spec.ExpModelCommandSpec {
 	modelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)
 	models, err := util.ParseSpecsToModel(jvmSpecFile, nil)
 	if err != nil {
-		logrus.Errorf("parse java spec failed, %s", err)
+		logrus.Warningf("parse java spec failed, so skip it, %s", err)
 		return modelCommandSpecs
 	}
 	for idx := range models.Models {
