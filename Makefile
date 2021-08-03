@@ -42,7 +42,7 @@ endif
 
 build: build_yaml build_fuse
 
-build_all: build pre_chaosblade build_image
+build_all: pre_build pre_chaosblade build build_image
 
 build_image:
 	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}

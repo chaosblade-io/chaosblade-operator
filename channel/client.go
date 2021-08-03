@@ -33,8 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 )
 
 // Client contains the kubernetes client, operator client and kubeconfig
@@ -131,7 +129,7 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 	}
 	if err != nil {
 		execLog.WithError(err).Errorln("Invoke exec command error")
-		return spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", err)
+		return options.ErrDecoder([]byte(err.Error()))
 	}
 	if outMsg != "" {
 		execLog.Infof("get output message")
@@ -140,9 +138,8 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 	if options.IgnoreOutput {
 		return nil
 	}
-	return spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec",
-		fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found",
-			options.PodName))
+	return options.ErrDecoder([]byte(fmt.Sprintf("cannot get output of pods/%s/exec, maybe kubelet cannot be accessed or container not found",
+		options.PodName)))
 }
 
 // "172.21.1.11:8080/api/v1/namespaces/default/pods/my-nginx-3855515330-l1uqk/exec
