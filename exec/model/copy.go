@@ -36,33 +36,7 @@ import (
 )
 
 type CopyOptions struct {
-	Container string
-	Namespace string
-	PodName   string
-	client    *channel.Client
-}
-
-// CheckFileExists return nil if dest file exists
-func (o *CopyOptions) CheckFileExists(dest string) error {
-	options := &channel.ExecOptions{
-		StreamOptions: channel.StreamOptions{
-			ErrDecoder: func(bytes []byte) interface{} {
-				return fmt.Errorf(string(bytes))
-			},
-			OutDecoder: func(bytes []byte) interface{} {
-				return nil
-			},
-		},
-		PodNamespace:  o.Namespace,
-		PodName:       o.PodName,
-		ContainerName: o.Container,
-		Command:       []string{"test", "-e", dest},
-		IgnoreOutput:  true,
-	}
-	if err := o.client.Exec(options); err != nil {
-		return err.(error)
-	}
-	return nil
+	DeployOptions
 }
 
 func makeTar(srcPath, destPath string, writer io.Writer) error {
@@ -151,8 +125,22 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 	return nil
 }
 
-// CopyToPod copies src file or directory to specify container
-func (o *CopyOptions) CopyToPod(experimentId, src, dest string) error {
+func (o *CopyOptions) execute(options *channel.ExecOptions) error {
+	if len(options.PodNamespace) == 0 {
+		options.PodNamespace = o.Namespace
+	}
+
+	if len(o.Container) > 0 {
+		options.ContainerName = o.Container
+	}
+	if err := o.client.Exec(options); err != nil {
+		return err.(error)
+	}
+	return nil
+}
+
+// DeployToPod copies src file or directory to specify container
+func (o *CopyOptions) DeployToPod(experimentId, src, dest string) error {
 	if len(src) == 0 || len(dest) == 0 {
 		return errors.New("filepath can not be empty")
 	}
@@ -197,43 +185,4 @@ func (o *CopyOptions) CopyToPod(experimentId, src, dest string) error {
 		IgnoreOutput:  true,
 	}
 	return o.execute(options)
-}
-
-func (o *CopyOptions) execute(options *channel.ExecOptions) error {
-	if len(options.PodNamespace) == 0 {
-		options.PodNamespace = o.Namespace
-	}
-
-	if len(o.Container) > 0 {
-		options.ContainerName = o.Container
-	}
-	if err := o.client.Exec(options); err != nil {
-		return err.(error)
-	}
-	return nil
-}
-
-func (o *CopyOptions) CreateDir(dir string) error {
-	if len(dir) == 0 {
-		return fmt.Errorf("illegal directory name")
-	}
-	options := &channel.ExecOptions{
-		StreamOptions: channel.StreamOptions{
-			ErrDecoder: func(bytes []byte) interface{} {
-				return fmt.Errorf(string(bytes))
-			},
-			OutDecoder: func(bytes []byte) interface{} {
-				return nil
-			},
-		},
-		PodName:       o.PodName,
-		PodNamespace:  o.Namespace,
-		ContainerName: o.Container,
-		Command:       []string{"mkdir", "-p", dir},
-		IgnoreOutput:  true,
-	}
-	if err := o.client.Exec(options); err != nil {
-		return err.(error)
-	}
-	return nil
 }

@@ -304,6 +304,7 @@ func (e *ExecCommandInPodExecutor) execCommands(isDestroy bool, rsStatus v1alpha
 			OutDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
 				util.Infof(identifier.Id, util.GetRunFuncName(), fmt.Sprintf("exec output: %s", content))
+				// TODO ?? 不应该返回错我
 				return spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
 			},
 		},
@@ -373,15 +374,18 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 	obj ContainerObjectMeta, override bool) *spec.Response {
 	logrusField := logrus.WithField("experiment", experimentId)
 	chaosBladePath := getTargetChaosBladePath(expModel)
-	options := CopyOptions{
+	options := DeployOptions{
 		Container: obj.ContainerName,
 		Namespace: obj.Namespace,
 		PodName:   obj.PodName,
 		client:    e.Client,
 	}
-
+	deploy, err := getDeployMode(options, expModel)
+	if err != nil {
+		util.Errorf(experimentId, util.GetRunFuncName(), spec.ParameterLess.Sprintf(ChaosBladeDownloadUrlFlag.Name))
+		return spec.ResponseFailWithFlags(spec.ParameterLess, ChaosBladeDownloadUrlFlag.Name)
+	}
 	logrusField.Infof("deploy chaosblade under override with %t value", override)
-	// 校验 chaosblade 目录是否存在
 	chaosBladeBinPath := path.Join(chaosBladePath, "bin")
 	if err := options.CheckFileExists(chaosBladeBinPath); err != nil {
 		// create chaosblade path
@@ -390,31 +394,28 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, chaosBladeBinPath, err)
 		}
 	}
-	// 部署 blade 和 yaml 文件
-	// todo ： 后续返回错误码，因为不确定在复制过程中会出现什么异常错误，就统一用 ParameterInvalidBladePathError 处理
 	bladePath := path.Join(chaosBladePath, "blade")
 	if override || options.CheckFileExists(bladePath) != nil {
-		if err := options.CopyToPod(experimentId, chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
+		if err := deploy.DeployToPod(experimentId, chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy blade failed! dir: %s, err: %s", bladePath, err.Error()))
 			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, bladePath, err)
 		}
 	}
 	yamlPath := path.Join(chaosBladePath, "yaml")
 	if override || options.CheckFileExists(yamlPath) != nil {
-		if err := options.CopyToPod(experimentId, chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
+		if err := deploy.DeployToPod(experimentId, chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy yaml failed! dir: %s, err: %s", yamlPath, err.Error()))
 			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, yamlPath, err)
 		}
 	}
 	chaosOSPath := path.Join(chaosBladePath, "bin", "chaos_os")
 	if override || options.CheckFileExists(chaosOSPath) != nil {
-		if err := options.CopyToPod(experimentId, path.Join(chaosblade.OperatorChaosBladeBin, "chaos_os"), chaosOSPath); err != nil {
+		if err := deploy.DeployToPod(experimentId, path.Join(chaosblade.OperatorChaosBladeBin, "chaos_os"), chaosOSPath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy chaos_os failed! dir: %s, err: %s", chaosOSPath, err.Error()))
 			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, chaosOSPath, err)
 		}
 	}
-
-	// 按需复制
+	// copy files as needed
 	for _, program := range expModel.ActionPrograms {
 		var programFile, operatorProgramFile string
 		switch program {
@@ -429,7 +430,7 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 			logrusField.WithField("program", programFile).Infof("program exists")
 			continue
 		}
-		err := options.CopyToPod(experimentId, operatorProgramFile, programFile)
+		err := deploy.DeployToPod(experimentId, operatorProgramFile, programFile)
 		logrusField = logrusField.WithFields(logrus.Fields{
 			"container": obj.ContainerName,
 			"pod":       obj.PodName,
@@ -626,4 +627,23 @@ func ExcludeKeyFunc() func() map[string]spec.Empty {
 
 func TruncateContainerObjectMetaUid(uid string) string {
 	return strings.ReplaceAll(uid, "docker://", "")
+}
+
+func getDeployMode(options DeployOptions, expModel *spec.ExpModel) (DeployMode, error) {
+	mode := expModel.ActionFlags[ChaosBladeDeployModeFlag.Name]
+	url := expModel.ActionFlags[ChaosBladeDownloadUrlFlag.Name]
+	switch mode {
+	case CopyMode:
+		return &CopyOptions{options}, nil
+	case DownloadMode:
+		if url == "" {
+			url = chaosblade.DownloadUrl
+		}
+		if url == "" {
+			return nil, errors.New("must config the chaosblade-download-url flag")
+		}
+		return &DownloadOptions{options, url}, nil
+	default:
+		return &CopyOptions{options}, nil
+	}
 }
