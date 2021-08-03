@@ -28,6 +28,7 @@ var (
 	PullPolicy          string
 	DaemonsetEnable     bool
 	RemoveBladeInterval string
+	DownloadUrl         string
 )
 
 const (
@@ -67,6 +68,7 @@ func init() {
 	f.StringVar(&PullPolicy, "chaosblade-image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent.")
 	f.BoolVar(&DaemonsetEnable, "daemonset-enable", false, "Deploy chaosblade daemonset to resolve chaos experiment environment of network, default value is false.")
 	f.StringVar(&RemoveBladeInterval, "remove-blade-interval", DefaultRemoveBladeInterval, "Periodically clean up blade state is destroying, default value is 24h.")
+	f.StringVar(&DownloadUrl, "chaosblade-download-url", "", "The chaosblade downloaded address which works when the chaosblade is deployed in download mode.")
 }
 
 func FlagSet() *pflag.FlagSet {

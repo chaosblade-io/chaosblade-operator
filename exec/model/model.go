@@ -174,6 +174,19 @@ var ChaosBladePathFlag = &spec.ExpFlag{
 	Desc: "Chaosblade tool deployment path, default value is /opt. Please select a path with write permission",
 }
 
+var ChaosBladeDownloadUrlFlag = &spec.ExpFlag{
+	Name: "chaosblade-download-url",
+	Desc: "The chaosblade downloaded address. If you use download deployment mode, you must specify the value, or config chaosblade-download-url when deploying the operator",
+}
+
+var DownloadMode = "download"
+var CopyMode = "copy"
+
+var ChaosBladeDeployModeFlag = &spec.ExpFlag{
+	Name: "chaosblade-deploy-mode",
+	Desc: "The mode of chaosblade deployment in container, the values are copy and download, the default value is copy which copy tool from the operator to the target container. If you select download mode, the operator will download chaosblade tool from the chaosblade-download-url.",
+}
+
 func GetContainerFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
 		ContainerIdsFlag,
@@ -195,6 +208,8 @@ func GetChaosBladeFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
 		ChaosBladePathFlag,
 		exec.ChaosBladeOverrideFlag,
+		ChaosBladeDeployModeFlag,
+		ChaosBladeDownloadUrlFlag,
 	}
 }
 
@@ -210,6 +225,8 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		ContainerIndexFlag.Name,
 		ChaosBladePathFlag.Name,
 		exec.ChaosBladeOverrideFlag.Name,
+		ChaosBladeDeployModeFlag.Name,
+		ChaosBladeDownloadUrlFlag.Name,
 	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {

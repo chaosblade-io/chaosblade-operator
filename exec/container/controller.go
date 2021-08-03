@@ -189,5 +189,5 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			})
 		}
 	}
-	return containerObjectMetaList, nil
+	return containerObjectMetaList, spec.Success()
 }

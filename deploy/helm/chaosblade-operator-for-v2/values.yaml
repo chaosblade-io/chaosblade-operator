@@ -13,6 +13,7 @@ blade:
   repository: chaosbladeio/chaosblade-tool
   version: 1.2.0
   pullPolicy: IfNotPresent
+  downloadUrl: ""
 
 env:
   logLevel: info

@@ -44,6 +44,9 @@ spec:
           {{- if .Values.remove.blade.interval }}
           - '--remove-blade-interval={{ .Values.remove.blade.interval }}'
           {{- end }}
+          {{- if .Values.blade.downloadUrl }}
+          - '--chaosblade-download-url={{ .Values.blade.downloadUrl }}'
+          {{- end }}
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE
