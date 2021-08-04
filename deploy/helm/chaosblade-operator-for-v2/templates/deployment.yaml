@@ -47,6 +47,7 @@ spec:
           {{- if .Values.blade.downloadUrl }}
           - '--chaosblade-download-url={{ .Values.blade.downloadUrl }}'
           {{- end }}
+          - '--chaosblade-namespace={{ .Release.Namespace }}'
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE

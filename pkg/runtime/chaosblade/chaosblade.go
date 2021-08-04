@@ -69,6 +69,7 @@ func init() {
 	f.BoolVar(&DaemonsetEnable, "daemonset-enable", false, "Deploy chaosblade daemonset to resolve chaos experiment environment of network, default value is false.")
 	f.StringVar(&RemoveBladeInterval, "remove-blade-interval", DefaultRemoveBladeInterval, "Periodically clean up blade state is destroying, default value is 24h.")
 	f.StringVar(&DownloadUrl, "chaosblade-download-url", "", "The chaosblade downloaded address which works when the chaosblade is deployed in download mode.")
+	f.StringVar(&DaemonsetPodNamespace, "chaosblade-namespace", "chaosblade", "The chaosblade deployment namespace")
 }
 
 func FlagSet() *pflag.FlagSet {
