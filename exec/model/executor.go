@@ -361,7 +361,7 @@ func (e *ExecCommandInPodExecutor) generateCreateCommands(experimentId string, e
 			Command:             command,
 		}
 		resp := e.deployChaosBlade(experimentId, expModel, obj, chaosBladeOverride)
-		if resp.Success {
+		if !resp.Success {
 			identifierInPod.Error = resp.Err
 			identifierInPod.Code = resp.Code
 		}
