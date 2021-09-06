@@ -72,6 +72,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 
 // getExperimentIdentifiers
 func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context, expModel *spec.ExpModel) ([]ExperimentIdentifierInPod, error) {
+	delete(expModel.ActionFlags, "uid")
 	containerObjectMetaList, err := GetContainerObjectMetaListFromContext(ctx)
 	if err != nil {
 		return []ExperimentIdentifierInPod{}, err
@@ -133,7 +134,7 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(uid string, ctx context.Cont
 		if identifier.Error != "" {
 			rsStatus.CreateFailResourceStatus(identifier.Error, spec.K8sExecFailed.Code)
 			execSuccess = false
-		} else {
+		} else if identifier.PodName != "" {
 			// check if pod exist
 			pod := &v1.Pod{}
 			err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
@@ -155,6 +156,8 @@ func (e *ExecCommandInPodExecutor) execInMatchedPod(uid string, ctx context.Cont
 					execSuccess = false
 				}
 			}
+		}
+		if execSuccess {
 			logrusField.Infof("execute identifier: %+v", identifier)
 			execSuccess, rsStatus = e.execCommands(isDestroy, rsStatus, identifier)
 		}
@@ -398,21 +401,21 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 	if override || options.CheckFileExists(bladePath) != nil {
 		if err := deploy.DeployToPod(experimentId, chaosblade.OperatorChaosBladeBlade, bladePath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy blade failed! dir: %s, err: %s", bladePath, err.Error()))
-			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, bladePath, err)
+			return spec.ResponseFailWithFlags(spec.DeployChaosBladeFailed, bladePath, err)
 		}
 	}
 	yamlPath := path.Join(chaosBladePath, "yaml")
 	if override || options.CheckFileExists(yamlPath) != nil {
 		if err := deploy.DeployToPod(experimentId, chaosblade.OperatorChaosBladeYaml, yamlPath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy yaml failed! dir: %s, err: %s", yamlPath, err.Error()))
-			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, yamlPath, err)
+			return spec.ResponseFailWithFlags(spec.DeployChaosBladeFailed, yamlPath, err)
 		}
 	}
 	chaosOSPath := path.Join(chaosBladePath, "bin", "chaos_os")
 	if override || options.CheckFileExists(chaosOSPath) != nil {
 		if err := deploy.DeployToPod(experimentId, path.Join(chaosblade.OperatorChaosBladeBin, "chaos_os"), chaosOSPath); err != nil {
 			util.Errorf(experimentId, util.GetRunFuncName(), fmt.Sprintf("deploy chaos_os failed! dir: %s, err: %s", chaosOSPath, err.Error()))
-			return spec.ResponseFailWithFlags(spec.ParameterInvalidBladePathError, ChaosBladePathFlag.Name, chaosOSPath, err)
+			return spec.ResponseFailWithFlags(spec.DeployChaosBladeFailed, chaosOSPath, err)
 		}
 	}
 	// copy files as needed
