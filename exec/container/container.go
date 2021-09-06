@@ -276,5 +276,6 @@ func getResourceFlags() []spec.ExpFlagSpec {
 	commonFlags := model.GetResourceCommonFlags()
 	containerFlags := model.GetContainerFlags()
 	chaosbladeFlags := model.GetChaosBladeFlags()
-	return append(append(append(coverageFlags, commonFlags...), containerFlags...), chaosbladeFlags...)
+	networkFlags := model.GetNetworkFlags()
+	return append(append(append(append(coverageFlags, commonFlags...), containerFlags...), chaosbladeFlags...), networkFlags...)
 }
