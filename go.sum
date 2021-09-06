@@ -133,16 +133,10 @@ github.com/cespare/xxhash/v2 v2.1.0/go.mod h1:dgIUBU3pDso/gPgZ1osOZ0iQf77oPR28Tj
 github.com/cespare/xxhash/v2 v2.1.1 h1:6MnRN8NT7+YBpUIWxHtefFZOKTAPgGjpQSxqLNn0+qY=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5/go.mod h1:/iP1qXHoty45bqomnu2LM+VVyAEdWN+vtSHGlQgyxbw=
-github.com/chaosblade-io/chaosblade-exec-docker v1.3.0 h1:y0kislh1+9nwmQKv8Uda4h5F0g8Kas27Z7GtXeBvxvU=
-github.com/chaosblade-io/chaosblade-exec-docker v1.3.0/go.mod h1:OiYgCMJVwMuIKaBgxZJrgNCGb4uF0UsowA4xrAIX0Ao=
 github.com/chaosblade-io/chaosblade-exec-docker v1.3.1-0.20210906073714-7bd7d7367d76 h1:iiql3WhiZfc2vun/5cgkEh55pEn7DQRrEfgnjS9HDwQ=
 github.com/chaosblade-io/chaosblade-exec-docker v1.3.1-0.20210906073714-7bd7d7367d76/go.mod h1:1Kw89LAMohV44kwEZhofUGxtX/5LmhkXB+SNQ9KCzNY=
-github.com/chaosblade-io/chaosblade-exec-os v1.3.0 h1:5x0L3H/PkO1xT26A2Ex0iUKTcHNa10etqxgKxR7OHV0=
-github.com/chaosblade-io/chaosblade-exec-os v1.3.0/go.mod h1:3GaPVZkeOJoI8TNu+NQ+YTClqRr2kBvVtDWQuW6+ddM=
 github.com/chaosblade-io/chaosblade-exec-os v1.3.1-0.20210906070659-0b8e3c15c25b h1:uQ4Cl9wljgC6Lql9bo+W0j+8AJSyXIhRx3UXkpjKmQc=
 github.com/chaosblade-io/chaosblade-exec-os v1.3.1-0.20210906070659-0b8e3c15c25b/go.mod h1:iAW5L9EbWcbZe+BSnpDbtVz7lLppkj2c676ziOft4II=
-github.com/chaosblade-io/chaosblade-spec-go v1.3.0 h1:EgNHmkzMD+nvywNoerUXe3a4KixPXhzpZsgV6WbHoaE=
-github.com/chaosblade-io/chaosblade-spec-go v1.3.0/go.mod h1:xUF+8r54FphQjBR8fVPnweVqzu7EitE15UsnZ57O5gk=
 github.com/chaosblade-io/chaosblade-spec-go v1.3.1-0.20210906070321-ae22844733f2 h1:IOoJiWizn6nOoWxH5TVVvwwVbZWrbOZoLwhVLriEdu0=
 github.com/chaosblade-io/chaosblade-spec-go v1.3.1-0.20210906070321-ae22844733f2/go.mod h1:xUF+8r54FphQjBR8fVPnweVqzu7EitE15UsnZ57O5gk=
 github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible/go.mod h1:nmEj6Dob7S7YxXgwXpfOuvO54S+tGdZdw9fuRZt25Ag=
@@ -1340,7 +1334,6 @@ sigs.k8s.io/controller-tools v0.2.8/go.mod h1:9VKHPszmf2DHz/QmHkcfZoewO6BL7pPs9u
 sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=
 sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e/go.mod h1:wWxsB5ozmmv/SG7nM11ayaAW51xMvak/t1r0CSlcokI=
 sigs.k8s.io/structured-merge-diff v0.0.0-20190817042607-6149e4549fca/go.mod h1:IIgPezJWb76P0hotTxzDbWsMYB8APh18qZnxkomBpxA=
-sigs.k8s.io/structured-merge-diff v1.0.1-0.20191108220359-b1b620dd3f06 h1:zD2IemQ4LmOcAumeiyDWXKUI2SO0NYDe3H6QGvPOVgU=
 sigs.k8s.io/structured-merge-diff v1.0.1-0.20191108220359-b1b620dd3f06/go.mod h1:/ULNhyfzRopfcjskuui0cTITekDduZ7ycKN3oUT9R18=
 sigs.k8s.io/structured-merge-diff v1.0.2/go.mod h1:IIgPezJWb76P0hotTxzDbWsMYB8APh18qZnxkomBpxA=
 sigs.k8s.io/yaml v1.1.0 h1:4A07+ZFc2wgJwo8YNlQpr1rVlgUDlxXHhPJciaPY5gs=
