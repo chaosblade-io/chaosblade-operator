@@ -42,7 +42,7 @@ func (d *DownloadOptions) DeployToPod(experimentId, src, dest string) error {
 	if isTarFile {
 		dest = fmt.Sprintf("%s.%s", dest, "tar.gz")
 	}
-	command = []string{"curl", "-s", "-L", "-w", "%{http_code}", "-o", dest, url}
+	command = []string{"sh", "-c", "curl -s -L -w %{http_code} " + fmt.Sprintf("-o %s %s && chmod 755 %s", dest, url, dest)}
 	options := &channel.ExecOptions{
 		StreamOptions: channel.StreamOptions{
 			ErrDecoder: func(bytes []byte) interface{} {

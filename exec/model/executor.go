@@ -82,18 +82,15 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 	experimentId := GetExperimentIdFromContext(ctx)
 	_, destroy := spec.IsDestroy(ctx)
 
+	isDockerNetwork := expModel.ActionFlags[IsDockerNetworkFlag.Name] == "true"
 	isContainerSelfTarget := expModel.Target == "container"
 	isContainerNetworkTarget := expModel.Target == "network"
 	isNodeScope := expModel.Scope == "node"
 	if isNodeScope {
 		return e.getNodeExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy)
 	}
-	if chaosblade.DaemonsetEnable && (isContainerSelfTarget || isContainerNetworkTarget) {
+	if isContainerSelfTarget || (isContainerNetworkTarget && isDockerNetwork) {
 		return e.getDockerExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
-	}
-	if isContainerSelfTarget {
-		return []ExperimentIdentifierInPod{},
-			errors.New("daemonset-enable must be true to execute container-self chaos experiments")
 	}
 	if destroy {
 		return e.generateDestroyCommands(experimentId, expModel, containerObjectMetaList, matchers)
@@ -333,7 +330,6 @@ func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, 
 	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
-	chaosBladeOverride := expModel.ActionFlags[exec.ChaosBladeOverrideFlag.Name] == "true"
 	for idx, obj := range containerObjectMetaList {
 		generatedCommand := command
 		if obj.Id != "" {
@@ -343,7 +339,7 @@ func (e *ExecCommandInPodExecutor) generateDestroyCommands(experimentId string, 
 			ContainerObjectMeta: containerObjectMetaList[idx],
 			Command:             generatedCommand,
 		}
-		resp := e.deployChaosBlade(experimentId, expModel, obj, chaosBladeOverride)
+		resp := e.deployChaosBlade(experimentId, expModel, obj, false)
 		if !resp.Success {
 			identifierInPod.Error = resp.Err
 			identifierInPod.Code = resp.Code
@@ -448,6 +444,33 @@ func (e *ExecCommandInPodExecutor) deployChaosBlade(experimentId string, expMode
 	return spec.Success()
 }
 
+func (e *ExecCommandInPodExecutor) getNewContainerIdByPod(podName, podNamespace, containerName, experimentId string) (string, error) {
+	pod := v1.Pod{}
+	err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: podNamespace, Name: podName}, &pod)
+	if err != nil {
+		logrus.WithFields(
+			logrus.Fields{
+				"experiment":    experimentId,
+				"containerName": containerName,
+			}).Warningf("can not find the pod by %s name in %s namespace, %v", podName, podNamespace, err)
+		return "", err
+	}
+	containerStatuses := pod.Status.ContainerStatuses
+	if containerStatuses == nil {
+		return "", fmt.Errorf("cannot find containers in %s pod", podName)
+	}
+	for _, containerStatus := range containerStatuses {
+		if containerName == containerStatus.Name {
+			containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			if len(containerLongId) > 12 {
+				return containerLongId[:12], nil
+			}
+			return "", fmt.Errorf("the container %s id is illegal", containerLongId)
+		}
+	}
+	return "", fmt.Errorf("cannot find the %s container in %s pod", containerName, podName)
+}
+
 func (e *ExecCommandInPodExecutor) getDockerExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
 	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
 	if isNetworkTarget {
@@ -455,7 +478,7 @@ func (e *ExecCommandInPodExecutor) getDockerExperimentIdentifiers(experimentId s
 			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
 	}
 	if destroy {
-		return e.generateDestroyDockerCommands(experimentId, expModel, containerObjectMetaList, matchers)
+		return e.generateDestroyDockerCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget)
 	}
 	return e.generateCreateDockerCommands(experimentId, expModel, containerObjectMetaList, matchers)
 }
@@ -503,21 +526,30 @@ func (e *ExecCommandInPodExecutor) refreshChaosBladeDaemonsetPodNames() error {
 }
 
 func (e *ExecCommandInPodExecutor) generateDestroyDockerCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy docker %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
-		generatedCommand := command
-		if obj.Id != "" {
-			generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
-		}
 		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
 		if err != nil {
 			logrus.WithField("experiment", experimentId).
 				Errorf("get chaosblade tool pod for destroying failed on %s node, %v", obj.NodeName, err)
 			return identifiers, err
 		}
-		generatedCommand = fmt.Sprintf("%s --container-name %s", generatedCommand, obj.ContainerName)
+		generatedCommand := command
+		if isNetworkTarget {
+			newContainerId, err := e.getNewContainerIdByPod(obj.PodName, obj.Namespace, obj.ContainerName, experimentId)
+			if err != nil {
+				logrus.WithField("experiment", experimentId).Errorf("generate destroy docker command failed, %v", err)
+				continue
+			}
+			generatedCommand = fmt.Sprintf("%s --container-id %s", generatedCommand, newContainerId)
+		} else {
+			if obj.Id != "" {
+				generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
+			}
+			generatedCommand = fmt.Sprintf("%s --container-name %s", generatedCommand, obj.ContainerName)
+		}
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 generatedCommand,

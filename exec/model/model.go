@@ -187,6 +187,19 @@ var ChaosBladeDeployModeFlag = &spec.ExpFlag{
 	Desc: "The mode of chaosblade deployment in container, the values are copy and download, the default value is copy which copy tool from the operator to the target container. If you select download mode, the operator will download chaosblade tool from the chaosblade-download-url.",
 }
 
+var IsDockerNetworkFlag = &spec.ExpFlag{
+	Name:     "is-docker-network",
+	Desc:     "Used when a docker container is used and there is no tc command in the target container",
+	NoArgs:   true,
+	Required: false,
+}
+
+func GetNetworkFlags() []spec.ExpFlagSpec {
+	return []spec.ExpFlagSpec{
+		IsDockerNetworkFlag,
+	}
+}
+
 func GetContainerFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
 		ContainerIdsFlag,
@@ -227,6 +240,7 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		exec.ChaosBladeOverrideFlag.Name,
 		ChaosBladeDeployModeFlag.Name,
 		ChaosBladeDownloadUrlFlag.Name,
+		IsDockerNetworkFlag.Name,
 	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {
