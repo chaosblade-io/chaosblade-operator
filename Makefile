@@ -45,7 +45,7 @@ build: build_yaml build_fuse
 build_all: pre_build pre_chaosblade build docker-build
 
 docker-build:
-	$(GO) build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
+	GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
 	docker build -f build/Dockerfile -t chaosblade-operator:${BLADE_VERSION} .
 
 #operator-sdk 0.19.0 build
