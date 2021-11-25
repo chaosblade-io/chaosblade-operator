@@ -76,7 +76,7 @@ build_spec_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH) $(CHAOSBLADE_PATH)/yaml/chaosblade-jvm-spec-$(BLADE_VERSION).yaml
 	cp $(OS_YAML_FILE_PATH) $(CHAOSBLADE_PATH)/yaml/
 
-build_yaml: pre_build build_spec_yaml
+build_yaml: pre_build pre_chaosblade build_spec_yaml
 
 build_fuse:
 	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go
