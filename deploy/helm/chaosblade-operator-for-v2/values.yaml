@@ -31,4 +31,4 @@ remove:
 network:
   host: false
   dns:
-    policy: Default
+    policy: ClusterFirst
