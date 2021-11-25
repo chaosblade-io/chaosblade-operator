@@ -14,6 +14,8 @@ spec:
         name: chaosblade-operator
         part-of: chaosblade
     spec:
+      dnsPolicy: {{ .Values.network.dns.policy }}
+      hostNetwork: {{ .Values.network.host }}
       serviceAccountName: chaosblade
       containers:
         - name: chaosblade-operator
