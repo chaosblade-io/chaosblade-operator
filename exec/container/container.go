@@ -18,7 +18,7 @@ package container
 
 import (
 	"fmt"
-	dockerexec "github.com/chaosblade-io/chaosblade-exec-docker/exec"
+	criexec "github.com/chaosblade-io/chaosblade-exec-cri/exec"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"strings"
@@ -38,7 +38,7 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	}
 
 	osSubExpModelSpecs := model.NewOSSubResourceModelSpec().ExpModels()
-	containerSelfModelSpec := dockerexec.NewContainerCommandSpec()
+	containerSelfModelSpec := criexec.NewContainerCommandSpec()
 	javaExpModelSpecs := getJvmModels()
 
 	subExpModelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)

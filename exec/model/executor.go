@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-exec-docker/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
 type ExperimentIdentifierInPod struct {
@@ -83,13 +85,17 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 	_, destroy := spec.IsDestroy(ctx)
 
 	isDockerNetwork := expModel.ActionFlags[IsDockerNetworkFlag.Name] == "true"
+	UseSidecarContainerNetwork := expModel.ActionFlags[UseSidecarContainerNetworkFlag.Name] == "true"
 	isContainerSelfTarget := expModel.Target == "container"
 	isContainerNetworkTarget := expModel.Target == "network"
 	isNodeScope := expModel.Scope == "node"
 	if isNodeScope {
 		return e.getNodeExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy)
 	}
-	if isContainerSelfTarget || (isContainerNetworkTarget && isDockerNetwork) {
+	if isContainerSelfTarget || (isContainerNetworkTarget && (isDockerNetwork || UseSidecarContainerNetwork)) {
+		if version.CheckVerisonHaveCriCommand() || containerObjectMetaList[0].ContainerRuntime == container.ContainerdRuntime {
+			return e.getCriExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
+		}
 		return e.getDockerExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
 	}
 	if destroy {
@@ -461,7 +467,7 @@ func (e *ExecCommandInPodExecutor) getNewContainerIdByPod(podName, podNamespace,
 	}
 	for _, containerStatus := range containerStatuses {
 		if containerName == containerStatus.Name {
-			containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			_,containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 			if len(containerLongId) > 12 {
 				return containerLongId[:12], nil
 			}
@@ -481,6 +487,18 @@ func (e *ExecCommandInPodExecutor) getDockerExperimentIdentifiers(experimentId s
 		return e.generateDestroyDockerCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget)
 	}
 	return e.generateCreateDockerCommands(experimentId, expModel, containerObjectMetaList, matchers)
+}
+
+func (e *ExecCommandInPodExecutor) getCriExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
+containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
+	if isNetworkTarget {
+			matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
+					matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
+		}
+	if destroy {
+			return e.generateDestroyCriCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget)
+		}
+	return e.generateCreateCriCommands(experimentId, expModel, containerObjectMetaList, matchers)
 }
 
 // GetChaosBladeDaemonsetPodName
@@ -587,6 +605,64 @@ func (e *ExecCommandInPodExecutor) generateCreateDockerCommands(experimentId str
 	return identifiers, nil
 }
 
+func (e *ExecCommandInPodExecutor) generateDestroyCriCommands(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s destroy cri %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for destroying failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
+		generatedCommand := command
+		if isNetworkTarget {
+			generatedCommand = fmt.Sprintf("%s --container-id %s --container-runtime %s", generatedCommand, obj.ContainerId, obj.ContainerRuntime)
+		} else {
+			if obj.Id != "" {
+				generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
+			}
+			generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
+		}
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 generatedCommand,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
+func (e *ExecCommandInPodExecutor) generateCreateCriCommands(experimentId string, expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList, matchers string) ([]ExperimentIdentifierInPod, error) {
+	command := fmt.Sprintf("%s create cri %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
+
+	identifiers := make([]ExperimentIdentifierInPod, 0)
+	for idx, obj := range containerObjectMetaList {
+		daemonsetPodName, err := e.GetChaosBladeDaemonsetPodName(obj.NodeName)
+		if err != nil {
+			logrus.WithField("experiment", experimentId).
+				Errorf("get chaosblade tool pod for creating failed on %s node, %v", obj.NodeName, err)
+			return identifiers, err
+		}
+		generatedCommand := fmt.Sprintf("%s --container-id %s --container-runtime %s", command, obj.ContainerId,
+				containerObjectMetaList[idx].ContainerRuntime)
+		identifierInPod := ExperimentIdentifierInPod{
+			ContainerObjectMeta:     containerObjectMetaList[idx],
+			Command:                 generatedCommand,
+			ChaosBladeContainerName: chaosblade.DaemonsetPodName,
+			ChaosBladeNamespace:     chaosblade.DaemonsetPodNamespace,
+			ChaosBladePodName:       daemonsetPodName,
+		}
+		identifiers = append(identifiers, identifierInPod)
+	}
+	return identifiers, nil
+}
+
 func (e *ExecCommandInPodExecutor) getNodeExperimentIdentifiers(experimentId string, expModel *spec.ExpModel, containerMatchedList ContainerMatchedList, matchers string, destroy bool) ([]ExperimentIdentifierInPod, error) {
 	if destroy {
 		return e.generateDestroyNodeCommands(experimentId, expModel, containerMatchedList, matchers)
@@ -660,8 +736,12 @@ func ExcludeKeyFunc() func() map[string]spec.Empty {
 	return GetResourceFlagNames
 }
 
-func TruncateContainerObjectMetaUid(uid string) string {
-	return strings.ReplaceAll(uid, "docker://", "")
+func TruncateContainerObjectMetaUid(uid string) (containerRuntime ,containerId string) {
+	if strings.HasPrefix(uid, "containerd://") {
+		return container.ContainerdRuntime, strings.ReplaceAll(uid, "containerd://", "")
+	}
+
+	return container.DockerRuntime, strings.ReplaceAll(uid, "docker://", "")
 }
 
 func getDeployMode(options DeployOptions, expModel *spec.ExpModel) (DeployMode, error) {

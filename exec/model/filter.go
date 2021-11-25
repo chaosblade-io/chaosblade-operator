@@ -34,7 +34,7 @@ func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName s
 		if containerStatus.State.Running == nil {
 			continue
 		}
-		containerId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+		_,containerId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 		return containerId, containerStatus.Name, nil
 	}
 	return "", "", fmt.Errorf("cannot find a valiable container in %s pod", pod.Name)
