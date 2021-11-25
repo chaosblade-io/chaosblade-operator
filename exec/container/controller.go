@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -134,8 +135,11 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			continue
 		}
 		for _, containerStatus := range containerStatuses {
-			containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			containerRuntime,containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 			containerName := containerStatus.Name
+			if containerRuntime == container.DockerRuntime {
+				containerId = containerId[:12]
+			}
 			if containerIdsValue != "" {
 				for _, expectedContainerId := range expectedContainerIds {
 					if expectedContainerId == "" {
@@ -143,11 +147,12 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					}
 					if strings.HasPrefix(containerId, expectedContainerId) {
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
-							ContainerId:   containerId[:12],
-							ContainerName: containerName,
-							PodName:       pod.Name,
-							Namespace:     pod.Namespace,
-							NodeName:      pod.Spec.NodeName,
+							ContainerRuntime: containerRuntime,
+							ContainerId:      containerId,
+							ContainerName:    containerName,
+							PodName:          pod.Name,
+							Namespace:        pod.Namespace,
+							NodeName:         pod.Spec.NodeName,
 						})
 					}
 				}
@@ -159,11 +164,12 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					if expectedName == containerName {
 						// matched
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
-							ContainerId:   containerId[:12],
-							ContainerName: containerName,
-							PodName:       pod.Name,
-							Namespace:     pod.Namespace,
-							NodeName:      pod.Spec.NodeName,
+							ContainerRuntime: containerRuntime,
+							ContainerId:      containerId,
+							ContainerName:    containerName,
+							PodName:          pod.Name,
+							Namespace:        pod.Namespace,
+							NodeName:         pod.Spec.NodeName,
 						})
 					}
 				}
@@ -179,13 +185,17 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 				return containerObjectMetaList,
 					spec.ResponseFailWithFlags(spec.ParameterIllegal, model.ContainerIndexFlag.Name, containerIndexValue, "out of bound")
 			}
-			containerId := model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID)
+			containerRuntime, containerId := model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID)
+			if containerRuntime == container.DockerRuntime {
+				containerId = containerId[:12]
+			}
 			containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
-				ContainerId:   containerId[:12],
-				ContainerName: containerStatuses[idx].Name,
-				PodName:       pod.Name,
-				Namespace:     pod.Namespace,
-				NodeName:      pod.Spec.NodeName,
+				ContainerRuntime: containerRuntime,
+				ContainerId:      containerId,
+				ContainerName:    containerStatuses[idx].Name,
+				PodName:          pod.Name,
+				Namespace:        pod.Namespace,
+				NodeName:         pod.Spec.NodeName,
 			})
 		}
 	}

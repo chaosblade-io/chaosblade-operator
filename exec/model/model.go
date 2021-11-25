@@ -189,7 +189,14 @@ var ChaosBladeDeployModeFlag = &spec.ExpFlag{
 
 var IsDockerNetworkFlag = &spec.ExpFlag{
 	Name:     "is-docker-network",
-	Desc:     "Used when a docker container is used and there is no tc command in the target container",
+	Desc:     "Used when a docker container is used and there is no tc command in the target container. Just for docker command, Deprecated！",
+	NoArgs:   true,
+	Required: false,
+}
+
+var UseSidecarContainerNetworkFlag = &spec.ExpFlag{
+	Name:     "use-sidecar-container-network",
+	Desc:     "When there is no tc command in the target container. Set the sidecar container network true.",
 	NoArgs:   true,
 	Required: false,
 }
@@ -197,6 +204,7 @@ var IsDockerNetworkFlag = &spec.ExpFlag{
 func GetNetworkFlags() []spec.ExpFlagSpec {
 	return []spec.ExpFlagSpec{
 		IsDockerNetworkFlag,
+		UseSidecarContainerNetworkFlag,
 	}
 }
 
@@ -241,6 +249,7 @@ func GetResourceFlagNames() map[string]spec.Empty {
 		ChaosBladeDeployModeFlag.Name,
 		ChaosBladeDownloadUrlFlag.Name,
 		IsDockerNetworkFlag.Name,
+		UseSidecarContainerNetworkFlag.Name,
 	}
 	names := make(map[string]spec.Empty, 0)
 	for _, name := range flagNames {

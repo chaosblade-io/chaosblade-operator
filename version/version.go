@@ -16,8 +16,12 @@
 
 package version
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
+const criVersion = "1.4.0"
 var (
 	Version = "unknown"
 	Product = "community"
@@ -37,4 +41,31 @@ func init() {
 			Product = fields[1]
 		}
 	}
+}
+
+func CheckVerisonHaveCriCommand() bool {
+	verisonA := strings.Split(Version, ".")
+	criA := strings.Split(criVersion, ".")
+	if len(verisonA) != 3 {
+		return false
+	}
+
+	for k, v := range verisonA {
+		vi, err := strconv.Atoi(v)
+		if err != nil {
+			return false
+		}
+
+		ci, _ := strconv.Atoi(criA[k])
+
+		if ci == vi {
+			continue
+		}
+
+		if vi < ci {
+			return false
+		}
+		return true
+	}
+	return true
 }
