@@ -12,6 +12,7 @@ COPY --from=builder ${OPERATOR} /usr/local/bin/
 COPY build/cache/chaosblade ${CHAOSBLADE_HOME}
 COPY build/bin /usr/local/bin
 
+RUN yum install net-tools -y
 RUN /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

@@ -42,8 +42,14 @@ endif
 
 build: build_yaml build_fuse
 
-build_all: pre_build pre_chaosblade build build_image
+build_all: pre_build pre_chaosblade build docker-build
 
+docker-build:
+	GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
+	docker build -f build/Dockerfile -t chaosblade-operator:${BLADE_VERSION} .
+
+#operator-sdk 0.19.0 build
+build_all_operator: pre_build pre_chaosblade build build_image
 build_image:
 	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
 
@@ -68,11 +74,13 @@ pre_build:
 
 build_spec_yaml: build/spec.go
 	$(GO) run $< $(OS_YAML_FILE_PATH) $(CHAOSBLADE_PATH)/yaml/chaosblade-jvm-spec-$(BLADE_VERSION).yaml
+	cp $(OS_YAML_FILE_PATH) $(CHAOSBLADE_PATH)/yaml/
 
-build_yaml: pre_build build_spec_yaml
+build_yaml: pre_build pre_chaosblade build_spec_yaml
 
 build_fuse:
-	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse  cmd/hookfs/main.go
+	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go
+	cp $(BUILD_TARGET_BIN)/chaos_fuse $(CHAOSBLADE_PATH)/bin/
 
 # test
 test:
