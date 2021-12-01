@@ -1,7 +1,5 @@
 .PHONY: build clean
 
-BLADE_SRC_ROOT=`pwd`
-
 GO_ENV=CGO_ENABLED=1
 GO_MODULE=GO111MODULE=on
 GO=env $(GO_ENV) $(GO_MODULE) go
@@ -58,6 +56,7 @@ build_linux:
 	docker build -f build/musl/Dockerfile -t chaosblade-operator-build-musl:latest build/musl
 	docker run --rm \
 		-v $(shell echo -n ${GOPATH}):/go \
+		-v $(shell pwd):/go/src/github.com/chaosblade-io/chaosblade-operator \
 		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
 		chaosblade-operator-build-musl:latest
 

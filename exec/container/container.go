@@ -249,6 +249,10 @@ blade create k8s pod-script delay --time 10000 --file test.sh --function-name st
 				action.SetExample(`
 # Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
 blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+			case *criexec.RemoveActionCommand:
+				action.SetExample(`
+# Remove container in pod
+blade create k8s container-container remove --names cart-redis-77 --container-names cart-redis --namespace default --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),

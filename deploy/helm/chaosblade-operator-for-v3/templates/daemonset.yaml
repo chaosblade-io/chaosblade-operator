@@ -54,6 +54,12 @@ spec:
               name: docker-lib
             - mountPath: /etc/docker
               name: docker-etc
+            - mountPath: /run/containerd
+              name: containerd
+            - mountPath: /var/lib/containerd
+              name: containerd-lib
+            - mountPath: /etc/containerd
+              name: containerd-etc
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -80,5 +86,14 @@ spec:
         - hostPath:
             path: /var/log/audit
           name: audit
+        - hostPath:
+            path: /run/containerd
+          name: containerd
+        - hostPath:
+            path: /var/lib/containerd
+          name: containerd-lib
+        - hostPath:
+            path: /etc/containerd
+          name: containerd-etc
       serviceAccountName: chaosblade
 {{- end }}

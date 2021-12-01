@@ -189,7 +189,7 @@ var ChaosBladeDeployModeFlag = &spec.ExpFlag{
 
 var IsDockerNetworkFlag = &spec.ExpFlag{
 	Name:     "is-docker-network",
-	Desc:     "Used when a docker container is used and there is no tc command in the target container. Just for docker command, Deprecated！",
+	Desc:     "Used when a docker container is used and there is no tc command in the target container. Just for docker command, Deprecated！ Please use use-sidecar-container-network flag.",
 	NoArgs:   true,
 	Required: false,
 }
