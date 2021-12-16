@@ -1,0 +1,35 @@
+# Default values for chaosblade.
+
+# chaosblade-operator
+operator:
+  repository: chaosbladeio/chaosblade-operator-arm64
+  version: 1.4.0
+  # image.pullPolicy: must be Always|IfNotPresent|Never
+  pullPolicy: IfNotPresent
+  # qps of kubernetes client
+  qps: 20
+  reconcileCount: 20
+
+blade:
+  repository: chaosbladeio/chaosblade-tool-arm64
+  version: 1.4.0
+  pullPolicy: IfNotPresent
+  downloadUrl: ""
+
+env:
+  logLevel: info
+
+webhook:
+  enable: true
+
+daemonset:
+  enable: true
+
+remove:
+  blade:
+    interval: 72h
+
+network:
+  host: false
+  dns:
+    policy: ClusterFirst
