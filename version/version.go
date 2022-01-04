@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const criVersion = "1.4.0"
+const criVersion = "1.5.0"
 var (
 	Version = "unknown"
 	Product = "community"
