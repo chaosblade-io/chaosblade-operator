@@ -86,18 +86,19 @@ func (e *ExecCommandInPodExecutor) getExperimentIdentifiers(ctx context.Context,
 
 	isDockerNetwork := expModel.ActionFlags[IsDockerNetworkFlag.Name] == "true"
 	UseSidecarContainerNetwork := expModel.ActionFlags[UseSidecarContainerNetworkFlag.Name] == "true"
-	isContainerSelfTarget := expModel.Target == "container"
+	isContainerSelfTarget := expModel.Scope == "container"
 	isContainerNetworkTarget := expModel.Target == "network"
 	isNodeScope := expModel.Scope == "node"
 	if isNodeScope {
 		return e.getNodeExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy)
 	}
-	if isContainerSelfTarget || (isContainerNetworkTarget && (isDockerNetwork || UseSidecarContainerNetwork)) {
+	if isContainerSelfTarget && (isContainerNetworkTarget || isDockerNetwork || UseSidecarContainerNetwork) {
 		if version.CheckVerisonHaveCriCommand() || containerObjectMetaList[0].ContainerRuntime == container.ContainerdRuntime {
 			return e.getCriExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
 		}
 		return e.getDockerExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, isContainerNetworkTarget)
 	}
+
 	if destroy {
 		return e.generateDestroyCommands(experimentId, expModel, containerObjectMetaList, matchers)
 	}
@@ -467,7 +468,7 @@ func (e *ExecCommandInPodExecutor) getNewContainerIdByPod(podName, podNamespace,
 	}
 	for _, containerStatus := range containerStatuses {
 		if containerName == containerStatus.Name {
-			_,containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			_, containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 			if len(containerLongId) > 12 {
 				return containerLongId[:12], nil
 			}
@@ -490,14 +491,14 @@ func (e *ExecCommandInPodExecutor) getDockerExperimentIdentifiers(experimentId s
 }
 
 func (e *ExecCommandInPodExecutor) getCriExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
-containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool) ([]ExperimentIdentifierInPod, error) {
 	if isNetworkTarget {
-			matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
-					matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
-		}
+		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
+			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
+	}
 	if destroy {
-			return e.generateDestroyCriCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget)
-		}
+		return e.generateDestroyCriCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget)
+	}
 	return e.generateCreateCriCommands(experimentId, expModel, containerObjectMetaList, matchers)
 }
 
@@ -650,7 +651,7 @@ func (e *ExecCommandInPodExecutor) generateCreateCriCommands(experimentId string
 			return identifiers, err
 		}
 		generatedCommand := fmt.Sprintf("%s --container-id %s --container-runtime %s", command, obj.ContainerId,
-				containerObjectMetaList[idx].ContainerRuntime)
+			containerObjectMetaList[idx].ContainerRuntime)
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 generatedCommand,
@@ -736,7 +737,7 @@ func ExcludeKeyFunc() func() map[string]spec.Empty {
 	return GetResourceFlagNames
 }
 
-func TruncateContainerObjectMetaUid(uid string) (containerRuntime ,containerId string) {
+func TruncateContainerObjectMetaUid(uid string) (containerRuntime, containerId string) {
 	if strings.HasPrefix(uid, "containerd://") {
 		return container.ContainerdRuntime, strings.ReplaceAll(uid, "containerd://", "")
 	}
