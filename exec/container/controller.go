@@ -135,6 +135,9 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			continue
 		}
 		for _, containerStatus := range containerStatuses {
+			if !model.ValidateContainerID(containerStatus.ContainerID) {
+				continue
+			}
 			containerRuntime,containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 			containerName := containerStatus.Name
 			if containerRuntime == container.DockerRuntime {

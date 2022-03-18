@@ -762,3 +762,7 @@ func getDeployMode(options DeployOptions, expModel *spec.ExpModel) (DeployMode, 
 		return &CopyOptions{options}, nil
 	}
 }
+
+func ValidateContainerID(uid string) bool {
+	return strings.HasPrefix(uid, "containerd://") || strings.HasPrefix(uid, "docker://")
+}
