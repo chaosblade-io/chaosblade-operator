@@ -60,6 +60,8 @@ spec:
               name: containerd-lib
             - mountPath: /etc/containerd
               name: containerd-etc
+            - mountPath: /host-sys
+              name: sys
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -95,5 +97,8 @@ spec:
         - hostPath:
             path: /etc/containerd
           name: containerd-etc
+        - hostPath:
+            path: /sys
+          name: sys
       serviceAccountName: chaosblade
 {{- end }}

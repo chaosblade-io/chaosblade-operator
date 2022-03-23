@@ -18,7 +18,13 @@ package pod
 
 import (
 	"fmt"
-	"github.com/chaosblade-io/chaosblade-exec-os/exec"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/file"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/mem"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/network"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/network/tc"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/script"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"strings"
 
@@ -36,7 +42,7 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 	}
 	// os experiment models
 	osExpModels := model.NewOSSubResourceModelSpec().ExpModels()
-	spec.AddExecutorToModelSpec(&model.ExecCommandInPodExecutor{Client: client}, osExpModels...)
+	spec.AddExecutorToModelSpec(&model.CommonExecutor{Client: client}, osExpModels...)
 	// pod-self experiment models
 	expModels := append(osExpModels, NewSelfExpModelCommandSpec(client))
 
@@ -51,7 +57,7 @@ func addActionExamples(modelSpec *ResourceModelSpec) {
 		for _, action := range expModelSpec.Actions() {
 			v := interface{}(action)
 			switch v.(type) {
-			case *exec.FillActionSpec:
+			case *disk.FillActionSpec:
 				action.SetLongDesc("The disk fill scenario experiment in the pod")
 				action.SetExample(
 					`
@@ -64,7 +70,7 @@ blade create k8s pod-disk fill --path /home --percent 80 --retain-handle --names
 # Perform a fixed-size experimental scenario in the pod
 blade c k8s pod-disk fill --path /home --reserve 1024 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
-			case *exec.BurnActionSpec:
+			case *disk.BurnActionSpec:
 				action.SetLongDesc("Disk read and write IO load experiment in the pod")
 				action.SetExample(
 					`# The data of rkB/s, wkB/s and % Util were mainly observed. Perform disk read IO high-load scenarios
@@ -75,7 +81,7 @@ blade create k8s pod-disk burn --write --path /home --names nginx-app --kubeconf
 
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is /
 blade create k8s pod-disk burn --read --write --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.MemLoadActionCommand:
+			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in the pod")
 				action.SetExample(
 					`# The execution memory footprint is 50%
@@ -92,7 +98,7 @@ blade create k8s pod-mem load --mode ram --mem-percent 50 --timeout 200 --names 
 
 # 200M memory is reserved
 blade create k8s pod-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.FileAppendActionSpec:
+			case *file.FileAppendActionSpec:
 				action.SetLongDesc("The file append experiment scenario in the pod")
 				action.SetExample(
 					`# Appends the content "HELLO WORLD" to the /home/logs/nginx.log file
@@ -107,7 +113,7 @@ blade create k8s pod-file append --filepath=/home/logs/nginx.log --content=SEVMT
 # mock interface timeout exception
 blade create k8s pod-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
-			case *exec.FileAddActionSpec:
+			case *file.FileAddActionSpec:
 				action.SetLongDesc("The file add experiment scenario in the pod")
 				action.SetExample(
 					`# Create a file named nginx.log in the /home directory
@@ -123,12 +129,12 @@ blade create k8s pod-file add --filepath /temp/nginx.log --auto-create-dir --nam
 blade create k8s pod-file add --directory --filepath /temp/nginx --auto-create-dir --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
 
-			case *exec.FileChmodActionSpec:
+			case *file.FileChmodActionSpec:
 				action.SetLongDesc("The file permission modification scenario in the pod")
 				action.SetExample(`# Modify /home/logs/nginx.log file permissions to 777
 blade create k8s pod-file chmod --filepath /home/logs/nginx.log --mark=777 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
-			case *exec.FileDeleteActionSpec:
+			case *file.FileDeleteActionSpec:
 				action.SetLongDesc("The file delete scenario in the pod")
 				action.SetExample(
 					`# Delete the file /home/logs/nginx.log
@@ -137,7 +143,7 @@ blade create k8s pod-file delete --filepath /home/logs/nginx.log --names nginx-a
 # Force delete the file /home/logs/nginx.log unrecoverable
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
-			case *exec.FileMoveActionSpec:
+			case *file.FileMoveActionSpec:
 				action.SetExample("The file move scenario in the pod")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /tmp --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -148,7 +154,7 @@ blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /tmp -
 # Move the file /home/logs/nginx.log to /temp/ and automatically create directories that don't exist
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /temp --auto-create-dir --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
-			case *exec.DelayActionSpec:
+			case *tc.DelayActionSpec:
 				action.SetExample(
 					`# Access to native 8080 and 8081 ports is delayed by 3 seconds, and the delay time fluctuates by 1 second
 blade create k8s pod-network delay --time 3000 --offset 1000 --interface eth0 --local-port 8080,8081 --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -158,15 +164,15 @@ blade create k8s pod-network delay --time 3000 --interface eth0 --remote-port 80
 
 # Do a 5 second delay for the entire network card eth0, excluding ports 22 and 8000 to 8080
 blade create k8s pod-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.DropActionSpec:
+			case *network.DropActionSpec:
 				action.SetExample(
 					`# Experimental scenario of network shielding
 blade create k8s pod-network drop --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.DnsActionSpec:
+			case *network.DnsActionSpec:
 				action.SetExample(
 					`# The domain name www.baidu.com is not accessible
 blade create k8s pod-network dns --domain www.baidu.com --ip 10.0.0.0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.LossActionSpec:
+			case *tc.LossActionSpec:
 				action.SetExample(`# Access to native 8080 and 8081 ports lost 70% of packets
 blade create k8s pod-network loss --percent 70 --interface eth0 --local-port 8080,8081 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
@@ -178,22 +184,22 @@ blade create k8s pod-network loss --percent 60 --interface eth0 --exclude-port 2
 
 # Realize the whole network card is not accessible, not accessible time 20 seconds. After executing the following command, the current network is disconnected and restored in 20 seconds. Remember!! Don't forget -timeout parameter
 blade create k8s pod-network loss --percent 100 --interface eth0 --timeout 20 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.DuplicateActionSpec:
+			case *tc.DuplicateActionSpec:
 				action.SetExample(`# Specify the network card eth0 and repeat the packet by 10%
 blade create k8s pod-network duplicate --percent=10 --interface=eth0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.CorruptActionSpec:
+			case *tc.CorruptActionSpec:
 				action.SetExample(`# Access to the specified IP request packet is corrupted, 80% of the time
 blade create k8s pod-network corrupt --percent 80 --destination-ip 180.101.49.12 --interface eth0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.ReorderActionSpec:
+			case *tc.ReorderActionSpec:
 				action.SetExample(`# Access the specified IP request packet disorder
 blade create k8s pod-network reorder --correlation 80 --percent 50 --gap 2 --time 500 --interface eth0 --destination-ip 180.101.49.12 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.OccupyActionSpec:
+			case *network.OccupyActionSpec:
 				action.SetExample(`#Specify port 8080 occupancy
 blade create k8s pod-network occupy --port 8080 --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
 # The machine accesses external 14.215.177.39 machine (ping www.baidu.com) 80 port packet loss rate 100%
 blade create k8s pod-network loss --percent 100 --interface eth0 --remote-port 80 --destination-ip 14.215.177.39 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.FullLoadActionCommand:
+			case *cpu.FullLoadActionCommand:
 				action.SetExample(`
 # Create a CPU full load experiment
 blade create k8s pod-cpu load --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -209,11 +215,11 @@ blade create k8s pod-cpu load --names nginx-app --kubeconfig ~/.kube/config --na
 
 # Specified percentage load
 blade create k8s pod-cpu load --names nginx-app --kubeconfig ~/.kube/config --namespace default --cpu-percent 60`)
-			case *exec.ScriptDelayActionCommand:
+			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"
 blade create k8s pod-script delay --time 10000 --file test.sh --function-name start0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
-			case *exec.ScriptExitActionCommand:
+			case *script.ScriptExitActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
 blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
