@@ -18,6 +18,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -134,11 +135,26 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 		if containerStatuses == nil {
 			continue
 		}
+		var containerStatusErr error
 		for _, containerStatus := range containerStatuses {
-			containerRuntime,containerId := model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			// If target container's status is not running, the containerId can not be obtained
+			// The container's status should be checked and return err if not running
+			var containerRuntime, containerId string
 			containerName := containerStatus.Name
-			if containerRuntime == container.DockerRuntime {
-				containerId = containerId[:12]
+			if containerStatus.ContainerID == "" {
+				containerStatusErr = errors.New("containerId is empty")
+			} else {
+				containerRuntime,containerId = model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+				if containerRuntime == container.DockerRuntime {
+					containerId = containerId[:12]
+				}
+			}
+			if containerStatus.State.Running == nil {
+				if containerStatusErr != nil {
+					containerStatusErr = errors.New("is not running, " + containerStatusErr.Error())
+				} else {
+					containerStatusErr = errors.New("is not running, containerId: " + containerStatus.ContainerID)
+				}
 			}
 			if containerIdsValue != "" {
 				for _, expectedContainerId := range expectedContainerIds {
@@ -146,6 +162,11 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 						continue
 					}
 					if strings.HasPrefix(containerId, expectedContainerId) {
+						if containerStatusErr != nil {
+							return containerObjectMetaList, spec.ResponseFailWithFlags(spec.ParameterInvalid,
+								model.ContainerIdsFlag.Name, expectedContainerId,
+								fmt.Sprintf("container: %s %s", containerName, containerStatusErr.Error()))
+						}
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
 							ContainerRuntime: containerRuntime,
 							ContainerId:      containerId,
@@ -163,6 +184,11 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					}
 					if expectedName == containerName {
 						// matched
+						if containerStatusErr != nil {
+							return containerObjectMetaList, spec.ResponseFailWithFlags(spec.ParameterInvalid,
+								model.ContainerNamesFlag.Name, expectedName,
+								fmt.Sprintf("container: %s %s", containerName, containerStatusErr.Error()))
+						}
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
 							ContainerRuntime: containerRuntime,
 							ContainerId:      containerId,
@@ -184,6 +210,23 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			if idx > len(containerStatuses)-1 {
 				return containerObjectMetaList,
 					spec.ResponseFailWithFlags(spec.ParameterIllegal, model.ContainerIndexFlag.Name, containerIndexValue, "out of bound")
+			}
+			// If target container's status is not running, the containerId can not be obtained
+			// The container's status should be checked and return err if not running
+			if containerStatuses[idx].ContainerID == "" {
+				containerStatusErr = errors.New("containerId is empty")
+			}
+			if containerStatuses[idx].State.Running == nil {
+				if containerStatusErr != nil {
+					containerStatusErr = errors.New("is not running, " + containerStatusErr.Error())
+				} else {
+					containerStatusErr = errors.New("is not running, containerId: " + containerStatuses[idx].ContainerID)
+				}
+			}
+			if containerStatusErr != nil {
+				return containerObjectMetaList, spec.ResponseFailWithFlags(spec.ParameterInvalid,
+					model.ContainerIndexFlag.Name, idx,
+					fmt.Sprintf("container: %s %s", containerStatuses[idx].Name, containerStatusErr.Error()))
 			}
 			containerRuntime, containerId := model.TruncateContainerObjectMetaUid(containerStatuses[idx].ContainerID)
 			if containerRuntime == container.DockerRuntime {
