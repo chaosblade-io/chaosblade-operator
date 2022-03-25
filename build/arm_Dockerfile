@@ -1,0 +1,20 @@
+FROM arm64v8/alpine:3.14 as builder
+
+ENV OPERATOR=/usr/local/bin/chaosblade-operator
+COPY build/_output/bin/chaosblade-operator /usr/local/bin/
+
+FROM arm64v8/centos:latest
+
+ENV OPERATOR=/usr/local/bin/chaosblade-operator \
+    CHAOSBLADE_HOME=/opt/chaosblade
+
+COPY --from=builder ${OPERATOR} /usr/local/bin/
+COPY build/cache/chaosblade ${CHAOSBLADE_HOME}
+COPY build/bin /usr/local/bin
+
+# 安装 ps 命令和 netstat 工具
+RUN sed -i -e "s|mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/CentOS-* && \
+    sed -i -e "s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-* && \
+    yum install procps net-tools -y && /usr/local/bin/user_setup
+
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
