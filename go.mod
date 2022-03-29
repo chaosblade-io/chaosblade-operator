@@ -1,8 +1,8 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220323092601-ab2535339871
-	github.com/chaosblade-io/chaosblade-exec-os v1.5.1-0.20220322063816-d99cae2602c1
+	github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220329020941-416d4cde682b
+	github.com/chaosblade-io/chaosblade-exec-os v1.5.1-0.20220329020636-29bde5a0cdbb
 	github.com/chaosblade-io/chaosblade-spec-go v1.5.1-0.20220321094513-e6d60eaa6a30
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-logr/logr v0.2.1 // indirect
