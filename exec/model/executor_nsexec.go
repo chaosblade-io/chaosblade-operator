@@ -169,7 +169,10 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
-		generatedCommand := fmt.Sprintf("%s --container-id %s --cgroup-root /host-sys/fs/cgroup", command, obj.ContainerId)
+		generatedCommand := fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+		if expModel.ActionProcessHang {
+			generatedCommand = fmt.Sprintf("%s --cgroup-root /host-sys/fs/cgroup", generatedCommand)
+		}
 
 		if scope == "cri" {
 			generatedCommand = fmt.Sprintf("%s --container-runtime %s", generatedCommand, obj.ContainerRuntime)
