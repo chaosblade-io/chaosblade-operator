@@ -621,12 +621,21 @@ func (e *ExecCommandInPodExecutor) generateDestroyCriCommands(experimentId strin
 		}
 		generatedCommand := command
 		if isNetworkTarget {
-			newContainerId, err := e.getNewContainerIdByPod(obj.PodName, obj.Namespace, obj.ContainerName, experimentId)
-			if err != nil {
-				logrus.WithField("experiment", experimentId).Errorf("generate destroy docker command failed, %v", err)
-				continue
+			labels := []string{
+				fmt.Sprintf("io.kubernetes.pod.name=%s", obj.PodName),
+				fmt.Sprintf("io.kubernetes.pod.namespace=%s", obj.Namespace),
 			}
-			generatedCommand = fmt.Sprintf("%s --container-id %s --container-runtime %s", generatedCommand, newContainerId, obj.ContainerRuntime)
+			if obj.ContainerRuntime == container.DockerRuntime {
+				labels = append(labels, "io.kubernetes.docker.type=podsandbox")
+			} else if obj.ContainerRuntime == container.ContainerdRuntime {
+				labels = append(labels, "io.cri-containerd.kind=sandbox")
+			} else {
+				logrus.WithField("experiment", experimentId).
+					Errorf("unsupported container runtime %s", obj.ContainerRuntime)
+				return identifiers, fmt.Errorf("unsupported container runtime %s", obj.ContainerRuntime)
+			}
+
+			generatedCommand = fmt.Sprintf("%s --container-label-selector %s --container-runtime %s", generatedCommand, strings.Join(labels, ","), obj.ContainerRuntime)
 		} else {
 			if obj.Id != "" {
 				generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
