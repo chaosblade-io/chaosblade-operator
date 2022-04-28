@@ -172,8 +172,8 @@ github.com/cespare/xxhash/v2 v2.1.0/go.mod h1:dgIUBU3pDso/gPgZ1osOZ0iQf77oPR28Tj
 github.com/cespare/xxhash/v2 v2.1.1 h1:6MnRN8NT7+YBpUIWxHtefFZOKTAPgGjpQSxqLNn0+qY=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5/go.mod h1:/iP1qXHoty45bqomnu2LM+VVyAEdWN+vtSHGlQgyxbw=
-github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220426025737-30c292fe50f2 h1:lXilvxpaUXTvHRLXCN544A8J3lOA793g3254YRA6yzs=
-github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220426025737-30c292fe50f2/go.mod h1:ntY1QmFauHvQ6jIuAeJXjDoaNxuQxi6lmzodBsScZbc=
+github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220429064319-1baacd4efc7e h1:ZF05b4HKrg3vKe6b0QI9UxtebZ3M8ZS3fNW/A7/z598=
+github.com/chaosblade-io/chaosblade-exec-cri v1.5.1-0.20220429064319-1baacd4efc7e/go.mod h1:ntY1QmFauHvQ6jIuAeJXjDoaNxuQxi6lmzodBsScZbc=
 github.com/chaosblade-io/chaosblade-exec-os v1.5.1-0.20220426025253-6d1640d20ae4 h1:L1S4syQy85xfC+Yb7S88DIkdYrRyJV1Rqq5GfBYwbKg=
 github.com/chaosblade-io/chaosblade-exec-os v1.5.1-0.20220426025253-6d1640d20ae4/go.mod h1:UNDuSGNygBqqGVxUMhCL56BwK/up53bz8qKVOdEEyFE=
 github.com/chaosblade-io/chaosblade-spec-go v1.5.1-0.20220423030509-6d8dbd90b300 h1:zHZkTkuMHbeSOZ/vXYgo+0p/qFfLaXQdwKyAFh75hyA=
