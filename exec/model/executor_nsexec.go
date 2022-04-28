@@ -29,6 +29,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"strings"
 	"sync"
 )
 
@@ -169,18 +170,37 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
-		generatedCommand := fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
-		if expModel.ActionProcessHang {
-			generatedCommand = fmt.Sprintf("%s --cgroup-root /host-sys/fs/cgroup", generatedCommand)
+		var generatedCommand string
+		if expModel.Target == "network" && handle == "destroy" {
+			labels := []string{
+				fmt.Sprintf("io.kubernetes.pod.name=%s", obj.PodName),
+				fmt.Sprintf("io.kubernetes.pod.namespace=%s", obj.Namespace),
+			}
+			if obj.ContainerRuntime == container.DockerRuntime {
+				labels = append(labels, "io.kubernetes.docker.type=podsandbox")
+			} else if obj.ContainerRuntime == container.ContainerdRuntime {
+				labels = append(labels, "io.cri-containerd.kind=sandbox")
+			} else {
+				logrus.WithField("experiment", experimentId).
+					Errorf("unsupported container runtime %s", obj.ContainerRuntime)
+				return identifiers, fmt.Errorf("unsupported container runtime %s", obj.ContainerRuntime)
+			}
+			generatedCommand = fmt.Sprintf("%s --container-label-selector %s --container-runtime %s", generatedCommand, strings.Join(labels, ","), obj.ContainerRuntime)
+		} else {
+			generatedCommand = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+			if expModel.ActionProcessHang {
+				generatedCommand = fmt.Sprintf("%s --cgroup-root /host-sys/fs/cgroup", generatedCommand)
+			}
+
+			if scope == "cri" {
+				generatedCommand = fmt.Sprintf("%s --container-runtime %s", generatedCommand, obj.ContainerRuntime)
+			}
+
+			if obj.Id != "" {
+				generatedCommand = fmt.Sprintf("%s --uid %s", generatedCommand, obj.Id)
+			}
 		}
 
-		if scope == "cri" {
-			generatedCommand = fmt.Sprintf("%s --container-runtime %s", generatedCommand, obj.ContainerRuntime)
-		}
-
-		if obj.Id != "" {
-			generatedCommand = fmt.Sprintf("%s --uid %s", generatedCommand, obj.Id)
-		}
 		daemonsetPodName, err := GetChaosBladeDaemonsetPodName(obj.NodeName, client)
 		if err != nil {
 			logrus.WithField("experiment", experimentId).
@@ -198,4 +218,3 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 	}
 	return identifiers, nil
 }
-

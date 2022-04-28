@@ -60,6 +60,8 @@ spec:
               name: containerd-lib
             - mountPath: /etc/containerd
               name: containerd-etc
+            - mountPath: /var/run/netns
+              name: netns
             - mountPath: /host-sys
               name: sys
       dnsPolicy: ClusterFirstWithHostNet
@@ -97,6 +99,9 @@ spec:
         - hostPath:
             path: /etc/containerd
           name: containerd-etc
+        - hostPath:
+            path: /var/run/netns
+          name: netns
         - hostPath:
             path: /sys
           name: sys
