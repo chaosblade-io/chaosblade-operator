@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -91,18 +92,23 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 func getContainerMatchedList(experimentId string, pods []v1.Pod) model.ContainerMatchedList {
 	containerObjectMetaList := model.ContainerMatchedList{}
 	for _, p := range pods {
-		containerId, containerName, err := model.GetOneAvailableContainerIdFromPod(p)
+		containerId, containerName, runtime, err := model.GetOneAvailableContainerIdFromPod(p)
+		if runtime == container.DockerRuntime {
+			containerId = containerId[:12]
+		}
+
 		if err != nil {
 			logrus.WithField("experiment", experimentId).WithField("pod", p.Name).
 				Errorf("get an available container failed, %v", err)
 			continue
 		}
 		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
-			ContainerId:   containerId[:12],
-			ContainerName: containerName,
-			PodName:       p.Name,
-			NodeName:      p.Spec.NodeName,
-			Namespace:     p.Namespace,
+			ContainerId:      containerId,
+			ContainerName:    containerName,
+			ContainerRuntime: runtime,
+			PodName:          p.Name,
+			NodeName:         p.Spec.NodeName,
+			Namespace:        p.Namespace,
 		})
 	}
 	return containerObjectMetaList

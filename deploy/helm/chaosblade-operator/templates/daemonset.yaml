@@ -62,6 +62,8 @@ spec:
               name: containerd-etc
             - mountPath: /var/run/netns
               name: netns
+            - mountPath: /host-sys
+              name: sys
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
@@ -100,5 +102,8 @@ spec:
         - hostPath:
             path: /var/run/netns
           name: netns
+        - hostPath:
+            path: /sys
+          name: sys
       serviceAccountName: chaosblade
 {{- end }}
