@@ -185,7 +185,7 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 					Errorf("unsupported container runtime %s", obj.ContainerRuntime)
 				return identifiers, fmt.Errorf("unsupported container runtime %s", obj.ContainerRuntime)
 			}
-			generatedCommand = fmt.Sprintf("%s --container-label-selector %s --container-runtime %s", generatedCommand, strings.Join(labels, ","), obj.ContainerRuntime)
+			generatedCommand = fmt.Sprintf("%s --container-label-selector %s --container-runtime %s", command, strings.Join(labels, ","), obj.ContainerRuntime)
 		} else {
 			generatedCommand = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
 			if scope == "cri" {
