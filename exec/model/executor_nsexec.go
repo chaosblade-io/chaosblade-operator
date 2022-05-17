@@ -188,6 +188,9 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 			generatedCommand = fmt.Sprintf("%s --container-label-selector %s --container-runtime %s", command, strings.Join(labels, ","), obj.ContainerRuntime)
 		} else {
 			generatedCommand = fmt.Sprintf("%s --container-id %s", command, obj.ContainerId)
+			if expModel.ActionProcessHang {
+				generatedCommand = fmt.Sprintf("%s --cgroup-root /host-sys/fs/cgroup", generatedCommand)
+			}
 			if scope == "cri" {
 				generatedCommand = fmt.Sprintf("%s --container-runtime %s", generatedCommand, obj.ContainerRuntime)
 			}
