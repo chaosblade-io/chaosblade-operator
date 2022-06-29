@@ -1,0 +1,109 @@
+{{- if .Values.daemonset.enable }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: chaosblade-tool
+  labels:
+    name: chaosblade-tool
+    app: chaosblade-tool
+spec:
+  selector:
+    matchLabels:
+      name: chaosblade-tool
+      app: chaosblade-tool
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: chaosblade-tool
+        app: chaosblade-tool
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: type
+                    operator: NotIn
+                    values:
+                      - virtual-kubelet
+      containers:
+        - name: chaosblade-tool
+          image: {{ .Values.blade.repository }}:{{ .Values.blade.version }}
+          imagePullPolicy: {{ .Values.blade.pullPolicy }}
+          env:
+            - name: KUBERNETES_NODENAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: DOCKER_API_VERSION
+              value: "1.14.0"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              name: docker-socket
+            - mountPath: /opt/chaosblade/chaosblade.dat
+              name: chaosblade-db-volume
+            - mountPath: /etc/hosts
+              name: hosts
+            - mountPath: /var/log/audit
+              name: audit
+            - mountPath: /var/lib/docker
+              name: docker-lib
+            - mountPath: /etc/docker
+              name: docker-etc
+            - mountPath: /run/containerd
+              name: containerd
+            - mountPath: /var/lib/containerd
+              name: containerd-lib
+            - mountPath: /etc/containerd
+              name: containerd-etc
+            - mountPath: /var/run/netns
+              name: netns
+            - mountPath: /host-sys
+              name: sys
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/run/docker.sock
+          name: docker-socket
+        - hostPath:
+            path: /var/run/chaosblade.dat
+            type: FileOrCreate
+          name: chaosblade-db-volume
+        - hostPath:
+            path: /etc/hosts
+          name: hosts
+        - hostPath:
+            path: /var/lib/docker
+          name: docker-lib
+        - hostPath:
+            path: /etc/docker
+          name: docker-etc
+        - hostPath:
+            path: /var/log/audit
+          name: audit
+        - hostPath:
+            path: /run/containerd
+          name: containerd
+        - hostPath:
+            path: /var/lib/containerd
+          name: containerd-lib
+        - hostPath:
+            path: /etc/containerd
+          name: containerd-etc
+        - hostPath:
+            path: /var/run/netns
+          name: netns
+        - hostPath:
+            path: /sys
+          name: sys
+      serviceAccountName: chaosblade
+{{- end }}

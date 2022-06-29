@@ -1,6 +1,6 @@
 apiVersion: v1
 appVersion: "1.6.1"
 description: ChaosBlade Operator
-name: chaosblade-operator
+name: chaosblade-operator-arm64
 version: 1.6.1
 home: https://github.com/chaosblade-io
