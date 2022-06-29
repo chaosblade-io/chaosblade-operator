@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+      - pods/exec
+      - configmaps
+    verbs:
+      - "*"
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+      - deployments
+    verbs:
+      - "*"
+  - apiGroups:
+      - chaosblade.io
+    resources:
+      - chaosblades
+      - chaosblades/status
+    verbs:
+      - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chaosblade
+  labels:
+    name: chaosblade
+roleRef:
+  kind: ClusterRole
+  name: chaosblade
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: chaosblade
+    namespace: {{ .Release.Namespace }}

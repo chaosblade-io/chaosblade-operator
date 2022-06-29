@@ -7,7 +7,7 @@ GO=env $(GO_ENV) $(GO_MODULE) go
 UNAME := $(shell uname)
 
 ifeq ($(BLADE_VERSION), )
-	BLADE_VERSION=1.6.0
+	BLADE_VERSION=1.6.1
 endif
 ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community
@@ -45,7 +45,7 @@ build_image:
 	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
 
 build_image_arm64:
-	GOOS="linux" GOARCH="arm64" operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
+	GOOS="linux" GOARCH="arm64" operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator-arm64:${BLADE_VERSION}
 
 # only build_fuse and yaml
 build_linux:
