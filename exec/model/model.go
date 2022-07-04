@@ -17,7 +17,7 @@
 package model
 
 import (
-	"github.com/chaosblade-io/chaosblade-exec-docker/exec"
+	"github.com/chaosblade-io/chaosblade-exec-cri/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"

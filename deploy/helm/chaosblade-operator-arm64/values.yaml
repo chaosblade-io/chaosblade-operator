@@ -2,7 +2,7 @@
 
 # chaosblade-operator
 operator:
-  repository: chaosbladeio/chaosblade-operator
+  repository: chaosbladeio/chaosblade-operator-arm64
   version: 1.6.1
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
@@ -11,7 +11,7 @@ operator:
   reconcileCount: 20
 
 blade:
-  repository: chaosbladeio/chaosblade-tool
+  repository: chaosbladeio/chaosblade-tool-arm64
   version: 1.6.1
   pullPolicy: IfNotPresent
   downloadUrl: ""

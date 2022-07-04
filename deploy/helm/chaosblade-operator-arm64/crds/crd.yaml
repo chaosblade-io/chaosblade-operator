@@ -1,0 +1,155 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: chaosblades.chaosblade.io
+spec:
+  group: chaosblade.io
+  names:
+    kind: ChaosBlade
+    listKind: ChaosBladeList
+    plural: chaosblades
+    singular: chaosblade
+    shortNames: [blade]
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: ChaosBlade is the Schema for the chaosblades API
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation
+                    of an object. Servers should convert recognized schemas to the latest
+                    internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this
+                    object represents. Servers may infer this from the endpoint the client
+                    submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: ChaosBladeSpec defines the desired state of ChaosBlade
+              properties:
+                experiments:
+                  description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                        Important: Run "operator-sdk generate k8s" to regenerate code after
+                        modifying this file Add custom validation using kubebuilder tags:
+                        https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+                  items:
+                    properties:
+                      action:
+                        description: Action is the experiment scenario of the target,
+                          such as delay, load
+                        type: string
+                      desc:
+                        description: Desc is the experiment description
+                        type: string
+                      matchers:
+                        description: Matchers is the experiment rules
+                        items:
+                          properties:
+                            name:
+                              description: Name is the name of flag
+                              type: string
+                            value:
+                              description: 'TODO: Temporarily defined as an array for
+                                    all flags Value is the value of flag'
+                              items:
+                                type: string
+                              type: array
+                          required:
+                            - name
+                            - value
+                          type: object
+                        type: array
+                      scope:
+                        description: Scope is the area of the experiments, currently support
+                          node, pod and container
+                        type: string
+                      target:
+                        description: Target is the experiment target, such as cpu, network
+                        type: string
+                    required:
+                      - action
+                      - scope
+                      - target
+                    type: object
+                  type: array
+              required:
+                - experiments
+              type: object
+            status:
+              description: ChaosBladeStatus defines the observed state of ChaosBlade
+              properties:
+                expStatuses:
+                  description: 'Important: Run "operator-sdk generate k8s" to regenerate
+                        code after modifying this file Add custom validation using kubebuilder
+                        tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+                  items:
+                    properties:
+                      action:
+                        type: string
+                      error:
+                        type: string
+                      resStatuses:
+                        description: ResStatuses is the details of the experiment
+                        items:
+                          properties:
+                            error:
+                              description: experiment error
+                              type: string
+                            id:
+                              description: experiment uid in chaosblade
+                              type: string
+                            identifier:
+                              description: 'Resource identifier, rules as following: container:
+                                    Namespace/NodeName/PodName/ContainerName pod： Namespace/NodeName/PodName'
+                              type: string
+                            kind:
+                              description: Kind
+                              type: string
+                            state:
+                              description: experiment state
+                              type: string
+                            success:
+                              description: success
+                              type: boolean
+                          required:
+                            - kind
+                            - state
+                            - success
+                          type: object
+                        type: array
+                      scope:
+                        description: experiment scope for cache
+                        type: string
+                      state:
+                        description: State is used to describe the experiment result
+                        type: string
+                      success:
+                        description: Success is used to judge the experiment result
+                        type: boolean
+                      target:
+                        type: string
+                    required:
+                      - action
+                      - scope
+                      - state
+                      - success
+                      - target
+                    type: object
+                  type: array
+                phase:
+                  description: Phase indicates the state of the experiment   Initial ->
+                    Running -> Updating -> Destroying -> Destroyed
+                  type: string
+              required:
+                - expStatuses
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}

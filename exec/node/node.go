@@ -18,9 +18,15 @@ package node
 
 import (
 	"fmt"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/mem"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/network"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/network/tc"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/process"
+	"github.com/chaosblade-io/chaosblade-exec-os/exec/script"
 	"strings"
 
-	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -38,7 +44,7 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 		model.NewBaseResourceExpModelSpec("node", client),
 	}
 	osModelSpecs := model.NewOSSubResourceModelSpec().ExpModels()
-	spec.AddExecutorToModelSpec(&model.ExecCommandInPodExecutor{Client: client}, osModelSpecs...)
+	spec.AddExecutorToModelSpec(&model.CommonExecutor{Client: client}, osModelSpecs...)
 	selfModelSpec := NewSelfExpModelCommandSpec()
 	expModelSpecs := append(osModelSpecs, selfModelSpec)
 	spec.AddFlagsToModelSpec(getResourceFlags, expModelSpecs...)
@@ -54,7 +60,7 @@ func addActionExamples(modelSpec *ResourceModelSpec) {
 		for _, action := range expModelSpec.Actions() {
 			v := interface{}(action)
 			switch v.(type) {
-			case *exec.FullLoadActionCommand:
+			case *cpu.FullLoadActionCommand:
 				action.SetLongDesc("The CPU load experiment scenario for k8s node")
 				action.SetExample(
 					`# Create a CPU full load experiment in the node
@@ -86,7 +92,7 @@ blade create k8s node-cpu load --cpu-list 1-3 --names izbp1a4jchbdwkwi5hk7ekz --
 blade create k8s node-cpu load --cpu-percent 60 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-cpu load --cpu-percent 60 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.DelayActionSpec:
+			case *tc.DelayActionSpec:
 				action.SetLongDesc(` The network delay experiment scenario for k8s node.
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.
@@ -109,7 +115,7 @@ blade create k8s node-network delay --time 3000 --interface eth0 --remote-port 8
 blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.DropActionSpec:
+			case *network.DropActionSpec:
 				action.SetLongDesc(`!!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
 				action.SetExample(
@@ -118,7 +124,7 @@ blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 
 blade create k8s node-network drop --source-port 80 --network-traffic in --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network drop --source-port 80 --network-traffic in --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.DnsActionSpec:
+			case *network.DnsActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -128,7 +134,7 @@ blade create k8s node-network drop --source-port 80 --network-traffic in --names
 blade create k8s node-network dns --domain www.baidu.com --ip 10.0.0.0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network dns --domain www.baidu.com --ip 10.0.0.0 --channel ssh --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.LossActionSpec:
+			case *tc.LossActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -155,7 +161,7 @@ blade create k8s node-network loss --percent 60 --interface eth0 --exclude-port 
 blade create k8s node-network loss --percent 100 --interface eth0 --timeout 20 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network loss --percent 100 --interface eth0 --timeout 20 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config`)
-			case *exec.DuplicateActionSpec:
+			case *tc.DuplicateActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -164,7 +170,7 @@ blade create k8s node-network loss --percent 100 --interface eth0 --timeout 20 -
 blade create k8s node-network duplicate --percent=10 --interface=eth0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network duplicate --percent=10 --interface=eth0 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.CorruptActionSpec:
+			case *tc.CorruptActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -173,7 +179,7 @@ blade create k8s node-network duplicate --percent=10 --interface=eth0 --names iz
 blade create k8s node-network corrupt --percent 80 --destination-ip 180.101.49.12 --interface eth0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network corrupt --percent 80 --destination-ip 180.101.49.12 --interface eth0 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.ReorderActionSpec:
+			case *tc.ReorderActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -182,7 +188,7 @@ blade create k8s node-network corrupt --percent 80 --destination-ip 180.101.49.1
 blade create k8s node-network reorder --correlation 80 --percent 50 --gap 2 --time 500 --interface eth0 --destination-ip 180.101.49.12 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network reorder --correlation 80 --percent 50 --gap 2 --time 500 --interface eth0 --destination-ip 180.101.49.12 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.OccupyActionSpec:
+			case *network.OccupyActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -197,7 +203,7 @@ blade create k8s node-network occupy --port 8080 --force --names izbp1a4jchbdwkw
 blade create k8s node-network loss --percent 100 --interface eth0 --remote-port 80 --destination-ip 14.215.177.39 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-network loss --percent 100 --interface eth0 --remote-port 80 --destination-ip 14.215.177.39 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.KillProcessActionCommandSpec:
+			case *process.KillProcessActionCommandSpec:
 				action.SetLongDesc("The process scenario in container is the same as the basic resource process scenario")
 				action.SetExample(
 					`
@@ -213,7 +219,7 @@ blade create k8s node-process kill --local-port 8080 --signal 15 --channel ssh -
 ## using DaemonSet
 blade create k8s node-process kill --local-port 8080 --signal 15 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
 
-			case *exec.StopProcessActionCommandSpec:
+			case *process.StopProcessActionCommandSpec:
 				action.SetLongDesc("The process scenario in container is the same as the basic resource process scenario")
 				action.SetExample(
 					`
@@ -228,7 +234,7 @@ blade create k8s node-process stop --process nginx --names izbp1a4jchbdwkwi5hk7e
 blade create k8s node-process stop --process-cmd java --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-process stop --process-cmd java --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.FillActionSpec:
+			case *disk.FillActionSpec:
 				action.SetLongDesc("The disk fill scenario experiment in the node")
 				action.SetExample(
 					`
@@ -249,7 +255,7 @@ blade create k8s node-disk fill --path /home --percent 80 --retain-handle --name
 blade c k8s node-disk fill --path /home --reserve 1024 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade c k8s node-disk fill --path /home --reserve 1024 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.BurnActionSpec:
+			case *disk.BurnActionSpec:
 				action.SetLongDesc("Disk read and write IO load experiment in the node")
 				action.SetExample(
 					`# The data of rkB/s, wkB/s and % Util were mainly observed. Perform disk read IO high-load scenarios
@@ -269,7 +275,7 @@ blade create k8s node-disk burn --write --path /home --names izbp1a4jchbdwkwi5hk
 blade create k8s node-disk burn --read --write --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-disk burn --read --write --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.MemLoadActionCommand:
+			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
 				action.SetExample(
 					`# The execution memory footprint is 50%
@@ -301,14 +307,14 @@ blade create k8s node-mem load --mode ram --mem-percent 50 --timeout 200 --names
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.ScriptDelayActionCommand:
+			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"
 ## using SSH channel
 blade create k8s node-script delay --time 10000 --file test.sh --function-name start0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-script delay --time 10000 --file test.sh --function-name start0 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
-			case *exec.ScriptExitActionCommand:
+			case *script.ScriptExitActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
 ## using SSH channel
