@@ -145,7 +145,7 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					if expectedContainerId == "" {
 						continue
 					}
-					if strings.HasPrefix(containerId, expectedContainerId) {
+					if strings.HasPrefix(expectedContainerId, containerId) || expectedContainerId == containerId {
 						containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
 							ContainerRuntime: containerRuntime,
 							ContainerId:      containerId,
