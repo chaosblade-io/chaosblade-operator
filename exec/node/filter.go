@@ -74,7 +74,7 @@ func (e *ExpController) filterByOtherFlags(nodes []v1.Node, flags map[string]str
 
 var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Node, *spec.Response) {
 	labels := flags[model.ResourceLabelsFlag.Name]
-	labelsMap := model.ParseLabels(labels)
+	requirements := model.ParseLabels(labels)
 	logrusField := logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx))
 	nodes := make([]v1.Node, 0)
 	names := flags[model.ResourceNamesFlag.Name]
@@ -88,7 +88,7 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the node by %s name, %v", name, err)
 				continue
 			}
-			if model.MapContains(node.Labels, labelsMap) {
+			if model.MapContains(node.Labels, requirements) {
 				nodes = append(nodes, node)
 			}
 		}
@@ -98,13 +98,14 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 		}
 		return nodes, spec.Success()
 	}
-	if labels != "" && len(labelsMap) == 0 {
+	if labels != "" && len(requirements) == 0 {
 		logrusField.Warningln(spec.ParameterIllegal.Sprintf(model.ResourceLabelsFlag.Name, labels, "illegal labels"))
 		return nodes, spec.ResponseFailWithFlags(spec.ParameterIllegal, model.ResourceLabelsFlag.Name, labels, "illegal labels")
 	}
-	if len(labelsMap) > 0 {
+	if len(requirements) > 0 {
 		nodeList := v1.NodeList{}
-		opts := client.ListOptions{LabelSelector: pkglabels.SelectorFromSet(labelsMap)}
+		selector := pkglabels.NewSelector().Add(requirements...)
+		opts := client.ListOptions{LabelSelector: selector}
 		err := client2.List(context.TODO(), &nodeList, &opts)
 		if err != nil {
 			return nodes, spec.ResponseFailWithFlags(spec.K8sExecFailed, "ListNode", err)
