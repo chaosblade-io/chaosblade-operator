@@ -3,7 +3,7 @@
 # chaosblade-operator
 operator:
   repository: chaosbladeio/chaosblade-operator-arm64
-  version: 1.6.1
+  version: 1.7.0
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
   # qps of kubernetes client
@@ -12,7 +12,7 @@ operator:
 
 blade:
   repository: chaosbladeio/chaosblade-tool-arm64
-  version: 1.6.1
+  version: 1.7.0
   pullPolicy: IfNotPresent
   downloadUrl: ""
 
