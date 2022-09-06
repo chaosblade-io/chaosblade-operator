@@ -115,6 +115,7 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
 	pods := make([]v1.Pod, 0)
 	names := flags[ResourceNamesFlag.Name]
+	logrusField.Debugf("namespace: %s, labels: %s, names: %s", namespace, labels, names)
 	if names != "" {
 		nameArr := strings.Split(names, ",")
 		for _, name := range nameArr {
@@ -124,7 +125,11 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
-			if MapContains(pod.Labels, requirements) {
+			if len(requirements) > 0 {
+				if MapContains(pod.Labels, requirements) {
+					pods = append(pods, pod)
+				}
+			} else {
 				pods = append(pods, pod)
 			}
 		}
