@@ -146,13 +146,13 @@ blade create k8s pod-file delete --filepath /home/logs/nginx.log --force --names
 			case *file.FileMoveActionSpec:
 				action.SetExample("The file move scenario in the pod")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
-blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /tmp --names nginx-app --kubeconfig ~/.kube/config --namespace default
+blade create k8s pod-file move --filepath /home/logs/nginx.log --target /tmp --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
 # Force Move the file /home/logs/nginx.log to /temp
-blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /tmp --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
+blade create k8s pod-file move --filepath /home/logs/nginx.log --target /tmp --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
 # Move the file /home/logs/nginx.log to /temp/ and automatically create directories that don't exist
-blade create k8s pod-file delete --filepath /home/logs/nginx.log --target /temp --auto-create-dir --names nginx-app --kubeconfig ~/.kube/config --namespace default
+blade create k8s pod-file move --filepath /home/logs/nginx.log --target /temp --auto-create-dir --names nginx-app --kubeconfig ~/.kube/config --namespace default
 `)
 			case *tc.DelayActionSpec:
 				action.SetExample(
