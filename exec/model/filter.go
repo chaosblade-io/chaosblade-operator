@@ -23,8 +23,8 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/selection"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName, runtime string, err error) {
@@ -79,6 +79,9 @@ func ParseLabels(labels string) []pkglabels.Requirement {
 func MapContains(bigMap map[string]string, requirements []pkglabels.Requirement) bool {
 	if bigMap == nil || requirements == nil {
 		return false
+	}
+	if len(requirements) == 0 {
+		return true
 	}
 	labelSet := pkglabels.Set(bigMap)
 	for i := 0; i < len(requirements); i++ {

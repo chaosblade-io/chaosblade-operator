@@ -125,11 +125,7 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
-			if len(requirements) > 0 {
-				if MapContains(pod.Labels, requirements) {
-					pods = append(pods, pod)
-				}
-			} else {
+			if MapContains(pod.Labels, requirements) {
 				pods = append(pods, pod)
 			}
 		}
