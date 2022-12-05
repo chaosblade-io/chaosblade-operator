@@ -1,9 +1,9 @@
 module github.com/chaosblade-io/chaosblade-operator
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-cri v1.7.0
-	github.com/chaosblade-io/chaosblade-exec-os v1.7.0
-	github.com/chaosblade-io/chaosblade-spec-go v1.7.0
+	github.com/chaosblade-io/chaosblade-exec-cri v1.6.1-0.20221129075411-e8b86a021153
+	github.com/chaosblade-io/chaosblade-exec-os v1.7.1-0.20221129063507-78b9c2f2a164
+	github.com/chaosblade-io/chaosblade-spec-go v1.7.1-0.20221103094628-4b243b319ff6
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-logr/logr v0.2.1 // indirect
 	github.com/go-logr/zapr v0.2.0 // indirect
