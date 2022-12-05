@@ -88,7 +88,11 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the node by %s name, %v", name, err)
 				continue
 			}
-			if model.MapContains(node.Labels, requirements) {
+			if len(requirements) > 0 {
+				if model.MapContains(node.Labels, requirements) {
+					nodes = append(nodes, node)
+				}
+			} else {
 				nodes = append(nodes, node)
 			}
 		}
