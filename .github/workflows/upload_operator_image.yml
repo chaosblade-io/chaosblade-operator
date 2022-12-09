@@ -37,9 +37,9 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Build Image
-        run:
-          - make docker-build
-          - make docker-build-arm64
+        run: |
+          make docker-build
+          make docker-build-arm64
 
       - name: Upload Image
         env:
@@ -49,8 +49,8 @@ jobs:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           # ${VAR,,} convert VAR to lower case
-          - docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG
-          - docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG-arm64
+          docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG
+          docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG-arm64
 
 #      - name: Build and push Docker images
 #        uses: docker/build-push-action@v3.2.0
