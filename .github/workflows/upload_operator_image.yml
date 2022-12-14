@@ -15,7 +15,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        arch: [ amd64, arm64 ]
+#        arch: [ amd64, arm64 ]
         image:
           [ chaosblade-operator ]
     outputs:
@@ -29,12 +29,18 @@ jobs:
           IMAGE_TAG=${GITHUB_REF##*/}
           echo "::set-output name=image_tag::$(echo $IMAGE_TAG)"
 
+      - uses: actions/checkout@v2
       - name: Login to GitHub Container registry
         uses: docker/login-action@v1
         with:
-          registry: chaosbladeio
           username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Set Up Go 1.17
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+        id: go
 
       - name: Build Image
         run: |
@@ -42,15 +48,5 @@ jobs:
           make docker-build-arm64
 
       - name: Upload Image
-        env:
-          IMAGE_TAG: ${{ steps.image_tag.outputs.image_tag }}
-          ARCH: ${{ matrix.arch }}
-          IMAGE: ${{ matrix.image }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
-          # ${VAR,,} convert VAR to lower case
-          docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG
-          docker push chaosbladeio/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$IMAGE_TAG-arm64
-
-#      - name: Build and push Docker images
-#        uses: docker/build-push-action@v3.2.0
+          make push_image

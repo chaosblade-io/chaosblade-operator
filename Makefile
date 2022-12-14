@@ -43,6 +43,10 @@ docker-build-arm64:
 	GOOS="linux" GOARCH="arm64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
 	docker build -f build/image/arm/Dockerfile -t chaosbladeio/chaosblade-operator-arm64:${BLADE_VERSION} .
 
+push_image:
+	docker push chaosbladeio/chaosblade-operator:${BLADE_VERSION}
+	docker push chaosbladeio/chaosblade-operator-arm64:${BLADE_VERSION}
+
 #operator-sdk 0.19.0 build
 build_all_operator: pre_build build build_image
 build_image:
