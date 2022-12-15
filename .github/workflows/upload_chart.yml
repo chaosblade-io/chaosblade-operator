@@ -1,0 +1,55 @@
+name: Upload Chart
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - v*
+
+permissions: read-all
+
+jobs:
+  Upload-Chart:
+    permissions:
+      # https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions#authenticating-to-package-registries-on-github
+      packages: write
+    strategy:
+      matrix:
+#        arch: [ amd64, arm64 ]
+        image:
+          [ chaosblade-operator ]
+    outputs:
+      binary_tag: ${{ steps.binary_tag.outputs.binary_tag }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Extract Binary Tag
+        id: binary_tag
+        shell: bash
+        run: |
+          BINARY_TAG=${GITHUB_REF##*/}
+          echo "::set-output name=binary_tag::$(echo $BINARY_TAG)"
+
+      - name: Helm Install
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.3 # default is latest (stable)
+        id: install
+
+      - uses: actions/checkout@v2
+      - name: Helm Package
+        run: |
+          helm package deploy/helm/chaosblade-operator
+          helm package deploy/helm/chaosblade-operator-arm64
+
+      - name: Setup OSSUTIL environment
+        uses: yizhoumo/setup-ossutil@v1.1.3
+        env:
+          BINARY_TAG: ${{ steps.binary_tag.outputs.binary_tag }}
+        with:
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          ossutil-version: '1.7.14' # Optional, default to '1.7.14'. Use 'latest' to get the latest version.
+      - run: |
+          ossutil cp -f chaosblade-operator-$BINARY_TAG.tgz oss://chaosblade/agent/github/$BINARY_TAG/chaosblade-operator-$BINARY_TAG.tgz
+          ossutil cp -f chaosblade-operator-arm64-$BINARY_TAG.tgz oss://chaosblade/agent/github/$BINARY_TAG/chaosblade-operator-arm64-$BINARY_TAG.tgz
