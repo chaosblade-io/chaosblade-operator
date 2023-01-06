@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
+        "github.com/chaosblade-io/chaosblade-exec-os/exec/file"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/mem"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network/tc"
@@ -307,6 +308,60 @@ blade create k8s node-mem load --mode ram --mem-percent 50 --timeout 200 --names
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+			case *file.FileAppendActionSpec:
+				action.SetLongDesc("The file append experiment scenario in container")
+				action.SetExample(
+					`# Appends the content "HELLO WORLD" to the /home/logs/nginx.log file
+blade create k8s node-file append --filepath=/home/logs/nginx.log --content="HELL WORLD" --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+# Appends the content "HELLO WORLD" to the /home/logs/nginx.log file, interval 10 seconds
+blade create k8s node-file append --filepath=/home/logs/nginx.log --content="HELL WORLD" --interval 10 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Appends the content "HELLO WORLD" to the /home/logs/nginx.log file, enable base64 encoding
+blade create k8s node-file append --filepath=/home/logs/nginx.log --content=SEVMTE8gV09STEQ= --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# mock interface timeout exception
+blade create k8s node-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+`)
+			case *file.FileAddActionSpec:
+				action.SetLongDesc("The file add experiment scenario in container")
+				action.SetExample(
+					`# Create a file named nginx.log in the /home directory
+blade create k8s node-file add --filepath /home/nginx.log --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Create a file named nginx.log in the /home directory with the contents of HELLO WORLD
+blade create k8s node-file add --filepath /home/nginx.log --content "HELLO WORLD" --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Create a file named nginx.log in the /temp directory and automatically create directories that don't exist
+blade create k8s node-file add --filepath /temp/nginx.log --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Create a directory named /nginx in the /temp directory and automatically create directories that don't exist
+blade create k8s node-file add --directory --filepath /temp/nginx --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+`)
+			case *file.FileChmodActionSpec:
+				action.SetLongDesc("The file permission modification scenario in container")
+				action.SetExample(`# Modify /home/logs/nginx.log file permissions to 777
+blade create k8s node-file chmod --filepath /home/logs/nginx.log --mark=777 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+`)
+			case *file.FileDeleteActionSpec:
+				action.SetLongDesc("The file delete scenario in container")
+				action.SetExample(
+					`# Delete the file /home/logs/nginx.log
+blade create k8s node-file delete --filepath /home/logs/nginx.log --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Force delete the file /home/logs/nginx.log unrecoverable
+blade create k8s node-file delete --filepath /home/logs/nginx.log --force --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+`)
+			case *file.FileMoveActionSpec:
+				action.SetExample("The file move scenario in container")
+				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
+blade create k8s node-file move --filepath /home/logs/nginx.log --target /tmp --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Force Move the file /home/logs/nginx.log to /temp
+blade create k8s node-file move --filepath /home/logs/nginx.log --target /tmp --force --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+
+# Move the file /home/logs/nginx.log to /temp/ and automatically create directories that don't exist
+blade create k8s node-file move --filepath /home/logs/nginx.log --target /temp --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
+`)
 			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"

@@ -111,10 +111,11 @@ func (b *BaseExperimentController) filterByOtherFlags(pods []v1.Pod, flags map[s
 var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[string]string) ([]v1.Pod, *spec.Response) {
 	namespace := flags[ResourceNamespaceFlag.Name]
 	labels := flags[ResourceLabelsFlag.Name]
-	labelsMap := ParseLabels(labels)
+	requirements := ParseLabels(labels)
 	logrusField := logrus.WithField("experiment", GetExperimentIdFromContext(ctx))
 	pods := make([]v1.Pod, 0)
 	names := flags[ResourceNamesFlag.Name]
+	logrusField.Debugf("namespace: %s, labels: %s, names: %s", namespace, labels, names)
 	if names != "" {
 		nameArr := strings.Split(names, ",")
 		for _, name := range nameArr {
@@ -124,7 +125,11 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 				logrusField.Warningf("can not find the pod by %s name in %s namespace, %v", name, namespace, err)
 				continue
 			}
-			if MapContains(pod.Labels, labelsMap) {
+			if len(requirements) > 0 {
+				if MapContains(pod.Labels, requirements) {
+					pods = append(pods, pod)
+				}
+			} else {
 				pods = append(pods, pod)
 			}
 		}
@@ -134,14 +139,15 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 		}
 		return pods, spec.Success()
 	}
-	if labels != "" && len(labelsMap) == 0 {
+	if labels != "" && len(requirements) == 0 {
 		msg := spec.ParameterIllegal.Sprintf(ResourceLabelsFlag.Name, labels, "data format error")
 		logrusField.Warningln(msg)
 		return pods, spec.ResponseFailWithFlags(spec.ParameterLess, ResourceLabelsFlag.Name, labels, "data format error, example: key=value")
 	}
-	if len(labelsMap) > 0 {
+	if len(requirements) > 0 {
 		podList := v1.PodList{}
-		opts := client.ListOptions{Namespace: namespace, LabelSelector: pkglabels.SelectorFromSet(labelsMap)}
+		selector := pkglabels.NewSelector().Add(requirements...)
+		opts := client.ListOptions{Namespace: namespace, LabelSelector: selector}
 		err := client2.List(context.TODO(), &podList, &opts)
 		if err != nil {
 			return pods, spec.ResponseFailWithFlags(spec.K8sExecFailed, "PodList", err)

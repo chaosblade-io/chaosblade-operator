@@ -1,0 +1,52 @@
+name: Upload Operator Images
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - v*
+
+permissions: read-all
+
+jobs:
+  Upload:
+    permissions:
+      # https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions#authenticating-to-package-registries-on-github
+      packages: write
+    strategy:
+      matrix:
+#        arch: [ amd64, arm64 ]
+        image:
+          [ chaosblade-operator ]
+    outputs:
+      image_tag: ${{ steps.image_tag.outputs.image_tag }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Extract Image Tag
+        id: image_tag
+        shell: bash
+        run: |
+          IMAGE_TAG=${GITHUB_REF##*/}
+          echo "::set-output name=image_tag::$(echo $IMAGE_TAG)"
+
+      - uses: actions/checkout@v2
+      - name: Login to GitHub Container registry
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Set Up Go 1.17
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.17
+        id: go
+
+      - name: Build Image
+        run: |
+          make docker-build
+          make docker-build-arm64
+
+      - name: Upload Image
+        run: |
+          make push_image

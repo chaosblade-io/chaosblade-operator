@@ -257,11 +257,11 @@ blade create k8s container-network loss --percent 100 --interface eth0 --remote-
 			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"
-blade create k8s pod-script delay --time 10000 --file test.sh --function-name start0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-script delay --time 10000 --file test.sh --function-name start0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
 			case *script.ScriptExitActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
-blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
 			case *criexec.RemoveActionCommand:
 				action.SetExample(`
 # Remove container in pod
