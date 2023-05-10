@@ -104,7 +104,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 					rsStatus.Error = msg
 					success = true
 				} else {
-					// if get pod error, the execution is considered failur
+					// if get pod error, the execution is considered failure
 					msg := fmt.Sprintf("get pod: %s in %s error",
 						identifier.PodName, identifier.Namespace)
 					rsStatus.CreateFailResourceStatus(msg, spec.K8sExecFailed.Code)
@@ -118,7 +118,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 		}
 		updateResultLock.Lock()
 		statuses = append(statuses, rsStatus)
-		// If false occurs once, the result is fals
+		// If false occurs once, the result is fails
 		success = success && execSuccess
 		updateResultLock.Unlock()
 	}
@@ -142,7 +142,6 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e.Client)
 	return spec.ReturnResultIgnoreCode(experimentStatus)
 }
-
 
 func getExperimentIdentifiers(ctx context.Context, expModel *spec.ExpModel, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
 	delete(expModel.ActionFlags, "uid")
@@ -411,7 +410,7 @@ func getNewContainerIdByPod(podName, podNamespace, containerName, experimentId s
 	}
 	for _, containerStatus := range containerStatuses {
 		if containerName == containerStatus.Name {
-			_,containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+			_, containerLongId := TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 			if len(containerLongId) > 12 {
 				return containerLongId[:12], nil
 			}

@@ -132,9 +132,10 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 						}
 
 						objectMeta := metav1.ObjectMeta{Name: experimentId}
+
 						err = client.Client.Delete(context.TODO(), &v1alpha1.ChaosBlade{
 							TypeMeta: metav1.TypeMeta{
-								APIVersion: "chaosbladio/v1alpha1",
+								APIVersion: "chaosblade.io/v1alpha1",
 								Kind:       "ChaosBlade",
 							},
 							ObjectMeta: objectMeta,
