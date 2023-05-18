@@ -39,6 +39,8 @@ spec:
                   fieldPath: spec.nodeName
             - name: DOCKER_API_VERSION
               value: "1.14.0"
+            - name: CGROUP_ROOT
+              value: "/host-sys/fs/cgroup/"
           securityContext:
             privileged: true
           volumeMounts:
