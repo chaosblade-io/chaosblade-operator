@@ -26,7 +26,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
@@ -161,7 +161,7 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 					if expectedContainerId == "" {
 						continue
 					}
-					if strings.HasPrefix(containerId, expectedContainerId) {
+					if strings.HasPrefix(expectedContainerId, containerId) {
 						if containerStatusErr != nil {
 							return containerObjectMetaList, spec.ResponseFailWithFlags(spec.ParameterInvalid,
 								model.ContainerIdsFlag.Name, expectedContainerId,

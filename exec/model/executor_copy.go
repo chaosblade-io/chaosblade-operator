@@ -19,6 +19,9 @@ package model
 import (
 	"context"
 	"fmt"
+	"path"
+	"sync"
+
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
@@ -30,8 +33,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"path"
-	"sync"
 )
 
 type ExperimentIdentifierInPod struct {
