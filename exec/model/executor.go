@@ -30,6 +30,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
@@ -114,10 +115,27 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 
 					if isDestroyed {
 						logrus.Info("The experiment was destroyed, ExperimentId: ", experimentId)
+						cb := &v1alpha1.ChaosBlade{}
+						err := client.Client.Get(context.TODO(), types.NamespacedName{Name: experimentId}, cb)
+						if err != nil {
+							logrus.Warn(err.Error())
+							continue
+						}
+
+						if cb.Status.Phase != v1alpha1.ClusterPhaseDestroyed {
+							cb.Status.Phase = v1alpha1.ClusterPhaseDestroyed
+							err = client.Client.Status().Update(context.TODO(), cb)
+							if err != nil {
+								logrus.Warn(err.Error())
+							}
+							continue
+						}
+
 						objectMeta := metav1.ObjectMeta{Name: experimentId}
-						err :=  client.Client.Delete(context.TODO(), &v1alpha1.ChaosBlade{
+
+						err = client.Client.Delete(context.TODO(), &v1alpha1.ChaosBlade{
 							TypeMeta: metav1.TypeMeta{
-								APIVersion: "chaosbladio/v1alpha1",
+								APIVersion: "chaosblade.io/v1alpha1",
 								Kind:       "ChaosBlade",
 							},
 							ObjectMeta: objectMeta,

@@ -20,7 +20,11 @@ import (
 	"fmt"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
+<<<<<<< HEAD
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/file"
+=======
+        "github.com/chaosblade-io/chaosblade-exec-os/exec/file"
+>>>>>>> 11087a87ad1ba55c0044321bcbce70ff30c75fa1
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/mem"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network/tc"

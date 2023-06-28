@@ -91,7 +91,7 @@ func (e *CommonExecutor) Exec(uid string, ctx context.Context, expModel *spec.Ex
 					rsStatus.Error = msg
 					success = true
 				} else {
-					// if get pod error, the execution is considered failur
+					// if get pod error, the execution is considered failure
 					msg := fmt.Sprintf("get pod: %s in %s error",
 						identifier.PodName, identifier.Namespace)
 					rsStatus.CreateFailResourceStatus(msg, spec.K8sExecFailed.Code)
@@ -105,7 +105,7 @@ func (e *CommonExecutor) Exec(uid string, ctx context.Context, expModel *spec.Ex
 		}
 		updateResultLock.Lock()
 		statuses = append(statuses, rsStatus)
-		// If false occurs once, the result is fals
+		// If false occurs once, the result is fails
 		success = success && execSuccess
 		updateResultLock.Unlock()
 	}

@@ -7,7 +7,7 @@ GO=env $(GO_ENV) $(GO_MODULE) go
 UNAME := $(shell uname)
 
 ifeq ($(BLADE_VERSION), )
-	BLADE_VERSION=1.7.0
+	BLADE_VERSION=1.7.2
 endif
 ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community
@@ -37,15 +37,23 @@ build_all: pre_build build docker-build
 
 docker-build:
 	GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
-	docker build -f build/Dockerfile -t chaosblade-operator:${BLADE_VERSION} .
+	docker build -f build/image/amd/Dockerfile -t chaosbladeio/chaosblade-operator:${BLADE_VERSION} .
+
+docker-build-arm64:
+	GOOS="linux" GOARCH="arm64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
+	docker build -f build/image/arm/Dockerfile -t chaosbladeio/chaosblade-operator-arm64:${BLADE_VERSION} .
+
+push_image:
+	docker push chaosbladeio/chaosblade-operator:${BLADE_VERSION}
+	docker push chaosbladeio/chaosblade-operator-arm64:${BLADE_VERSION}
 
 #operator-sdk 0.19.0 build
 build_all_operator: pre_build build build_image
 build_image:
-	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator:${BLADE_VERSION}
+	operator-sdk build --go-build-args="$(GO_FLAGS)" chaosbladeio/chaosblade-operator:${BLADE_VERSION}
 
 build_image_arm64:
-	GOOS="linux" GOARCH="arm64" operator-sdk build --go-build-args="$(GO_FLAGS)" chaosblade-operator-arm64:${BLADE_VERSION}
+	GOOS="linux" GOARCH="arm64" operator-sdk build --go-build-args="$(GO_FLAGS)" chaosbladeio/chaosblade-operator-arm64:${BLADE_VERSION}
 
 # only build_fuse and yaml
 build_linux:
@@ -62,7 +70,7 @@ build_arm64:
 		-v $(shell echo -n ${GOPATH}):/go \
 		-v $(shell pwd):/go/src/github.com/chaosblade-io/chaosblade-operator \
 		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
-		chaosblade-build-arm:latest
+		chaosbladeio/chaosblade-build-arm:latest
 
 pre_build:
 	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML)
