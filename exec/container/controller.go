@@ -26,7 +26,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
@@ -144,7 +144,7 @@ func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerName
 			if containerStatus.ContainerID == "" {
 				containerStatusErr = errors.New("containerId is empty")
 			} else {
-				containerRuntime,containerId = model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
+				containerRuntime, containerId = model.TruncateContainerObjectMetaUid(containerStatus.ContainerID)
 				if containerRuntime == container.DockerRuntime {
 					containerId = containerId[:12]
 				}
