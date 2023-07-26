@@ -33,8 +33,8 @@ jobs:
       - name: Login to GitHub Container registry
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_PASSWORD }}
 
       - name: Set Up Go 1.17
         uses: actions/setup-go@v3
