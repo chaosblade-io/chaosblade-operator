@@ -23,7 +23,6 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
-	"github.com/chaosblade-io/chaosblade-operator/version"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -146,16 +145,11 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 		return getNodeExperimentIdentifiers(experimentId, expModel, containerObjectMetaList, matchers, destroy, client)
 	}
 
-	var scope string
-	if version.CheckVerisonHaveCriCommand() || containerObjectMetaList[0].ContainerRuntime == container.ContainerdRuntime {
-		// blade create cri --container-id containerObjectMetaList[0].ContainerId --container-runtime obj.ContainerRuntime
-		scope = "cri"
-	} else {
-		// blade create docker --container-id containerObjectMetaList[0].ContainerId
-		scope = "docker"
-	}
+	var (
+		scope  = "cri"
+		handle = "create"
+	)
 
-	handle := "create"
 	if destroy {
 		handle = "destroy"
 	}
@@ -191,7 +185,7 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 			if expModel.ActionProcessHang {
 				generatedCommand = fmt.Sprintf("%s --cgroup-root /host-sys/fs/cgroup", generatedCommand)
 			}
-			if scope == "cri" {
+			if len(obj.ContainerRuntime) > 0 {
 				generatedCommand = fmt.Sprintf("%s --container-runtime %s", generatedCommand, obj.ContainerRuntime)
 			}
 			if obj.Id != "" {
