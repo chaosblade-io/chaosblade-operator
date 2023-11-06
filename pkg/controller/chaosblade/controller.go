@@ -116,19 +116,28 @@ func startPeriodicallyCleanUpBlade(mgr manager.Manager) {
 		cli := mgr.GetClient()
 		duration, err := time.ParseDuration(chaosblade.RemoveBladeInterval)
 		if err != nil {
-			logrus.Errorf("parse interval error: %v, use default interval: %s", err, chaosblade.DefaultRemoveBladeInterval)
+			logrus.Errorf("parse remove blade interval error: %v, use default interval: %s", err, chaosblade.DefaultRemoveBladeInterval)
 			duration, err = time.ParseDuration(chaosblade.DefaultRemoveBladeInterval)
 			chaosblade.RemoveBladeInterval = chaosblade.DefaultRemoveBladeInterval
 			if err != nil {
-				logrus.Fatalf("start periodically clean up blade, ticker error: %v", err)
+				logrus.Fatalf("parse remove blade interval error: %v", err)
 			}
 		}
 		// first clean up
 		periodicallyCleanUpBlade(cli, duration)
 
+		checkDuration, err := time.ParseDuration(chaosblade.CheckCleanTaskInterval)
+		if err != nil {
+			logrus.Errorf("parse clean task interval error: %v, use default interval: %s", err, chaosblade.DefaultCheckCleanTaskInterval)
+			checkDuration, err = time.ParseDuration(chaosblade.DefaultCheckCleanTaskInterval)
+			chaosblade.CheckCleanTaskInterval = chaosblade.DefaultCheckCleanTaskInterval
+			if err != nil {
+				logrus.Fatalf("start periodically clean up blade, ticker error: %v", err)
+			}
+		}
 		// ticker clean up
-		ticker := time.NewTicker(time.Second * time.Duration(duration.Seconds()))
-		logrus.Infof("start periodically clean up blade ticker, interval: %s", chaosblade.RemoveBladeInterval)
+		ticker := time.NewTicker(checkDuration)
+		logrus.Infof("start periodically clean up blade ticker,check interval: %s,retention interval:%s", chaosblade.CheckCleanTaskInterval, chaosblade.RemoveBladeInterval)
 		for range ticker.C {
 			periodicallyCleanUpBlade(cli, duration)
 		}
