@@ -171,7 +171,7 @@ func getExperimentIdentifiersWithNsexec(ctx context.Context, expModel *spec.ExpM
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
 		var generatedCommand string
-		if expModel.Target == "network" && handle == "destroy" {
+		if expModel.Target == "network" && handle == "destroy" && expModel.ActionName != "dns" {
 			labels := []string{
 				fmt.Sprintf("io.kubernetes.pod.name=%s", obj.PodName),
 				fmt.Sprintf("io.kubernetes.pod.namespace=%s", obj.Namespace),
