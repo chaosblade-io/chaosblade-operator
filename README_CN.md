@@ -25,6 +25,33 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 内存：指定内存使用率
     * Container: 杀 Container
 
+## 本地构建&安装
+
+### 构造镜像
+
+```shell
+# operator 根目录下
+# linux/amd64
+make build_all
+# linux/arm64
+make build_all_amr64
+```
+
+### 构造并安装 Helm Chart
+
+```shell
+# operator 根目录下
+cd deploy/helm
+# linux/amd64
+helm package ./chaosblade-operator
+kubectl create ns chaosblade
+helm install chaosblade chaosblade-operator-${version}.tgz --namespace chaosblade
+# linux/arm64
+helm package ./chaosblade-operator-arm64
+kubectl create ns chaosblade
+helm install chaosblade chaosblade-operator-arm64-${version}.tgz --namespace chaosblade
+```
+
 ## 安装&卸载
 支持的 Kubernetes 最小版本是 v1.12，chaosblade operator 可通过 kubectl 或者 helm 进行安装，安装方式如下：
 注意：以下的 `VERSION` 请使用最新的版本号替代

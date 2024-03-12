@@ -27,7 +27,37 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Memory: specify memory usage
     * Container: remove container
 
-## 
+
+## Local Build & Installation
+
+## Build images
+
+```shell
+# Under operator's root directory
+
+# For linux/amd64
+make build_all
+
+# For linux/arm64
+make build_all_amr64
+```
+
+### Build and install Helm Chart
+
+```shell
+# Under operator's root directory
+cd deploy/helm
+
+# For linux/amd64
+helm package ./chaosblade-operator
+kubectl create ns chaosblade
+helm install chaosblade chaosblade-operator-${version}.tgz --namespace chaosblade
+
+# For linux/arm64
+helm package ./chaosblade-operator-arm64
+kubectl create ns chaosblade
+helm install chaosblade chaosblade-operator-arm64-${version}.tgz --namespace chaosblade
+```
 
 ## Install and uninstall
 The lowest version of kubernetes supported is 1.12. Chaosblade operator can be installed through kubectl or helm, the installation method is as follows:

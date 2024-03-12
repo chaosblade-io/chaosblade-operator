@@ -34,6 +34,7 @@ endif
 build: build_yaml build_fuse
 
 build_all: pre_build build docker-build
+build_all_arm64: pre_build build docker-build-arm64
 
 docker-build:
 	GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
