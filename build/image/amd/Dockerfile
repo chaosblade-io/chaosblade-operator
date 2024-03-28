@@ -1,4 +1,4 @@
-FROM alpine:3.8 as builder
+FROM alpine:3.19 as builder
 
 ENV OPERATOR=/usr/local/bin/chaosblade-operator
 COPY build/_output/bin/chaosblade-operator /usr/local/bin/
