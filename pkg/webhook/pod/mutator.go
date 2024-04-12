@@ -97,7 +97,7 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	}
 
 	var targetVolumeMount corev1.VolumeMount
-	//inject sidecar for the first container
+	// inject sidecar for the first container
 	for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
 		if volumeMount.Name == injectVolumeName {
 			if volumeMount.MountPropagation == nil {
@@ -118,7 +118,7 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	}
 
 	privileged := true
-	runAsUser := int64(0) //root
+	runAsUser := int64(0) // root
 	mountPoint := path.Join(targetVolumeMount.MountPath, injectSubPath)
 	original := path.Join(targetVolumeMount.MountPath, fmt.Sprintf("fuse-%s", injectSubPath))
 	logrus.WithFields(logrus.Fields{

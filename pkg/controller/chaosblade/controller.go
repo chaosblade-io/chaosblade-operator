@@ -94,16 +94,16 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 		return err
 	}
 	if chaosblade.DaemonsetEnable {
-		//namespace, err := k8sutil.GetOperatorNamespace()
-		//if err != nil {
+		// namespace, err := k8sutil.GetOperatorNamespace()
+		// if err != nil {
 		//	return err
-		//}
-		//chaosblade.DaemonsetPodNamespace = namespace
-		//// deploy chaosblade tool
-		//if err := deployChaosBladeTool(rcb); err != nil {
+		// }
+		// chaosblade.DaemonsetPodNamespace = namespace
+		// // deploy chaosblade tool
+		// if err := deployChaosBladeTool(rcb); err != nil {
 		//	logrus.WithField("product", version.Product).WithError(err).Errorln("Failed to deploy chaosblade tool")
 		//	return err
-		//}
+		// }
 		logrus.WithField("product", version.Product).WithField("daemonset.enable", chaosblade.DaemonsetEnable).
 			Infoln("enable chaosblade-tool deamonset")
 	}
@@ -185,6 +185,9 @@ type ReconcileChaosBlade struct {
 func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := logrus.WithField("Request.Name", request.Name)
 	forget := reconcile.Result{}
+	requeue := reconcile.Result{
+		Requeue: true,
+	}
 	// Fetch the RC instance
 	cb := &v1alpha1.ChaosBlade{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, cb)
@@ -194,7 +197,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 	if len(cb.Spec.Experiments) == 0 {
 		return forget, nil
 	}
-	//reqLogger.Info(fmt.Sprintf("chaosblade obj: %+v", cb))
+	// reqLogger.Info(fmt.Sprintf("chaosblade obj: %+v", cb))
 
 	// Destroyed->delete
 	// Remove the Finalizer if the CR object status is destroyed to delete it
@@ -203,6 +206,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 		err := r.client.Update(context.TODO(), cb)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("remove chaosblade finalizer failed at destroyed phase")
+			return requeue, nil
 		}
 		return forget, nil
 	}
@@ -210,6 +214,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 		err := r.finalizeChaosBlade(reqLogger, cb)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("finalize chaosblade failed at destroying phase")
+			return requeue, nil
 		}
 		return forget, nil
 	}
@@ -220,12 +225,14 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 			cb.Status.ExpStatuses = make([]v1alpha1.ExperimentStatus, 0)
 			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("update chaosblade phase to Initialized failed")
+				return requeue, nil
 			}
 		} else {
 			cb.SetFinalizers(append(cb.GetFinalizers(), chaosbladeFinalizer))
 			// Update CR
 			if err := r.client.Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("add finalizer to chaosblade failed")
+				return requeue, nil
 			}
 		}
 		return forget, nil
@@ -248,6 +255,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 		cb.Status.Phase = phase
 		if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 			reqLogger.WithError(err).Errorf("Important!!!!!update phase from %s to %s failed", originalPhase, phase)
+			return requeue, nil
 		}
 		return forget, nil
 	}
@@ -270,6 +278,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 			// update annotation to cb
 			if err = r.client.Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("add annotation to chaosblade failed")
+				return requeue, nil
 			}
 			if cb.Status.ExpStatuses != nil {
 				for idx, expStatus := range cb.Status.ExpStatuses {
@@ -283,6 +292,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 			cb.Status.Phase = phase
 			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
+				return requeue, nil
 			}
 			return forget, nil
 		}
