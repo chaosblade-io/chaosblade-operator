@@ -77,7 +77,7 @@ pre_build:
 	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML)
 
 build_spec_yaml: build/spec.go
-	$(GO) run $< $(OS_YAML_FILE_PATH)
+	go run $< $(OS_YAML_FILE_PATH)
 
 build_yaml: pre_build build_spec_yaml
 
