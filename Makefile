@@ -3,6 +3,14 @@
 GO_ENV=CGO_ENABLED=1
 GO_MODULE=GO111MODULE=on
 GO=env $(GO_ENV) $(GO_MODULE) go
+# 获取当前平台信息
+CURRENT_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+CURRENT_ARCH := $(shell uname -m)
+ifeq ($(CURRENT_ARCH),x86_64)
+CURRENT_ARCH := amd64
+else ifeq ($(CURRENT_ARCH),aarch64)
+CURRENT_ARCH := arm64
+endif
 
 UNAME := $(shell uname)
 
@@ -77,7 +85,7 @@ pre_build:
 	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML)
 
 build_spec_yaml: build/spec.go
-	go run $< $(OS_YAML_FILE_PATH)
+	GOOS=$(CURRENT_OS) GOARCH=$(CURRENT_ARCH) go run $< $(OS_YAML_FILE_PATH)
 
 build_yaml: pre_build build_spec_yaml
 
