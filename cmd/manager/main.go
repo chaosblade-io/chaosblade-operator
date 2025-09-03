@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -56,6 +57,10 @@ func printVersion() {
 	logrus.Infof("Version of operator-sdk: %v", sdkVersion.Version)
 	logrus.Infof("Operator Version: %v", version.Version)
 	logrus.Infof("Operator Product: %v", version.Product)
+	logrus.Infof("Build Time: %v", version.BuildTime)
+	logrus.Infof("Git Commit: %v", version.GitCommit)
+	logrus.Infof("Git Branch: %v", version.GitBranch)
+	logrus.Infof("Platform: %v", version.Platform)
 	logrus.Infof("Daemonset Enable: %t", chaosblade.DaemonsetEnable)
 }
 
@@ -64,7 +69,16 @@ func main() {
 	pflag.CommandLine.AddFlagSet(operator.FlagSet())
 	pflag.CommandLine.AddFlagSet(webhookcfg.FlagSet())
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
+	// 添加版本标志
+	showVersion := pflag.Bool("version", false, "显示版本信息")
 	pflag.Parse()
+
+	// 如果只是查看版本，则显示后退出
+	if *showVersion {
+		printVersion()
+		return
+	}
 
 	initLogger()
 	printVersion()
