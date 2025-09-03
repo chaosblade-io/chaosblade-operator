@@ -17,14 +17,22 @@
 package version
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 const criVersion = "1.5.0"
+
 var (
-	Version = "unknown"
-	Product = "community"
+	// 这些变量将在编译时通过 ldflags 注入
+	Version   = "unknown"
+	Product   = "community"
+	BuildTime = "unknown"
+	GitCommit = "unknown"
+	GitBranch = "unknown"
+	GoVersion = "unknown"
+	Platform  = "unknown"
 
 	// Version#Product
 	CombinedVersion = ""
@@ -41,6 +49,30 @@ func init() {
 			Product = fields[1]
 		}
 	}
+}
+
+// GetVersionInfo 返回完整的版本信息
+func GetVersionInfo() map[string]string {
+	return map[string]string{
+		"version":   Version,
+		"product":   Product,
+		"buildTime": BuildTime,
+		"gitCommit": GitCommit,
+		"gitBranch": GitBranch,
+		"goVersion": GoVersion,
+		"platform":  Platform,
+	}
+}
+
+// GetVersionString 返回格式化的版本字符串
+func GetVersionString() string {
+	return fmt.Sprintf("Version: %s, Product: %s, BuildTime: %s, GitCommit: %s, GitBranch: %s, GoVersion: %s, Platform: %s",
+		Version, Product, BuildTime, GitCommit, GitBranch, GoVersion, Platform)
+}
+
+// GetShortVersion 返回简短版本信息
+func GetShortVersion() string {
+	return fmt.Sprintf("%s-%s", Version, Product)
 }
 
 func CheckVerisonHaveCriCommand() bool {

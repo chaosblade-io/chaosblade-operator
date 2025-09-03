@@ -28,13 +28,13 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
-var JvmSpecFileForYaml = ""
+var JvmSpecPathForYaml = ""
 
 // getJvmModels returns java experiment specs
 func getJvmModels() []spec.ExpModelCommandSpec {
 	var jvmSpecFile = path.Join(chaosblade.OperatorChaosBladeYaml, fmt.Sprintf("chaosblade-jvm-spec-%s.yaml", version.Version))
-	if JvmSpecFileForYaml != "" {
-		jvmSpecFile = JvmSpecFileForYaml
+	if JvmSpecPathForYaml != "" {
+		jvmSpecFile = fmt.Sprintf("%s/chaosblade-jvm-spec-%s.yaml", JvmSpecPathForYaml, version.Version)
 	}
 	modelCommandSpecs := make([]spec.ExpModelCommandSpec, 0)
 	models, err := util.ParseSpecsToModel(jvmSpecFile, nil)

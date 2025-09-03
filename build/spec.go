@@ -34,7 +34,7 @@ func main() {
 		log.Panicln("less yaml file path")
 	}
 	if len(os.Args) == 3 {
-		container.JvmSpecFileForYaml = os.Args[2]
+		container.JvmSpecPathForYaml = os.Args[2]
 	}
 	err := util.CreateYamlFile(getModels(), os.Args[1])
 	if err != nil {
