@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如: 1.8.0)'
+        required: true
+        default: '1.8.0'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: chaosblade-io/chaosblade-operator
+  GO_VERSION: '1.20'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-push-images:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            dockerfile: build/image/amd/Dockerfile
+            image_suffix: ""
+            image_tag: "ghcr.io/chaosblade-io/chaosblade-operator"
+          - os: linux
+            arch: arm64
+            dockerfile: build/image/arm/Dockerfile
+            image_suffix: "-arm64"
+            image_tag: "ghcr.io/chaosblade-io/chaosblade-operator-arm64"
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_USER }}
+          password: ${{ secrets.GHCR_PASSWORD }}
+
+      - name: Build ${{ matrix.arch }} image
+        env:
+          BLADE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Building ${{ matrix.arch }} image..."
+          make build_linux_${{ matrix.arch }}_image
+
+      - name: Push ${{ matrix.arch }} image
+        run: |
+          echo "Pushing ${{ matrix.arch }} image..."
+          docker push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
+          docker tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
+          docker push ${{ matrix.image_tag }}:latest
+
+  package-and-upload-helm:
+    name: Package and Upload Helm Charts
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from previous job
+        id: version
+        run: |
+          echo "version=${{ needs.build-and-push-images.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.3
+
+      - name: Package Helm Charts
+        env:
+          BINARY_TAG: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Packaging Helm charts for version ${BINARY_TAG}..."
+          helm package deploy/helm/chaosblade-operator
+          helm package deploy/helm/chaosblade-operator-arm64
+          
+          # 重命名文件以包含版本信息和架构标识
+          mv chaosblade-operator-*.tgz chaosblade-operator-amd64-${BINARY_TAG}.tgz
+          mv chaosblade-operator-arm64-*.tgz chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          
+          echo "Generated Helm packages:"
+          ls -la *.tgz
+
+      - name: Setup OSSUTIL environment
+        uses: yizhoumo/setup-ossutil@v1.1.3
+        env:
+          BINARY_TAG: ${{ steps.version.outputs.version }}
+        with:
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          ossutil-version: '1.7.14'
+
+      - name: Upload Helm packages to OSS
+        env:
+          BINARY_TAG: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Uploading Helm packages to OSS..."
+          ossutil cp -f chaosblade-operator-amd64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-amd64-${BINARY_TAG}.tgz
+          ossutil cp -f chaosblade-operator-arm64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          echo "Helm packages uploaded successfully"
+
+      - name: Upload Helm packages as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-packages
+          path: |
+            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-and-push-images, package-and-upload-helm]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from previous job
+        id: version
+        run: |
+          echo "version=${{ needs.build-and-push-images.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Download Helm packages
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-packages
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: ChaosBlade Operator v${{ steps.version.outputs.version }}
+          body: |
+            ## ChaosBlade Operator v${{ steps.version.outputs.version }}
+            
+            ### 新版本发布
+            
+            **构建时间**: ${{ github.event.head_commit.timestamp }}
+            **Git提交**: ${{ github.sha }}
+            
+            ### Helm 包下载
+            
+            - [chaosblade-operator-amd64 (AMD64)](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
+            - [chaosblade-operator-arm64 (ARM64)](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
+            
+            ### Docker 镜像
+            
+            ```bash
+            # AMD64
+            docker pull ghcr.io/chaosblade-io/chaosblade-operator:v${{ steps.version.outputs.version }}
+            
+            # ARM64
+            docker pull ghcr.io/chaosblade-io/chaosblade-operator-arm64:v${{ steps.version.outputs.version }}
+            ```
+            
+            ### Helm 安装
+            
+            ```bash
+            # AMD64
+            helm install chaosblade-operator ./chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            
+            # ARM64
+            helm install chaosblade-operator ./chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            ```
+            
+            ### OSS 下载链接
+            
+            - [chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
+            - [chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
+            
+            ### 变更日志
+            
+            请查看 [CHANGELOG.md](CHANGELOG.md) 了解详细变更。
+          files: |
+            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+          draft: true
+          prerelease: false
