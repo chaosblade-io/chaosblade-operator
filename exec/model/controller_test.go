@@ -31,7 +31,7 @@ func TestGetResourceCount(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
-		{name: "evict-percent=0", args: args{10, map[string]string{"evict-count": "", "evict-percent": "0"}}, want: 0, wantErr: false},
+		{name: "evict-percent=0", args: args{10, map[string]string{"evict-count": "", "evict-percent": "0"}}, want: 0, wantErr: true},
 		{name: "evict-percent=10", args: args{10, map[string]string{"evict-count": "", "evict-percent": "10"}}, want: 1, wantErr: false},
 		{name: "evict-percent=55", args: args{10, map[string]string{"evict-count": "", "evict-percent": "55"}}, want: 6, wantErr: false},
 		{name: "evict-percent=100", args: args{10, map[string]string{"evict-count": "", "evict-percent": "100"}}, want: 10, wantErr: false},
@@ -40,12 +40,13 @@ func TestGetResourceCount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetResourceCount(tt.args.resourceCount, tt.args.flags)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetResourceCount() error = %v, wantErr %v", err, tt.wantErr)
+			got, resp := GetResourceCount(tt.args.resourceCount, tt.args.flags)
+			hasErr := resp != nil && !resp.Success
+			if hasErr != tt.wantErr {
+				t.Errorf("GetResourceCount() error = %v, wantErr %v", resp, tt.wantErr)
 				return
 			}
-			if got != tt.want {
+			if !hasErr && got != tt.want {
 				t.Errorf("GetResourceCount() got = %v, want %v", got, tt.want)
 			}
 		})

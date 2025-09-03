@@ -189,5 +189,9 @@ func GetSidecarImage() string {
 	if SidecarImage != "" {
 		return SidecarImage
 	}
-	return fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), version.Version)
+	if chaosblade.Constant != nil {
+		return fmt.Sprintf("%s:%s", chaosblade.Constant.ImageRepoFunc(), version.Version)
+	}
+	// Fallback for testing when chaosblade.Constant is not initialized
+	return fmt.Sprintf("%s:%s", chaosblade.ImageRepository, version.Version)
 }

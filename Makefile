@@ -1,10 +1,21 @@
-.PHONY: build clean
+.PHONY: show-version linux_amd64 linux_arm64 pre_build operator chaos_fuse yaml build_binary build_linux_amd64_image build_linux_arm64_image push_image test clean help
 
-GO_ENV=CGO_ENABLED=1
-GO_MODULE=GO111MODULE=on
-GO=env $(GO_ENV) $(GO_MODULE) go
+# Default target - show help when no target is specified
+.DEFAULT_GOAL := help
 
-# 获取当前平台信息
+# Container runtime configuration - compatible with Docker and Podman
+# Auto-detect available container runtime
+ifeq ($(CONTAINER_RUNTIME),)
+    ifeq ($(shell command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1 && echo "podman"),podman)
+        CONTAINER_RUNTIME := podman
+    else ifeq ($(shell command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && echo "docker"),docker)
+        CONTAINER_RUNTIME := docker
+    else
+        CONTAINER_RUNTIME := docker
+    endif
+endif
+
+# Get current platform information
 CURRENT_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 CURRENT_ARCH := $(shell uname -m)
 ifeq ($(CURRENT_ARCH),x86_64)
@@ -13,9 +24,12 @@ else ifeq ($(CURRENT_ARCH),aarch64)
 CURRENT_ARCH := arm64
 endif
 
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
+
 UNAME := $(shell uname)
 
-# 版本信息获取
+# Version information retrieval
 ifeq ($(BLADE_VERSION), )
 	BLADE_VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
 endif
@@ -23,7 +37,7 @@ ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community
 endif
 
-# 动态获取Git信息
+# Dynamically get Git information
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -42,7 +56,7 @@ OS_YAML_FILE_PATH=$(BUILD_TARGET_YAML)/$(OS_YAML_FILE_NAME)
 
 VERSION_PKG=github.com/chaosblade-io/chaosblade-operator/version
 
-# 完整的版本信息ldflags
+# Complete version information ldflags
 VERSION_LDFLAGS=-X=$(VERSION_PKG).Version=$(BLADE_VERSION) \
 	-X=$(VERSION_PKG).Product=$(BLADE_VENDOR) \
 	-X=$(VERSION_PKG).BuildTime=$(BUILD_TIME) \
@@ -53,84 +67,122 @@ VERSION_LDFLAGS=-X=$(VERSION_PKG).Version=$(BLADE_VERSION) \
 	-X=$(VERSION_PKG).CombinedVersion=$(BLADE_VERSION),$(BLADE_VENDOR)
 
 GO_FLAGS=-ldflags "$(VERSION_LDFLAGS)"
+GO_FLAGS_WITH_STATIC=-ldflags="-linkmode external -extldflags -static $(VERSION_LDFLAGS)"
 
-# Linux静态链接支持
-ifeq ($(GOOS), linux)
-	GO_FLAGS=-ldflags="-linkmode external -extldflags -static $(VERSION_LDFLAGS)"
-endif
+# Cross-compilation CC detection for chaos_fuse
+define detect_cc
+$(strip $(if $(and $(filter amd64,$(GOARCH)),$(shell command -v musl-gcc 2>/dev/null)),musl-gcc,\
+$(if $(and $(filter amd64,$(GOARCH)),$(wildcard /usr/local/musl/bin/musl-gcc)),/usr/local/musl/bin/musl-gcc,\
+$(if $(and $(filter amd64,$(GOARCH)),$(shell command -v x86_64-linux-musl-gcc 2>/dev/null)),x86_64-linux-musl-gcc,\
+$(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-musl-gcc 2>/dev/null)),aarch64-linux-musl-gcc,\
+$(if $(and $(filter amd64,$(GOARCH)),$(shell command -v gcc 2>/dev/null)),gcc,\
+$(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-gnu-gcc 2>/dev/null)),aarch64-linux-gnu-gcc,\
+container)))))))
+endef
 
-# 显示版本信息
+CC_FOR_CHAOS_FUSE := $(call detect_cc)
+
+# Display version information
 show-version:
-	@echo "=== 构建版本信息 ==="
-	@echo "版本: $(BLADE_VERSION)"
-	@echo "供应商: $(BLADE_VENDOR)"
-	@echo "Git提交: $(GIT_COMMIT)"
-	@echo "Git分支: $(GIT_BRANCH)"
-	@echo "构建时间: $(BUILD_TIME)"
-	@echo "Go版本: $(GO_VERSION)"
-	@echo "平台: $(PLATFORM)"
+	@echo "=== Build Version Information ==="
+	@echo "Version: $(BLADE_VERSION)"
+	@echo "Vendor: $(BLADE_VENDOR)"
+	@echo "Git Commit: $(GIT_COMMIT)"
+	@echo "Git Branch: $(GIT_BRANCH)"
+	@echo "Build Time: $(BUILD_TIME)"
+	@echo "Go Version: $(GO_VERSION)"
+	@echo "Platform: $(PLATFORM)"
 	@echo "=================="
 
-build: show-version build_yaml build_fuse
+# Linux AMD64 platform build
+linux_amd64: show-version pre_build
+	@echo "Building Linux AMD64 platform components..."
+	$(MAKE) operator GOOS=linux GOARCH=amd64
+	@echo "chaosblade-operator build completed"
+	$(MAKE) chaos_fuse GOOS=linux GOARCH=amd64
+	@echo "chaos_fuse build completed"
+	$(MAKE) yaml GOOS=linux GOARCH=arm64
+	@echo "YAML specification file generation completed"
+	@echo "Linux AMD64 platform build completed"
 
-build_all: pre_build build docker-build
-build_all_arm64: pre_build build docker-build-arm64
-
-docker-build:
-	GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
-	docker buildx build -f build/image/amd/Dockerfile --platform=linux/amd64 -t ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION} .
-
-docker-build-arm64:
-	GOOS="linux" GOARCH="arm64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
-	docker buildx build -f build/image/arm/Dockerfile  --platform=linux/arm64  -t ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION} .
-
-push_image:
-	docker push ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION}
-	docker push ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION}
-
-#operator-sdk 0.19.0 build
-build_all_operator: pre_build build build_image
-build_image:
-	operator-sdk build --go-build-args="$(GO_FLAGS)" ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION}
-
-build_image_arm64:
-	GOOS="linux" GOARCH="arm64" operator-sdk build --go-build-args="$(GO_FLAGS)" ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION}
-
-# only build_fuse and yaml
-build_linux:
-	docker build -f build/musl/Dockerfile -t chaosblade-operator-build-musl:latest build/musl
-	docker run --rm \
-		-v $(shell echo -n ${GOPATH}):/go \
-		-v $(shell pwd):/go/src/github.com/chaosblade-io/chaosblade-operator \
-		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
-		chaosblade-operator-build-musl:latest
-
-build_arm64:
-	docker run --rm --privileged multiarch/qemu-user-static:register --reset
-	docker run --rm \
-		-v $(shell echo -n ${GOPATH}):/go \
-		-v $(shell pwd):/go/src/github.com/chaosblade-io/chaosblade-operator \
-		-w /go/src/github.com/chaosblade-io/chaosblade-operator \
-		chaosblade-io/chaosblade-build-arm:latest
+# Linux ARM64 platform build
+linux_arm64: show-version pre_build
+	@echo "Building Linux ARM64 platform components..."
+	$(MAKE) operator GOOS=linux GOARCH=arm64
+	@echo "chaosblade-operator build completed"
+	$(MAKE) chaos_fuse GOOS=linux GOARCH=arm64
+	@echo "chaos_fuse build completed"
+	$(MAKE) yaml GOOS=linux GOARCH=arm64
+	@echo "YAML specification file generation completed"
+	@echo "Linux ARM64 platform build completed"
 
 pre_build:
-	mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML) build/_output/bin
+	@mkdir -p $(BUILD_TARGET_BIN) $(BUILD_TARGET_YAML) build/_output/bin
 
-build_spec_yaml: build/spec.go
-	GOOS=$(CURRENT_OS) GOARCH=$(CURRENT_ARCH) $(GO) build $(GO_FLAGS) -o build/_output/bin/spec $<
-	GOOS=$(CURRENT_OS) GOARCH=$(CURRENT_ARCH) build/_output/bin/spec $(OS_YAML_FILE_PATH) $(if $(JVM_SPEC_PATH),$(JVM_SPEC_PATH),)
+operator:
+	@echo "Building chaosblade-operator for $(GOOS)/$(GOARCH)..."
+	@CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
 
-build_yaml: pre_build build_spec_yaml
+chaos_fuse: ## Build chaos_fuse for Linux (supports cross-compilation from macOS)
+ifeq ($(GOOS),linux)
+	@echo "Detected CC for chaos_fuse: $(CC_FOR_CHAOS_FUSE)"
+	@if [ "$(CC_FOR_CHAOS_FUSE)" != "container" ]; then \
+		echo "Building chaos_fuse for Linux $(GOARCH) using $(CC_FOR_CHAOS_FUSE)..."; \
+		CC=$(CC_FOR_CHAOS_FUSE) CGO_ENABLED=1 go build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go; \
+	elif command -v $(CONTAINER_RUNTIME) >/dev/null 2>&1 && $(CONTAINER_RUNTIME) info >/dev/null 2>&1; then \
+		echo "Building chaos_fuse for Linux $(GOARCH) using $(CONTAINER_RUNTIME)..."; \
+		if [ "$(GOARCH)" = "amd64" ]; then \
+			$(CONTAINER_RUNTIME) run --rm -v $(PWD):/src:Z -w /src --platform linux/amd64 golang:1.21-alpine sh -c "apk add --no-cache musl-dev gcc && cd /src && CGO_ENABLED=1 go build $(GO_FLAGS) -o /src/$(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go" >/dev/null 2>&1; \
+		elif [ "$(GOARCH)" = "arm64" ]; then \
+			$(CONTAINER_RUNTIME) run --rm -v $(PWD):/src:Z -w /src golang:1.21-alpine sh -c "apk add --no-cache musl-dev gcc && cd /src && CGO_ENABLED=1 GOARCH=arm64 GOOS=linux go build $(GO_FLAGS) -o /src/$(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go" >/dev/null 2>&1; \
+		else \
+			echo "Unsupported architecture $(GOARCH) for chaos_fuse"; \
+		fi; \
+	else \
+		echo "Warning: No suitable cross-compilation toolchain found for chaos_fuse"; \
+		echo "Available options:"; \
+		echo "  1. Install musl-tools: apt-get install musl-tools (Ubuntu/Debian)"; \
+		echo "  2. Install musl-gcc: brew install FiloSottile/musl-cross/musl-cross (macOS)"; \
+		echo "  3. Install specific cross-compilers for ARM64: apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu"; \
+		echo "  4. Use Docker/Podman with proper platform emulation"; \
+	fi
+else
+	@echo "Skipping chaos_fuse build on $(GOOS) for target - Linux only"
+endif
 
-build_fuse:
-	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaos_fuse cmd/hookfs/main.go
 
-# 构建二进制文件并显示版本信息
+yaml: build/spec.go
+	@echo "Building spec generator..."
+	@GOOS=$(CURRENT_OS) GOARCH=$(CURRENT_ARCH) go build $(GO_FLAGS) -o build/_output/bin/spec $<
+	@echo "Generating YAML specifications..."
+	@GOOS=$(CURRENT_OS) GOARCH=$(CURRENT_ARCH) build/_output/bin/spec $(OS_YAML_FILE_PATH) $(if $(JVM_SPEC_PATH),$(JVM_SPEC_PATH),)
+
+only_yaml: pre_build yaml
+
+# Build binary files and display version information
 build_binary: show-version
-	$(GO) build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaosblade-operator cmd/manager/main.go
-	@echo "二进制文件构建完成: $(BUILD_TARGET_BIN)/chaosblade-operator"
-	@echo "版本信息:"
-	@$(BUILD_TARGET_BIN)/chaosblade-operator version 2>/dev/null || echo "无法获取版本信息"
+	CGO_ENABLED=0 go build $(GO_FLAGS) -o $(BUILD_TARGET_BIN)/chaosblade-operator cmd/manager/main.go
+	@echo "Binary file build completed: $(BUILD_TARGET_BIN)/chaosblade-operator"
+	@echo "Version information:"
+	@$(BUILD_TARGET_BIN)/chaosblade-operator version 2>/dev/null || echo "Unable to get version information"
+
+
+##----------------------------------------------------------------------------
+# build image
+
+build_linux_amd64_image:
+	CGO_ENABLED=0 GOOS="linux" GOARCH="amd64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
+	$(CONTAINER_RUNTIME) buildx build -f build/image/amd/Dockerfile --platform=linux/amd64 -t ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION} .
+
+build_linux_arm64_image:
+	CGO_ENABLED=0 GOOS="linux" GOARCH="arm64" go build $(GO_FLAGS) -o build/_output/bin/chaosblade-operator cmd/manager/main.go
+	$(CONTAINER_RUNTIME) buildx build -f build/image/arm/Dockerfile  --platform=linux/arm64  -t ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION} .
+
+push_image:
+	$(CONTAINER_RUNTIME) push ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION}
+	$(CONTAINER_RUNTIME) push ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION}
+
+##----------------------------------------------------------------------------
 
 # test
 test:
@@ -142,20 +194,22 @@ clean:
 	rm -rf $(BUILD_TARGET)
 	rm -rf $(BUILD_IMAGE_PATH)/$(BUILD_TARGET_DIR_NAME)
 
-# 帮助信息
+# Help information
 help:
-	@echo "可用的构建目标:"
-	@echo "  build          - 构建基本组件 (显示版本信息)"
-	@echo "  build_binary   - 构建二进制文件并显示版本信息"
-	@echo "  show-version   - 显示当前版本信息"
-	@echo "  docker-build   - 构建Docker镜像 (AMD64)"
-	@echo "  docker-build-arm64 - 构建Docker镜像 (ARM64)"
-	@echo "  build_all      - 完整构建流程"
-	@echo "  clean          - 清理构建产物"
+	@echo "Available build targets:"
+	@echo "  linux_amd64    - Build Linux AMD64 platform components (operator + chaos_fuse + yaml)"
+	@echo "  linux_arm64    - Build Linux ARM64 platform components (operator + chaos_fuse + yaml)"
+	@echo "  build_linux_amd64_image - Build Linux AMD64 Docker image"
+	@echo "  build_linux_arm64_image - Build Linux ARM64 Docker image"
+	@echo "  push_image     - Push images to image registry"
+	@echo "  show-version   - Display current version information"
+	@echo "  clean          - Clean build artifacts"
 	@echo ""
-	@echo "版本相关环境变量:"
-	@echo "  BLADE_VERSION  - 指定版本号 (默认: Git标签)"
-	@echo "  BLADE_VENDOR  - 指定供应商 (默认: community)"
+	@echo "Version-related environment variables:"
+	@echo "  BLADE_VERSION  - Specify version number (default: Git tag)"
+	@echo "  BLADE_VENDOR  - Specify vendor (default: community)"
 	@echo ""
-	@echo "构建相关环境变量:"
-	@echo "  JVM_SPEC_PATH - 指定JVM规范文件路径 (用于container.JvmSpecFileForYaml)"
+	@echo "Build-related environment variables:"
+	@echo "  JVM_SPEC_PATH - Specify JVM specification file path (for container.JvmSpecFileForYaml)"
+	@echo "  CONTAINER_RUNTIME - Specify container runtime (docker or podman, auto-detected by default)"
+	@echo ""
