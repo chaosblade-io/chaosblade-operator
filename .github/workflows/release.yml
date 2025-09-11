@@ -73,19 +73,29 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PASSWORD }}
 
-      - name: Build ${{ matrix.arch }} image
+      - name: Build and Push ${{ matrix.arch }} image
         env:
           BLADE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           echo "Building ${{ matrix.arch }} image..."
+          echo "BLADE_VERSION: $BLADE_VERSION"
+          echo "Image tag: ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}"
           make build_linux_${{ matrix.arch }}_image
-
-      - name: Push ${{ matrix.arch }} image
-        run: |
+          
+          echo "Built images:"
+          docker images | grep chaosblade-operator
+          
           echo "Pushing ${{ matrix.arch }} image..."
           docker push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
-          docker tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
-          docker push ${{ matrix.image_tag }}:latest
+          
+          # Only push latest tag if version doesn't contain 'dev'
+          if [[ "${{ steps.version.outputs.version }}" != *"dev"* ]]; then
+            echo "Pushing latest tag..."
+            docker tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
+            docker push ${{ matrix.image_tag }}:latest
+          else
+            echo "Skipping latest tag push for dev version: ${{ steps.version.outputs.version }}"
+          fi
 
   package-and-upload-helm:
     name: Package and Upload Helm Charts
