@@ -108,18 +108,15 @@ jobs:
 
       - name: Package Helm Charts
         env:
-          BINARY_TAG: ${{ steps.version.outputs.version }}
+          BLADE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "Packaging Helm charts for version ${BINARY_TAG}..."
-          helm package deploy/helm/chaosblade-operator
-          helm package deploy/helm/chaosblade-operator-arm64
-          
-          # 重命名文件以包含版本信息和架构标识
-          mv chaosblade-operator-*.tgz chaosblade-operator-amd64-${BINARY_TAG}.tgz
-          mv chaosblade-operator-arm64-*.tgz chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          echo "Packaging Helm charts for version ${BLADE_VERSION}..."
+          # 使用 Makefile 任务来构建和打包 Helm charts
+          make build_linux_amd64_helm
+          make build_linux_arm64_helm
           
           echo "Generated Helm packages:"
-          ls -la *.tgz
+          ls -la target/*.tgz
 
       - name: Setup OSSUTIL environment
         uses: yizhoumo/setup-ossutil@v1.1.3
@@ -136,8 +133,8 @@ jobs:
           BINARY_TAG: ${{ steps.version.outputs.version }}
         run: |
           echo "Uploading Helm packages to OSS..."
-          ossutil cp -f chaosblade-operator-amd64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-amd64-${BINARY_TAG}.tgz
-          ossutil cp -f chaosblade-operator-arm64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          ossutil cp -f target/chaosblade-operator-amd64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-amd64-${BINARY_TAG}.tgz
+          ossutil cp -f target/chaosblade-operator-arm64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-arm64-${BINARY_TAG}.tgz
           echo "Helm packages uploaded successfully"
 
       - name: Upload Helm packages as artifacts
@@ -145,8 +142,8 @@ jobs:
         with:
           name: helm-packages
           path: |
-            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
-            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
           retention-days: 30
 
   create-release:
@@ -216,7 +213,7 @@ jobs:
             
             请查看 [CHANGELOG.md](CHANGELOG.md) 了解详细变更。
           files: |
-            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
-            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
           draft: true
           prerelease: false

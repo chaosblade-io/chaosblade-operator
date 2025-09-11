@@ -3,9 +3,9 @@ module github.com/chaosblade-io/chaosblade-operator
 go 1.20
 
 require (
-	github.com/chaosblade-io/chaosblade-exec-cri v1.7.4
-	github.com/chaosblade-io/chaosblade-exec-os v1.7.4
-	github.com/chaosblade-io/chaosblade-spec-go v1.7.4
+	github.com/chaosblade-io/chaosblade-exec-cri v1.7.5-0.20250910105025-3460ca2a5b84
+	github.com/chaosblade-io/chaosblade-exec-os v1.7.5-0.20250905063806-b2d815847b22
+	github.com/chaosblade-io/chaosblade-spec-go v1.7.5-0.20250902032330-12bd479355fe
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/hanwen/go-fuse v1.0.0
@@ -34,6 +34,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cilium/ebpf v0.6.2 // indirect
 	github.com/containerd/cgroups v1.0.2-0.20210605143700-23b51209bf7b // indirect
 	github.com/containerd/containerd v1.5.6 // indirect
 	github.com/containerd/continuity v0.1.0 // indirect
