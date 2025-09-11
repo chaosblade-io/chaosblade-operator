@@ -85,16 +85,16 @@ jobs:
           make build_linux_${{ matrix.arch }}_image
           
           echo "Built images:"
-          docker images | grep chaosblade-operator
+          podman images | grep chaosblade-operator
           
           echo "Pushing ${{ matrix.arch }} image..."
-          docker push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
+          podman push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
           
           # Only push latest tag if version doesn't contain 'dev'
           if [[ "${{ steps.version.outputs.version }}" != *"dev"* ]]; then
             echo "Pushing latest tag..."
-            docker tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
-            docker push ${{ matrix.image_tag }}:latest
+            podman tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
+            podman push ${{ matrix.image_tag }}:latest
           else
             echo "Skipping latest tag push for dev version: ${{ steps.version.outputs.version }}"
           fi
