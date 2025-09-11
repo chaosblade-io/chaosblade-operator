@@ -1,4 +1,4 @@
-FROM multiarch/alpine:arm64-edge as builder
+FROM --platform=linux/arm64 alpine:latest as builder
 
 ENV OPERATOR=/usr/local/bin/chaosblade-operator
 COPY build/_output/bin/chaosblade-operator /usr/local/bin/
