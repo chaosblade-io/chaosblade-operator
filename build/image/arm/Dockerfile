@@ -1,15 +1,15 @@
-FROM --platform=linux/arm64 alpine:latest as builder
+FROM alpine:latest as builder
 
 ENV OPERATOR=/usr/local/bin/chaosblade-operator
 COPY build/_output/bin/chaosblade-operator /usr/local/bin/
 
 # Build platform-specific scripts for ARM64
-FROM --platform=linux/arm64 alpine:latest as script_builder
+FROM alpine:latest as script_builder
 RUN apk add --no-cache bash
 COPY build/bin /tmp/scripts
 RUN chmod +x /tmp/scripts/*
 
-FROM --platform=linux/arm64 registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 ENV OPERATOR=/usr/local/bin/chaosblade-operator \
     CHAOSBLADE_HOME=/opt/chaosblade

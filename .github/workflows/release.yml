@@ -23,17 +23,19 @@ permissions:
 jobs:
   build-and-push-images:
     name: Build and Push Images
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
           - os: linux
             arch: amd64
+            runs-on: ubuntu-latest
             dockerfile: build/image/amd/Dockerfile
             image_suffix: ""
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator"
           - os: linux
             arch: arm64
+            runs-on: ubuntu-latest-arm64
             dockerfile: build/image/arm/Dockerfile
             image_suffix: "-arm64"
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator-arm64"
