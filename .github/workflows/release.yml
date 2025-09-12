@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (例如: 1.8.0)'
+        description: 'Version number (e.g: 1.8.0)'
         required: true
         default: '1.8.0'
 
@@ -23,17 +23,19 @@ permissions:
 jobs:
   build-and-push-images:
     name: Build and Push Images
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
           - os: linux
             arch: amd64
+            runs-on: ubuntu-latest
             dockerfile: build/image/amd/Dockerfile
             image_suffix: ""
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator"
           - os: linux
             arch: arm64
+            runs-on: ubuntu-latest-arm64
             dockerfile: build/image/arm/Dockerfile
             image_suffix: "-arm64"
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator-arm64"
@@ -73,19 +75,29 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_PASSWORD }}
 
-      - name: Build ${{ matrix.arch }} image
+      - name: Build and Push ${{ matrix.arch }} image
         env:
           BLADE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           echo "Building ${{ matrix.arch }} image..."
+          echo "BLADE_VERSION: $BLADE_VERSION"
+          echo "Image tag: ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}"
           make build_linux_${{ matrix.arch }}_image
-
-      - name: Push ${{ matrix.arch }} image
-        run: |
+          
+          echo "Built images:"
+          podman images | grep chaosblade-operator
+          
           echo "Pushing ${{ matrix.arch }} image..."
-          docker push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
-          docker tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
-          docker push ${{ matrix.image_tag }}:latest
+          podman push ${{ matrix.image_tag }}:${{ steps.version.outputs.version }}
+          
+          # Only push latest tag if version doesn't contain 'dev'
+          if [[ "${{ steps.version.outputs.version }}" != *"dev"* ]]; then
+            echo "Pushing latest tag..."
+            podman tag ${{ matrix.image_tag }}:${{ steps.version.outputs.version }} ${{ matrix.image_tag }}:latest
+            podman push ${{ matrix.image_tag }}:latest
+          else
+            echo "Skipping latest tag push for dev version: ${{ steps.version.outputs.version }}"
+          fi
 
   package-and-upload-helm:
     name: Package and Upload Helm Charts
@@ -108,18 +120,15 @@ jobs:
 
       - name: Package Helm Charts
         env:
-          BINARY_TAG: ${{ steps.version.outputs.version }}
+          BLADE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "Packaging Helm charts for version ${BINARY_TAG}..."
-          helm package deploy/helm/chaosblade-operator
-          helm package deploy/helm/chaosblade-operator-arm64
-          
-          # 重命名文件以包含版本信息和架构标识
-          mv chaosblade-operator-*.tgz chaosblade-operator-amd64-${BINARY_TAG}.tgz
-          mv chaosblade-operator-arm64-*.tgz chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          echo "Packaging Helm charts for version ${BLADE_VERSION}..."
+          # Use Makefile tasks to build and package Helm charts
+          make build_linux_amd64_helm
+          make build_linux_arm64_helm
           
           echo "Generated Helm packages:"
-          ls -la *.tgz
+          ls -la target/*.tgz
 
       - name: Setup OSSUTIL environment
         uses: yizhoumo/setup-ossutil@v1.1.3
@@ -136,8 +145,8 @@ jobs:
           BINARY_TAG: ${{ steps.version.outputs.version }}
         run: |
           echo "Uploading Helm packages to OSS..."
-          ossutil cp -f chaosblade-operator-amd64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-amd64-${BINARY_TAG}.tgz
-          ossutil cp -f chaosblade-operator-arm64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-arm64-${BINARY_TAG}.tgz
+          ossutil cp -f target/chaosblade-operator-amd64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-amd64-${BINARY_TAG}.tgz
+          ossutil cp -f target/chaosblade-operator-arm64-${BINARY_TAG}.tgz oss://chaosblade/agent/github/${BINARY_TAG}/chaosblade-operator-arm64-${BINARY_TAG}.tgz
           echo "Helm packages uploaded successfully"
 
       - name: Upload Helm packages as artifacts
@@ -145,8 +154,8 @@ jobs:
         with:
           name: helm-packages
           path: |
-            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
-            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
           retention-days: 30
 
   create-release:
@@ -173,21 +182,22 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: ChaosBlade Operator v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
           body: |
             ## ChaosBlade Operator v${{ steps.version.outputs.version }}
             
-            ### 新版本发布
+            ### New Release
             
-            **构建时间**: ${{ github.event.head_commit.timestamp }}
-            **Git提交**: ${{ github.sha }}
+            **Build Time**: ${{ github.event.head_commit.timestamp }}
+            **Git Commit**: ${{ github.sha }}
             
-            ### Helm 包下载
+            ### Helm Package Downloads
             
             - [chaosblade-operator-amd64 (AMD64)](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
             - [chaosblade-operator-arm64 (ARM64)](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
             
-            ### Docker 镜像
+            ### Docker Images
             
             ```bash
             # AMD64
@@ -197,7 +207,7 @@ jobs:
             docker pull ghcr.io/chaosblade-io/chaosblade-operator-arm64:v${{ steps.version.outputs.version }}
             ```
             
-            ### Helm 安装
+            ### Helm Installation
             
             ```bash
             # AMD64
@@ -207,16 +217,13 @@ jobs:
             helm install chaosblade-operator ./chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
             ```
             
-            ### OSS 下载链接
+            ### OSS Download Links
             
             - [chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
             - [chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
             
-            ### 变更日志
-            
-            请查看 [CHANGELOG.md](CHANGELOG.md) 了解详细变更。
           files: |
-            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
-            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
           draft: true
           prerelease: false

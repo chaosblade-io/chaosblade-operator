@@ -1,4 +1,4 @@
-.PHONY: show-version linux_amd64 linux_arm64 pre_build operator chaos_fuse yaml build_binary build_linux_amd64_image build_linux_arm64_image push_image test clean help
+.PHONY: show-version linux_amd64 linux_arm64 pre_build operator chaos_fuse yaml build_binary build_linux_amd64_image build_linux_arm64_image build_linux_amd64_helm build_linux_arm64_helm build_linux_amd64_release build_linux_arm64_release push_image test clean help
 
 # Default target - show help when no target is specified
 .DEFAULT_GOAL := help
@@ -77,7 +77,8 @@ $(if $(and $(filter amd64,$(GOARCH)),$(shell command -v x86_64-linux-musl-gcc 2>
 $(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-musl-gcc 2>/dev/null)),aarch64-linux-musl-gcc,\
 $(if $(and $(filter amd64,$(GOARCH)),$(shell command -v gcc 2>/dev/null)),gcc,\
 $(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-gnu-gcc 2>/dev/null)),aarch64-linux-gnu-gcc,\
-container)))))))
+$(if $(and $(filter arm64,$(GOARCH)),$(shell command -v gcc 2>/dev/null)),gcc,\
+container))))))))
 endef
 
 CC_FOR_CHAOS_FUSE := $(call detect_cc)
@@ -182,7 +183,44 @@ push_image:
 	$(CONTAINER_RUNTIME) push ghcr.io/chaosblade-io/chaosblade-operator:${BLADE_VERSION}
 	$(CONTAINER_RUNTIME) push ghcr.io/chaosblade-io/chaosblade-operator-arm64:${BLADE_VERSION}
 
+# Build Helm packages with version updates
+build_linux_amd64_helm: show-version pre_build
+	@echo "Building Linux AMD64 Helm package..."
+	@# Update Chart.yaml versions
+	@sed -i.bak 's/^appVersion: ".*"/appVersion: "$(BLADE_VERSION)"/' deploy/helm/chaosblade-operator/Chart.yaml
+	@sed -i.bak 's/^version: .*/version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/Chart.yaml
+	@# Update values.yaml versions
+	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/values.yaml
+	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/values.yaml
+	@# Clean up backup files
+	@rm -f deploy/helm/chaosblade-operator/Chart.yaml.bak deploy/helm/chaosblade-operator/values.yaml.bak
+	@# Package Helm chart
+	@helm package deploy/helm/chaosblade-operator --destination $(BUILD_TARGET) --version $(BLADE_VERSION) --app-version $(BLADE_VERSION)
+	@# Rename the package to include architecture
+	@mv $(BUILD_TARGET)/chaosblade-operator-$(BLADE_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-amd64-$(BLADE_VERSION).tgz
+	@echo "Linux AMD64 Helm package created: $(BUILD_TARGET)/chaosblade-operator-amd64-$(BLADE_VERSION).tgz"
+
+build_linux_arm64_helm: show-version pre_build
+	@echo "Building Linux ARM64 Helm package..."
+	@# Update Chart.yaml versions
+	@sed -i.bak 's/^appVersion: ".*"/appVersion: "$(BLADE_VERSION)"/' deploy/helm/chaosblade-operator-arm64/Chart.yaml
+	@sed -i.bak 's/^version: .*/version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/Chart.yaml
+	@# Update values.yaml versions
+	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/values.yaml
+	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/values.yaml
+	@# Clean up backup files
+	@rm -f deploy/helm/chaosblade-operator-arm64/Chart.yaml.bak deploy/helm/chaosblade-operator-arm64/values.yaml.bak
+	@# Package Helm chart
+	@helm package deploy/helm/chaosblade-operator-arm64 --destination $(BUILD_TARGET) --version $(BLADE_VERSION) --app-version $(BLADE_VERSION)
+	@# Rename the package to include architecture
+	@mv $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz
+	@echo "Linux ARM64 Helm package created: $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz"
+
 ##----------------------------------------------------------------------------
+
+
+build_linux_amd64_release: build_linux_amd64_image build_linux_amd64_helm
+build_linux_arm64_release: build_linux_arm64_image build_linux_arm64_helm
 
 # test
 test:
@@ -201,6 +239,10 @@ help:
 	@echo "  linux_arm64    - Build Linux ARM64 platform components (operator + chaos_fuse + yaml)"
 	@echo "  build_linux_amd64_image - Build Linux AMD64 Docker image"
 	@echo "  build_linux_arm64_image - Build Linux ARM64 Docker image"
+	@echo "  build_linux_amd64_helm - Build and package Linux AMD64 Helm chart"
+	@echo "  build_linux_arm64_helm - Build and package Linux ARM64 Helm chart"
+	@echo "  build_linux_amd64_release - Build image and Helm package for AMD64"
+	@echo "  build_linux_arm64_release - Build image and Helm package for ARM64"
 	@echo "  push_image     - Push images to image registry"
 	@echo "  show-version   - Display current version information"
 	@echo "  clean          - Clean build artifacts"

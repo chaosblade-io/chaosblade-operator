@@ -32,11 +32,14 @@ For Linux builds of the `chaos_fuse` component, one of the following tools is re
 
 #### Linux Systems
 ```bash
-# Ubuntu/Debian
-sudo apt-get install musl-tools
+# Ubuntu/Debian - Basic build tools
+sudo apt-get install musl-tools build-essential
 
-# For ARM64 cross-compilation
+# For ARM64 cross-compilation (when building on x86_64 for ARM64)
 sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+# For native ARM64 compilation (when building on ARM64 for ARM64)
+# The standard gcc from build-essential is sufficient
 ```
 
 #### macOS Systems
