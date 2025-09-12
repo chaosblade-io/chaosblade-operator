@@ -77,7 +77,8 @@ $(if $(and $(filter amd64,$(GOARCH)),$(shell command -v x86_64-linux-musl-gcc 2>
 $(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-musl-gcc 2>/dev/null)),aarch64-linux-musl-gcc,\
 $(if $(and $(filter amd64,$(GOARCH)),$(shell command -v gcc 2>/dev/null)),gcc,\
 $(if $(and $(filter arm64,$(GOARCH)),$(shell command -v aarch64-linux-gnu-gcc 2>/dev/null)),aarch64-linux-gnu-gcc,\
-container)))))))
+$(if $(and $(filter arm64,$(GOARCH)),$(shell command -v gcc 2>/dev/null)),gcc,\
+container))))))))
 endef
 
 CC_FOR_CHAOS_FUSE := $(call detect_cc)

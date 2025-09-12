@@ -82,7 +82,11 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools
+          sudo apt-get install -y musl-tools build-essential
+          # Install ARM64 cross-compilation tools if needed
+          if [ "${{ matrix.goarch }}" = "arm64" ] && [ "$(uname -m)" != "aarch64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
       
       - name: Build ${{ matrix.platform }}
         id: build
