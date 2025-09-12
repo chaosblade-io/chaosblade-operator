@@ -182,6 +182,13 @@ jobs:
         with:
           name: helm-packages
 
+      - name: List downloaded files for debugging
+        run: |
+          echo "Current directory contents:"
+          ls -la
+          echo "Looking for .tgz files:"
+          find . -name "*.tgz" -type f
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -217,11 +224,11 @@ jobs:
             
             ### OSS Download Links
             
-            - [chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
-            - [chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/v${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
+            - [chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/${{ steps.version.outputs.version }}/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz)
+            - [chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz](https://chaosblade.oss-cn-hangzhou.aliyuncs.com/agent/github/${{ steps.version.outputs.version }}/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz)
             
           files: |
-            target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
-            target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
+            chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
+            chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
           draft: ${{ github.event.inputs.draft == 'true' }}
           prerelease: false
