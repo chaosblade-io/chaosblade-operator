@@ -3,7 +3,7 @@
 # chaosblade-operator
 operator:
   repository: ghcr.io/chaosblade-io/chaosblade-operator
-  version: 1.7.4
+  version: 1.7.5-dev
   # image.pullPolicy: must be Always|IfNotPresent|Never
   pullPolicy: IfNotPresent
   # qps of kubernetes client
@@ -12,7 +12,7 @@ operator:
 
 blade:
   repository: ghcr.io/chaosblade-io/chaosblade-tool
-  version: 1.7.4
+  version: 1.7.5-dev
   pullPolicy: IfNotPresent
   downloadUrl: ""
 

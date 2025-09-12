@@ -167,7 +167,6 @@ jobs:
     name: Create GitHub Release
     needs: [build-and-push-images, package-and-upload-helm]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     
     steps:
       - name: Checkout code
@@ -190,12 +189,6 @@ jobs:
           name: v${{ steps.version.outputs.version }}
           generate_release_notes: true
           body: |
-            ## ChaosBlade Operator v${{ steps.version.outputs.version }}
-            
-            ### New Release
-            
-            **Build Time**: ${{ github.event.head_commit.timestamp }}
-            **Git Commit**: ${{ github.sha }}
             
             ### Helm Package Downloads
             
