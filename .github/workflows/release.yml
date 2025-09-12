@@ -35,7 +35,7 @@ jobs:
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator"
           - os: linux
             arch: arm64
-            runs-on: ubuntu-latest-arm64
+            runs-on: ubuntu-24.04-arm
             dockerfile: build/image/arm/Dockerfile
             image_suffix: "-arm64"
             image_tag: "ghcr.io/chaosblade-io/chaosblade-operator-arm64"
