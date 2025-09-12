@@ -10,6 +10,11 @@ on:
         description: 'Version number (e.g: 1.8.0)'
         required: true
         default: '1.8.0'
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -225,5 +230,5 @@ jobs:
           files: |
             target/chaosblade-operator-amd64-${{ steps.version.outputs.version }}.tgz
             target/chaosblade-operator-arm64-${{ steps.version.outputs.version }}.tgz
-          draft: true
+          draft: ${{ github.event.inputs.draft == 'true' }}
           prerelease: false
