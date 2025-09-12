@@ -212,8 +212,6 @@ build_linux_arm64_helm: show-version pre_build
 	@rm -f deploy/helm/chaosblade-operator-arm64/Chart.yaml.bak deploy/helm/chaosblade-operator-arm64/values.yaml.bak
 	@# Package Helm chart
 	@helm package deploy/helm/chaosblade-operator-arm64 --destination $(BUILD_TARGET) --version $(BLADE_VERSION) --app-version $(BLADE_VERSION)
-	@# Rename the package to include architecture
-	@mv $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz
 	@echo "Linux ARM64 Helm package created: $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz"
 
 ##----------------------------------------------------------------------------
