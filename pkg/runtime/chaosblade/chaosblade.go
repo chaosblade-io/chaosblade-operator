@@ -23,12 +23,13 @@ import (
 )
 
 var (
-	ImageRepository     string
-	Version             string
-	PullPolicy          string
-	DaemonsetEnable     bool
-	RemoveBladeInterval string
-	DownloadUrl         string
+	ImageRepository        string
+	Version                string
+	PullPolicy             string
+	DaemonsetEnable        bool
+	RemoveBladeInterval    string
+	CheckCleanTaskInterval string
+	DownloadUrl            string
 )
 
 const (
@@ -39,8 +40,11 @@ const (
 	OperatorChaosBladeBlade = "/opt/chaosblade/blade"
 )
 
-const DaemonsetPodName = "chaosblade-tool"
-const DefaultRemoveBladeInterval = "72h"
+const (
+	DaemonsetPodName              = "chaosblade-tool"
+	DefaultRemoveBladeInterval    = "72h"
+	DefaultCheckCleanTaskInterval = "3s"
+)
 
 var DaemonsetPodLabels = map[string]string{
 	"app": "chaosblade-tool",
@@ -67,7 +71,8 @@ func init() {
 	f.StringVar(&ImageRepository, "chaosblade-image-repository", "chaosbladeio/chaosblade-tool", "Image repository of chaosblade tool")
 	f.StringVar(&PullPolicy, "chaosblade-image-pull-policy", "IfNotPresent", "Pulling policy of chaosblade image, default value is IfNotPresent.")
 	f.BoolVar(&DaemonsetEnable, "daemonset-enable", false, "Deploy chaosblade daemonset to resolve chaos experiment environment of network, default value is false.")
-	f.StringVar(&RemoveBladeInterval, "remove-blade-interval", DefaultRemoveBladeInterval, "Periodically clean up blade state is destroying, default value is 24h.")
+	f.StringVar(&RemoveBladeInterval, "remove-blade-interval", DefaultRemoveBladeInterval, "Periodically clean up blade state is destroying, default value is 72h.")
+	f.StringVar(&RemoveBladeInterval, "clean-task-interval", DefaultCheckCleanTaskInterval, "Periodically check clean up blade task, default value is 3s.")
 	f.StringVar(&DownloadUrl, "chaosblade-download-url", "", "The chaosblade downloaded address which works when the chaosblade is deployed in download mode.")
 	f.StringVar(&DaemonsetPodNamespace, "chaosblade-namespace", "chaosblade", "The chaosblade deployment namespace")
 }
