@@ -155,7 +155,14 @@ var resourceFunc = func(ctx context.Context, client2 *channel.Client, flags map[
 		if len(podList.Items) == 0 {
 			return pods, spec.ResponseFailWithFlags(spec.ParameterInvalidK8sPodQuery, ResourceLabelsFlag.Name)
 		}
-		pods = podList.Items
+		// filter out running but TERMINATING pods
+		for _, p := range podList.Items {
+			if p.ObjectMeta.DeletionTimestamp != nil {
+				logrusField.Debugf("the pod is being deleted: %s", p.Name)
+				continue
+			}
+			pods = append(pods, p)
+		}
 		logrusField.Infof("get pods by labels %s, len is %d", labels, len(pods))
 	}
 	return pods, spec.Success()
