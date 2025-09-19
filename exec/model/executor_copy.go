@@ -273,14 +273,10 @@ func generateDestroyCriCommands(experimentId string, expModel *spec.ExpModel,
 			return identifiers, err
 		}
 		generatedCommand := command
-		if isNetworkTarget {
-			generatedCommand = fmt.Sprintf("%s --container-id %s --container-runtime %s", generatedCommand, obj.ContainerId, obj.ContainerRuntime)
-		} else {
-			if obj.Id != "" {
-				generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
-			}
-			generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
+		if obj.Id != "" {
+			generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
 		}
+		generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 generatedCommand,
