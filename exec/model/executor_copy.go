@@ -194,7 +194,7 @@ func getCriExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
 			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
 	}
 	if destroy {
-		return generateDestroyCriCommands(experimentId, expModel, containerObjectMetaList, matchers, isNetworkTarget, client)
+		return generateDestroyCriCommands(experimentId, expModel, containerObjectMetaList, matchers, client)
 	}
 	return generateCreateCriCommands(experimentId, expModel, containerObjectMetaList, matchers, client)
 }
@@ -261,8 +261,13 @@ func generateCreateDockerCommands(experimentId string, expModel *spec.ExpModel,
 	return identifiers, nil
 }
 
-func generateDestroyCriCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, isNetworkTarget bool, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+func generateDestroyCriCommands(
+	experimentId string,
+	expModel *spec.ExpModel,
+	containerObjectMetaList ContainerMatchedList,
+	matchers string,
+	client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy cri %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
@@ -273,14 +278,10 @@ func generateDestroyCriCommands(experimentId string, expModel *spec.ExpModel,
 			return identifiers, err
 		}
 		generatedCommand := command
-		if isNetworkTarget {
-			generatedCommand = fmt.Sprintf("%s --container-id %s --container-runtime %s", generatedCommand, obj.ContainerId, obj.ContainerRuntime)
-		} else {
-			if obj.Id != "" {
-				generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
-			}
-			generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
+		if obj.Id != "" {
+			generatedCommand = fmt.Sprintf("%s --uid %s", generatedCommand, obj.Id)
 		}
+		generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
 		identifierInPod := ExperimentIdentifierInPod{
 			ContainerObjectMeta:     containerObjectMetaList[idx],
 			Command:                 generatedCommand,
