@@ -279,7 +279,7 @@ func generateDestroyCriCommands(
 		}
 		generatedCommand := command
 		if obj.Id != "" {
-			generatedCommand = fmt.Sprintf("%s --uid %s", command, obj.Id)
+			generatedCommand = fmt.Sprintf("%s --uid %s", generatedCommand, obj.Id)
 		}
 		generatedCommand = fmt.Sprintf("%s --container-name %s --container-runtime %s", generatedCommand, obj.ContainerName, obj.ContainerRuntime)
 		identifierInPod := ExperimentIdentifierInPod{
