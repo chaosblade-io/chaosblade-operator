@@ -20,7 +20,6 @@ package model
 import (
 	"archive/tar"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -172,7 +171,7 @@ func (o *CopyOptions) DeployToPod(experimentId, src, dest string) error {
 			},
 			Stdin: true,
 			ErrDecoder: func(bytes []byte) interface{} {
-				return fmt.Errorf(string(bytes))
+				return errors.New(string(bytes))
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				return nil

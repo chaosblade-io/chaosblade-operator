@@ -1,7 +1,7 @@
 package model
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 )
@@ -22,7 +22,7 @@ func (o *DeployOptions) CheckFileExists(dest string) error {
 	options := &channel.ExecOptions{
 		StreamOptions: channel.StreamOptions{
 			ErrDecoder: func(bytes []byte) interface{} {
-				return fmt.Errorf(string(bytes))
+				return errors.New(string(bytes))
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				return nil
@@ -42,12 +42,12 @@ func (o *DeployOptions) CheckFileExists(dest string) error {
 
 func (o *DeployOptions) CreateDir(dir string) error {
 	if len(dir) == 0 {
-		return fmt.Errorf("illegal directory name")
+		return errors.New("illegal directory name")
 	}
 	options := &channel.ExecOptions{
 		StreamOptions: channel.StreamOptions{
 			ErrDecoder: func(bytes []byte) interface{} {
-				return fmt.Errorf(string(bytes))
+				return errors.New(string(bytes))
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				return nil

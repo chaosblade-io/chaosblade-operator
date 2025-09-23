@@ -71,7 +71,7 @@ func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpM
 		logrusField.WithFields(logrus.Fields{
 			"target": expModel.Target,
 			"action": expModel.ActionName,
-		}).Errorf(errMsg)
+		}).Error(errMsg)
 		handler := fmt.Sprintf("%s.%s", expModel.Target, expModel.ActionName)
 		errMsg = spec.HandlerExecNotFound.Sprintf(handler)
 		return spec.ResponseFailWithResult(spec.HandlerExecNotFound,
