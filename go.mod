@@ -1,6 +1,6 @@
 module github.com/chaosblade-io/chaosblade-operator
 
-go 1.20
+go 1.25
 
 require (
 	github.com/chaosblade-io/chaosblade-exec-cri v1.7.5

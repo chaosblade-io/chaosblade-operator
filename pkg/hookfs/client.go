@@ -3,7 +3,7 @@ package hookfs
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -46,7 +46,7 @@ func (c *ChaosBladeHookClient) InjectFault(ctx context.Context, injectMsg *Injec
 	}
 	logrus.WithField("injectMsg", injectMsg).Infof("Response is %s", result)
 	if code != http.StatusOK {
-		return fmt.Errorf(result)
+		return errors.New(result)
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func (c *ChaosBladeHookClient) Revoke(ctx context.Context) error {
 	result := string(bytes)
 	logrus.Infof("Revoke fault, response is %s", result)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf(result)
+		return errors.New(result)
 	}
 	return nil
 }
