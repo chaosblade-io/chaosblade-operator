@@ -18,22 +18,21 @@ package node
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/file"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/mem"
+	osModel "github.com/chaosblade-io/chaosblade-exec-os/exec/model"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/network/tc"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/process"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/script"
-	"strings"
-
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
-
-	osModel "github.com/chaosblade-io/chaosblade-exec-os/exec/model"
 )
 
 type ResourceModelSpec struct {
@@ -57,7 +56,6 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 
 func addActionExamples(modelSpec *ResourceModelSpec) {
 	for _, expModelSpec := range modelSpec.ExpModelSpecs {
-
 		for _, action := range expModelSpec.Actions() {
 			v := interface{}(action)
 			switch v.(type) {
@@ -403,7 +401,7 @@ func NewSelfExpModelCommandSpec() spec.ExpModelCommandSpec {
 			ExpFlags:   []spec.ExpFlagSpec{},
 			ExpActions: []spec.ExpActionCommandSpec{
 				// TODO
-				//NewCordonActionCommandSpec(),
+				// NewCordonActionCommandSpec(),
 			},
 		},
 	}

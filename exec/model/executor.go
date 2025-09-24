@@ -28,14 +28,13 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec"
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
-	"github.com/chaosblade-io/chaosblade-spec-go/util"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	cli "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -153,7 +152,8 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 }
 
 func execCommands(isDestroy bool, rsStatus v1alpha1.ResourceStatus,
-	identifier ExperimentIdentifierInPod, client *channel.Client) (bool, v1alpha1.ResourceStatus) {
+	identifier ExperimentIdentifierInPod, client *channel.Client,
+) (bool, v1alpha1.ResourceStatus) {
 	success := false
 	// handle chaos experiments using daemonset mode
 	podName := identifier.PodName
@@ -201,7 +201,8 @@ func execCommands(isDestroy bool, rsStatus v1alpha1.ResourceStatus,
 }
 
 func generateDestroyCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
@@ -224,7 +225,8 @@ func generateDestroyCommands(experimentId string, expModel *spec.ExpModel,
 }
 
 func generateCreateCommands(experimentId string, expModel *spec.ExpModel, containerObjectMetaList ContainerMatchedList,
-	matchers string, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	matchers string, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s create %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	chaosBladeOverride := expModel.ActionFlags[exec.ChaosBladeOverrideFlag.Name] == "true"

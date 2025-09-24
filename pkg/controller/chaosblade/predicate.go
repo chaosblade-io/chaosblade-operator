@@ -26,8 +26,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
-type SpecUpdatedPredicateForRunningPhase struct {
-}
+type SpecUpdatedPredicateForRunningPhase struct{}
 
 func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool {
 	if e.Object == nil {

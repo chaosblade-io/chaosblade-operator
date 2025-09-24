@@ -22,12 +22,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -291,8 +290,8 @@ func getChaosfsClient(pod *v1.Pod) (*chaosfs.ChaosBladeHookClient, error) {
 	}
 	addr := fmt.Sprintf("%s:%d", pod.Status.PodIP, port)
 	return chaosfs.NewChabladeHookClient(addr), nil
-
 }
+
 func getContainerPort(portName string, pod *v1.Pod) (int32, error) {
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {

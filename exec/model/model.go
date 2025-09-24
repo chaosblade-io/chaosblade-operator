@@ -179,8 +179,10 @@ var ChaosBladeDownloadUrlFlag = &spec.ExpFlag{
 	Desc: "The chaosblade downloaded address. If you use download deployment mode, you must specify the value, or config chaosblade-download-url when deploying the operator",
 }
 
-var DownloadMode = "download"
-var CopyMode = "copy"
+var (
+	DownloadMode = "download"
+	CopyMode     = "copy"
+)
 
 var ChaosBladeDeployModeFlag = &spec.ExpFlag{
 	Name: "chaosblade-deploy-mode",

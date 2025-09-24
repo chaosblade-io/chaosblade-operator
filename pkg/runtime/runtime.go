@@ -25,10 +25,12 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
-var flagSet *pflag.FlagSet
-var LogLevel string
-var MaxConcurrentReconciles int
-var QPS float32
+var (
+	flagSet                 *pflag.FlagSet
+	LogLevel                string
+	MaxConcurrentReconciles int
+	QPS                     float32
+)
 
 func init() {
 	flagSet = pflag.NewFlagSet("operator", pflag.ExitOnError)

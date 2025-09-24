@@ -28,8 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ChaosbladeHookContext struct {
-}
+type ChaosbladeHookContext struct{}
 
 type ChaosbladeHook struct {
 	MountPoint string
@@ -389,8 +388,8 @@ func (h *ChaosbladeHook) PreUnlink(name string) (bool, hookfs.HookContext, error
 		return true, ctx, err
 	}
 	return false, ctx, nil
-
 }
+
 func (h *ChaosbladeHook) PostUnlink(realRetCode int32, prehookCtx hookfs.HookContext) (bool, error) {
 	return false, nil
 }
@@ -485,7 +484,6 @@ func (h *ChaosbladeHook) doInjectFault(relativePath, method string) error {
 		time.Sleep(time.Duration(faultMsg.Delay) * time.Millisecond)
 	}
 	return err
-
 }
 
 func randomErrno() error {

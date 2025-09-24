@@ -18,12 +18,11 @@ package pod
 
 import (
 	"context"
-	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 
+	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"

@@ -20,12 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -48,8 +47,7 @@ func NewDeletePodActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 				},
 			},
 			ActionExecutor: &DeletePodActionExecutor{client: client},
-			ActionExample:
-			`# Deletes the POD under the specified default namespace that is app=guestbook
+			ActionExample: `# Deletes the POD under the specified default namespace that is app=guestbook
 blade create k8s pod-pod delete --labels app=guestbook --namespace default --evict-count 2 --kubeconfig ~/.kube/config`,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},

@@ -21,10 +21,12 @@ import (
 └── yaml.tar.gz
 */
 
-const bin = "bin"
-const blade = "blade"
-const lib = "lib.tar.gz"
-const yaml = "yaml.tar.gz"
+const (
+	bin   = "bin"
+	blade = "blade"
+	lib   = "lib.tar.gz"
+	yaml  = "yaml.tar.gz"
+)
 
 type DownloadOptions struct {
 	DeployOptions
@@ -114,7 +116,7 @@ func (d *DownloadOptions) uncompress(experimentId, file string) error {
 }
 
 func (d *DownloadOptions) getUrl(srcFile string) string {
-	var obj = srcFile
+	obj := srcFile
 	switch srcFile {
 	case chaosblade.OperatorChaosBladeBlade:
 		obj = blade

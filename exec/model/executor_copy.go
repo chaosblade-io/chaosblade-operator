@@ -23,16 +23,17 @@ import (
 	"sync"
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
-	"github.com/chaosblade-io/chaosblade-operator/channel"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
-	"github.com/chaosblade-io/chaosblade-operator/version"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 )
 
 type ExperimentIdentifierInPod struct {
@@ -93,8 +94,10 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 		} else if identifier.PodName != "" {
 			// check if pod exist
 			pod := &v1.Pod{}
-			err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
-				Name: identifier.PodName}, pod)
+			err := e.Client.Get(context.TODO(), types.NamespacedName{
+				Namespace: identifier.Namespace,
+				Name:      identifier.PodName,
+			}, pod)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					// pod if not exist, the execution is considered successful.
@@ -176,7 +179,8 @@ func getExperimentIdentifiers(ctx context.Context, expModel *spec.ExpModel, clie
 }
 
 func getDockerExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	if isNetworkTarget {
 		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
 			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
@@ -188,7 +192,8 @@ func getDockerExperimentIdentifiers(experimentId string, expModel *spec.ExpModel
 }
 
 func getCriExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, destroy, isNetworkTarget bool, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	if isNetworkTarget {
 		matchers = fmt.Sprintf("%s --image-repo %s --image-version %s",
 			matchers, chaosblade.Constant.ImageRepoFunc(), chaosblade.Version)
@@ -200,7 +205,8 @@ func getCriExperimentIdentifiers(experimentId string, expModel *spec.ExpModel,
 }
 
 func generateDestroyDockerCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, isNetworkTarget bool, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, isNetworkTarget bool, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s destroy docker %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 	identifiers := make([]ExperimentIdentifierInPod, 0)
 	for idx, obj := range containerObjectMetaList {
@@ -237,7 +243,8 @@ func generateDestroyDockerCommands(experimentId string, expModel *spec.ExpModel,
 }
 
 func generateCreateDockerCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s create docker %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 
 	identifiers := make([]ExperimentIdentifierInPod, 0)
@@ -295,7 +302,8 @@ func generateDestroyCriCommands(
 }
 
 func generateCreateCriCommands(experimentId string, expModel *spec.ExpModel,
-	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client) ([]ExperimentIdentifierInPod, error) {
+	containerObjectMetaList ContainerMatchedList, matchers string, client *channel.Client,
+) ([]ExperimentIdentifierInPod, error) {
 	command := fmt.Sprintf("%s create cri %s %s %s", getTargetChaosBladeBin(expModel), expModel.Target, expModel.ActionName, matchers)
 
 	identifiers := make([]ExperimentIdentifierInPod, 0)
@@ -321,7 +329,8 @@ func generateCreateCriCommands(experimentId string, expModel *spec.ExpModel,
 }
 
 func deployChaosBlade(experimentId string, expModel *spec.ExpModel,
-	obj ContainerObjectMeta, override bool, client *channel.Client) *spec.Response {
+	obj ContainerObjectMeta, override bool, client *channel.Client,
+) *spec.Response {
 	logrusField := logrus.WithField("experiment", experimentId)
 	chaosBladePath := getTargetChaosBladePath(expModel)
 	options := DeployOptions{

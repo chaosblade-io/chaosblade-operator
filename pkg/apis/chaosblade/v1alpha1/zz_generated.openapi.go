@@ -73,7 +73,8 @@ func schema_pkg_apis_chaosblade_v1alpha1_ChaosBlade(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ChaosBladeSpec", "github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ChaosBladeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ChaosBladeSpec", "github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ChaosBladeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta",
+		},
 	}
 }
 
@@ -101,7 +102,8 @@ func schema_pkg_apis_chaosblade_v1alpha1_ChaosBladeSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ExperimentSpec"},
+			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ExperimentSpec",
+		},
 	}
 }
 
@@ -136,6 +138,7 @@ func schema_pkg_apis_chaosblade_v1alpha1_ChaosBladeStatus(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ExperimentStatus"},
+			"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1.ExperimentStatus",
+		},
 	}
 }

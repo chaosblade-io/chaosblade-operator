@@ -19,17 +19,19 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
-	"github.com/chaosblade-io/chaosblade-operator/channel"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
-	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"strings"
-	"sync"
+
+	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 )
 
 type CommonExecutor struct {
@@ -78,8 +80,10 @@ func (e *CommonExecutor) Exec(uid string, ctx context.Context, expModel *spec.Ex
 		} else if identifier.PodName != "" {
 			// check if pod exist
 			pod := &v1.Pod{}
-			err := e.Client.Get(context.TODO(), types.NamespacedName{Namespace: identifier.Namespace,
-				Name: identifier.PodName}, pod)
+			err := e.Client.Get(context.TODO(), types.NamespacedName{
+				Namespace: identifier.Namespace,
+				Name:      identifier.PodName,
+			}, pod)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					// pod if not exist, the execution is considered successful.

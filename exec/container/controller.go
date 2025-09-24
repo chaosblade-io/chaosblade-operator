@@ -24,11 +24,10 @@ import (
 	"strings"
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
+	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-
-	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -125,7 +124,8 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 
 // getMatchedContainerMetaList which will be used in the executor
 func getMatchedContainerMetaList(pods []v1.Pod, containerIdsValue, containerNamesValue, containerIndexValue string) (
-	model.ContainerMatchedList, *spec.Response) {
+	model.ContainerMatchedList, *spec.Response,
+) {
 	containerObjectMetaList := model.ContainerMatchedList{}
 	expectedContainerIds := strings.Split(containerIdsValue, ",")
 	expectedContainerNames := strings.Split(containerNamesValue, ",")
