@@ -23,11 +23,11 @@ jobs:
         with:
           go-version: ${{ matrix.go_version }}
         id: go
-      
+
       - name: Checkout
         id: checkout
         uses: actions/checkout@v4
-      
+
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
@@ -37,7 +37,8 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      
+      - name: Run code style and import order verification
+        run: make verify
       - name: Tests
         id: test
         run: |
@@ -63,12 +64,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # 获取完整的 Git 历史用于版本信息
-      
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      
+
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
@@ -78,7 +79,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -87,12 +88,12 @@ jobs:
           if [ "${{ matrix.goarch }}" = "arm64" ] && [ "$(uname -m)" != "aarch64" ]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           fi
-      
+
       - name: Build ${{ matrix.platform }}
         id: build
         run: |
           make ${{ matrix.platform }}
-      
+
       - name: Verify Build Output
         id: verify
         run: |
@@ -134,7 +135,7 @@ jobs:
           
           echo "=== Build Summary for ${{ matrix.platform }} ==="
           echo "All required files built successfully!"
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
