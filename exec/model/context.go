@@ -24,8 +24,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const ContainerObjectMetaListKey = "ContainerObjectMetaListKey"
-const ExperimentIdKey = "ExperimentIdKey"
+const (
+	ContainerObjectMetaListKey = "ContainerObjectMetaListKey"
+	ExperimentIdKey            = "ExperimentIdKey"
+)
 
 type ContainerObjectMeta struct {
 	// experiment id

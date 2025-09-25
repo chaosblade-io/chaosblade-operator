@@ -26,9 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	injectFaultCache sync.Map
-)
+var injectFaultCache sync.Map
 
 func init() {
 	injectFaultCache = sync.Map{}
@@ -90,6 +88,7 @@ func (s *ChaosbladeHookServer) InjectHandler(w http.ResponseWriter, r *http.Requ
 	}
 	fmt.Fprintf(w, "success")
 }
+
 func (s *ChaosbladeHookServer) RecoverHandler(w http.ResponseWriter, r *http.Request) {
 	logrus.Infoln("recover all fault")
 	for _, method := range defaultHookPoints {

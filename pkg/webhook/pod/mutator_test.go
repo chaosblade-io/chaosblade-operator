@@ -26,7 +26,7 @@ import (
 
 func Test_mutatePodsFn(t *testing.T) {
 	bidirectional := v1.MountPropagationBidirectional
-	//hostToContainer := v1.MountPropagationHostToContainer
+	// hostToContainer := v1.MountPropagationHostToContainer
 	None := v1.MountPropagationNone
 	tests := []struct {
 		pod *v1.Pod

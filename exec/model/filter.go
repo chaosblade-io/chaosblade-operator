@@ -22,9 +22,9 @@ import (
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/selection"
+	v1 "k8s.io/api/core/v1"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName, runtime string, err error) {

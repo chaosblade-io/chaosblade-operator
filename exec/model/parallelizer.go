@@ -3,7 +3,7 @@ package model
 import "sync"
 
 const (
-	maxWorkers = 64 //magic number
+	maxWorkers = 64 // magic number
 )
 
 type DoWorkFunc func(workID int)

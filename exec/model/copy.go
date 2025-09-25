@@ -71,7 +71,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 				return err
 			}
 			if len(files) == 0 {
-				//case empty directory
+				// case empty directory
 				hdr, _ := tar.FileInfoHeader(stat, fpath)
 				hdr.Name = destFile
 				if err := tw.WriteHeader(hdr); err != nil {
@@ -85,7 +85,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			}
 			return nil
 		} else if stat.Mode()&os.ModeSymlink != 0 {
-			//case soft link
+			// case soft link
 			hdr, _ := tar.FileInfoHeader(stat, fpath)
 			target, err := os.Readlink(fpath)
 			if err != nil {
@@ -98,7 +98,7 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 				return err
 			}
 		} else {
-			//case regular file or other file type like pipe
+			// case regular file or other file type like pipe
 			hdr, err := tar.FileInfoHeader(stat, fpath)
 			if err != nil {
 				return err

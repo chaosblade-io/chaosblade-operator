@@ -230,6 +230,18 @@ clean:
 	rm -rf $(BUILD_TARGET)
 	rm -rf $(BUILD_IMAGE_PATH)/$(BUILD_TARGET_DIR_NAME)
 
+.PHONY: format
+format:
+	@echo "Running goimports and gofumpt to format Go code..."
+	@./hack/update-imports.sh
+	@./hack/update-gofmt.sh
+
+.PHONY: verify
+verify:
+	@echo "Verifying Go code formatting and import order..."
+	@./hack/verify-gofmt.sh
+	@./hack/verify-imports.sh
+
 # Help information
 help:
 	@echo "Available build targets:"
@@ -243,6 +255,8 @@ help:
 	@echo "  build_linux_arm64_release - Build image and Helm package for ARM64"
 	@echo "  push_image     - Push images to image registry"
 	@echo "  show-version   - Display current version information"
+	@echo  " format 	  - Format Go code using goimports and gofumpt"
+	@echo  " verify 	  - Verify Go code formatting and import order"
 	@echo "  clean          - Clean build artifacts"
 	@echo ""
 	@echo "Version-related environment variables:"

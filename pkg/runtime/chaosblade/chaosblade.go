@@ -39,16 +39,20 @@ const (
 	OperatorChaosBladeBlade = "/opt/chaosblade/blade"
 )
 
-const DaemonsetPodName = "chaosblade-tool"
-const DefaultRemoveBladeInterval = "72h"
+const (
+	DaemonsetPodName           = "chaosblade-tool"
+	DefaultRemoveBladeInterval = "72h"
+)
 
 var DaemonsetPodLabels = map[string]string{
 	"app": "chaosblade-tool",
 }
 
 // set in runtime
-var DaemonsetPodNamespace string
-var DaemonsetPodNames = map[string]string{}
+var (
+	DaemonsetPodNamespace string
+	DaemonsetPodNames     = map[string]string{}
+)
 
 var Products = map[string]*ProductConstant{}
 

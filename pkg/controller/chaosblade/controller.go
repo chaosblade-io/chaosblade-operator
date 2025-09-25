@@ -22,12 +22,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -194,7 +193,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 	if len(cb.Spec.Experiments) == 0 {
 		return forget, nil
 	}
-	//reqLogger.Info(fmt.Sprintf("chaosblade obj: %+v", cb))
+	// reqLogger.Info(fmt.Sprintf("chaosblade obj: %+v", cb))
 
 	// Destroyed->delete
 	// Remove the Finalizer if the CR object status is destroyed to delete it
@@ -236,9 +235,9 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 		cb.Status.Phase == v1alpha1.ClusterPhaseUpdating {
 		originalPhase := cb.Status.Phase
 		expStatusList := make([]v1alpha1.ExperimentStatus, 0)
-		var phase = v1alpha1.ClusterPhaseError
+		phase := v1alpha1.ClusterPhaseError
 		for _, exp := range cb.Spec.Experiments {
-			var experimentStatus = r.Executor.Create(cb.Name, exp)
+			experimentStatus := r.Executor.Create(cb.Name, exp)
 			if experimentStatus.Success {
 				phase = v1alpha1.ClusterPhaseRunning
 			}
@@ -273,7 +272,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 			}
 			if cb.Status.ExpStatuses != nil {
 				for idx, expStatus := range cb.Status.ExpStatuses {
-					var experimentStatus = r.Executor.Destroy(cb.Name, oldSpec.Experiments[idx], expStatus)
+					experimentStatus := r.Executor.Destroy(cb.Name, oldSpec.Experiments[idx], expStatus)
 					if !experimentStatus.Success {
 						phase = v1alpha1.ClusterPhaseDestroying
 					}
@@ -293,7 +292,7 @@ func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Re
 
 // finalizeChaosBlade
 func (r *ReconcileChaosBlade) finalizeChaosBlade(reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade) error {
-	var phase = v1alpha1.ClusterPhaseDestroyed
+	phase := v1alpha1.ClusterPhaseDestroyed
 	reqLogger.Infoln("Finalize the chaosblade")
 	if cb.Status.ExpStatuses != nil &&
 		len(cb.Spec.Experiments) == len(cb.Status.ExpStatuses) {

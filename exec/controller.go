@@ -20,9 +20,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
+	"github.com/sirupsen/logrus"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
@@ -37,8 +36,10 @@ type ResourceDispatchedController struct {
 	Controllers map[string]model.ExperimentController
 }
 
-var executor *ResourceDispatchedController
-var once sync.Once
+var (
+	executor *ResourceDispatchedController
+	once     sync.Once
+)
 
 // NewDispatcherExecutor initialized when operator starting
 func NewDispatcherExecutor(client *channel.Client) *ResourceDispatchedController {

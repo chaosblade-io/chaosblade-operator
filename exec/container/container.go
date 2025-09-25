@@ -18,6 +18,8 @@ package container
 
 import (
 	"fmt"
+	"strings"
+
 	criexec "github.com/chaosblade-io/chaosblade-exec-cri/exec"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/cpu"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/disk"
@@ -28,7 +30,6 @@ import (
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/process"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec/script"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
-	"strings"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -67,7 +68,6 @@ func NewResourceModelSpec(client *channel.Client) model.ResourceExpModelSpec {
 
 func addActionExamples(modelSpec *ResourceModelSpec) {
 	for _, expModelSpec := range modelSpec.ExpModelSpecs {
-
 		for _, action := range expModelSpec.Actions() {
 			v := interface{}(action)
 			switch v.(type) {
@@ -285,7 +285,6 @@ blade create k8s container-container remove --names cart-redis-77 --container-na
 			}
 		}
 	}
-
 }
 
 func getResourceFlags() []spec.ExpFlagSpec {
