@@ -167,8 +167,10 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 		}
 		return manager.New(cfg, manager.Options{
 			Cache: cache.Options{
+				Scheme:            scheme,
 				DefaultNamespaces: defaultNsps,
 			},
+			Scheme: scheme,
 			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 				return apiutil.NewDynamicRESTMapper(c, httpClient)
 			},
@@ -176,7 +178,10 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 		})
 	}
 	return manager.New(cfg, manager.Options{
-		Cache:  cache.Options{Scheme: scheme},
+		Cache: cache.Options{
+			Scheme:            scheme,
+			DefaultNamespaces: map[string]cache.Config{watchNamespace: {}},
+		},
 		Scheme: scheme,
 		MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 			return apiutil.NewDynamicRESTMapper(c, httpClient)
