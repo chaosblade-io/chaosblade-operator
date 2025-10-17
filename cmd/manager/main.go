@@ -29,7 +29,10 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -149,6 +152,9 @@ func addWebhook(m manager.Manager) error {
 // createManager supports multi namespaces configuration
 func createManager(cfg *rest.Config) (manager.Manager, error) {
 	scheme := apiruntime.NewScheme()
+	runtimeutil.Must(metav1.AddMetaToScheme(scheme))
+	runtimeutil.Must(corev1.AddToScheme(scheme))
+	runtimeutil.Must(apis.AddToScheme(scheme))
 	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		return nil, err

@@ -85,7 +85,12 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 
 	// Watch for changes to primary resource ChaosBlade
 	cb := v1alpha1.ChaosBlade{}
-	err = c.Watch(source.Kind(mgr.GetCache(), &cb, &handler.TypedEnqueueRequestForObject[*v1alpha1.ChaosBlade]{}))
+	err = c.Watch(source.Kind(
+		mgr.GetCache(),
+		&cb,
+		&handler.TypedEnqueueRequestForObject[*v1alpha1.ChaosBlade]{},
+		&SpecUpdatedPredicateForRunningPhase{},
+	))
 	if err != nil {
 		return err
 	}

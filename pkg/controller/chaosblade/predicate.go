@@ -28,14 +28,11 @@ import (
 
 type SpecUpdatedPredicateForRunningPhase struct{}
 
-func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool {
+func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.TypedCreateEvent[*v1alpha1.ChaosBlade]) bool {
 	if e.Object == nil {
 		return false
 	}
-	obj, ok := e.Object.(*v1alpha1.ChaosBlade)
-	if !ok {
-		return false
-	}
+	obj := e.Object
 	logrus.Infof("trigger create event, name: %s", obj.Name)
 	logrus.Debugf("creating obj: %+v", obj)
 	if obj.GetDeletionTimestamp() != nil {
@@ -49,30 +46,24 @@ func (sup *SpecUpdatedPredicateForRunningPhase) Create(e event.CreateEvent) bool
 	return false
 }
 
-func (*SpecUpdatedPredicateForRunningPhase) Delete(e event.DeleteEvent) bool {
+func (*SpecUpdatedPredicateForRunningPhase) Delete(e event.TypedDeleteEvent[*v1alpha1.ChaosBlade]) bool {
 	if e.Object == nil {
 		return false
 	}
-	obj, ok := e.Object.(*v1alpha1.ChaosBlade)
-	if !ok {
-		return false
-	}
+	obj := e.Object
 	logrus.Infof("trigger delete event, name: %s", obj.Name)
 	logrus.Debugf("deleting obj: %+v", obj)
 	return contains(obj.GetFinalizers(), chaosbladeFinalizer)
 }
 
-func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
+func (*SpecUpdatedPredicateForRunningPhase) Update(e event.TypedUpdateEvent[*v1alpha1.ChaosBlade]) bool {
 	if e.ObjectOld == nil {
 		return false
 	}
-	oldObj, ok := e.ObjectOld.(*v1alpha1.ChaosBlade)
-	if !ok {
-		return false
-	}
+	oldObj := e.ObjectOld
 	logrus.Infof("trigger update event, name: %s", oldObj.Name)
-	newObj, ok := e.ObjectNew.(*v1alpha1.ChaosBlade)
-	if !ok {
+	newObj := e.ObjectNew
+	if newObj == nil {
 		return false
 	}
 	logrus.Debugf("updating oldObj: %+v", oldObj)
@@ -117,6 +108,6 @@ func (*SpecUpdatedPredicateForRunningPhase) Update(e event.UpdateEvent) bool {
 	return false
 }
 
-func (*SpecUpdatedPredicateForRunningPhase) Generic(e event.GenericEvent) bool {
+func (*SpecUpdatedPredicateForRunningPhase) Generic(e event.TypedGenericEvent[*v1alpha1.ChaosBlade]) bool {
 	return false
 }
