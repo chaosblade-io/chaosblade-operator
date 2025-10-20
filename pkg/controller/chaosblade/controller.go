@@ -56,8 +56,8 @@ func Add(mgr manager.Manager) error {
 		return err
 	}
 	// add periodically clean up blade ticker
-	return mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-		startPeriodicallyCleanUpBlade(ctx, mgr)
+	return mgr.Add(manager.RunnableFunc(func(s <-chan struct{}) error {
+		startPeriodicallyCleanUpBlade(mgr)
 		return nil
 	}))
 }
@@ -85,12 +85,10 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 
 	// Watch for changes to primary resource ChaosBlade
 	cb := v1alpha1.ChaosBlade{}
-	err = c.Watch(source.Kind(
-		mgr.GetCache(),
-		&cb,
-		&handler.TypedEnqueueRequestForObject[*v1alpha1.ChaosBlade]{},
-		&SpecUpdatedPredicateForRunningPhase{},
-	))
+	err = c.Watch(
+		&source.Kind{Type: &cb},
+		&handler.EnqueueRequestForObject{},
+		&SpecUpdatedPredicateForRunningPhase{})
 	if err != nil {
 		return err
 	}
@@ -112,7 +110,7 @@ func add(mgr manager.Manager, rcb *ReconcileChaosBlade) error {
 }
 
 // if blade status is destroying
-func startPeriodicallyCleanUpBlade(ctx context.Context, mgr manager.Manager) {
+func startPeriodicallyCleanUpBlade(mgr manager.Manager) {
 	go func() {
 		cli := mgr.GetClient()
 		duration, err := time.ParseDuration(chaosblade.RemoveBladeInterval)
@@ -125,20 +123,20 @@ func startPeriodicallyCleanUpBlade(ctx context.Context, mgr manager.Manager) {
 			}
 		}
 		// first clean up
-		periodicallyCleanUpBlade(ctx, cli, duration)
+		periodicallyCleanUpBlade(cli, duration)
 
 		// ticker clean up
 		ticker := time.NewTicker(time.Second * time.Duration(duration.Seconds()))
 		logrus.Infof("start periodically clean up blade ticker, interval: %s", chaosblade.RemoveBladeInterval)
 		for range ticker.C {
-			periodicallyCleanUpBlade(ctx, cli, duration)
+			periodicallyCleanUpBlade(cli, duration)
 		}
 	}()
 }
 
-func periodicallyCleanUpBlade(ctx context.Context, cli client.Client, interval time.Duration) {
+func periodicallyCleanUpBlade(cli client.Client, interval time.Duration) {
 	results := &v1alpha1.ChaosBladeList{}
-	if err := cli.List(ctx, results, &client.ListOptions{}); err != nil {
+	if err := cli.List(context.TODO(), results, &client.ListOptions{}); err != nil {
 		logrus.Errorf("periodically clean up, list blade error: %v", err)
 	}
 	logrus.Infof("periodically clean up blade, blade size: %d", len(results.Items))
@@ -150,7 +148,7 @@ func periodicallyCleanUpBlade(ctx context.Context, cli client.Client, interval t
 		if item.Status.Phase == v1alpha1.ClusterPhaseDestroying && sub.Seconds() > interval.Seconds() {
 			logrus.Infof("periodically clean up blade %s, deletion time: %s", item.Name, item.DeletionTimestamp.String())
 			// patch blade
-			if err := cli.Patch(ctx,
+			if err := cli.Patch(context.TODO(),
 				&v1alpha1.ChaosBlade{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "chaosblade.io/v1alpha1",
@@ -183,12 +181,12 @@ type ReconcileChaosBlade struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileChaosBlade) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := logrus.WithField("Request.Name", request.Name)
 	forget := reconcile.Result{}
 	// Fetch the RC instance
 	cb := &v1alpha1.ChaosBlade{}
-	err := r.client.Get(ctx, request.NamespacedName, cb)
+	err := r.client.Get(context.TODO(), request.NamespacedName, cb)
 	if err != nil {
 		return forget, nil
 	}
@@ -201,14 +199,14 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 	// Remove the Finalizer if the CR object status is destroyed to delete it
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroyed {
 		cb.SetFinalizers(remove(cb.GetFinalizers(), chaosbladeFinalizer))
-		err := r.client.Update(ctx, cb)
+		err := r.client.Update(context.TODO(), cb)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("remove chaosblade finalizer failed at destroyed phase")
 		}
 		return forget, nil
 	}
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroying || cb.GetDeletionTimestamp() != nil {
-		err := r.finalizeChaosBlade(ctx, reqLogger, cb)
+		err := r.finalizeChaosBlade(reqLogger, cb)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("finalize chaosblade failed at destroying phase")
 		}
@@ -219,13 +217,13 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 		if contains(cb.GetFinalizers(), chaosbladeFinalizer) {
 			cb.Status.Phase = v1alpha1.ClusterPhaseInitialized
 			cb.Status.ExpStatuses = make([]v1alpha1.ExperimentStatus, 0)
-			if err := r.client.Status().Update(ctx, cb); err != nil {
+			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("update chaosblade phase to Initialized failed")
 			}
 		} else {
 			cb.SetFinalizers(append(cb.GetFinalizers(), chaosbladeFinalizer))
 			// Update CR
-			if err := r.client.Update(ctx, cb); err != nil {
+			if err := r.client.Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("add finalizer to chaosblade failed")
 			}
 		}
@@ -247,7 +245,7 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 		}
 		cb.Status.ExpStatuses = expStatusList
 		cb.Status.Phase = phase
-		if err := r.client.Status().Update(ctx, cb); err != nil {
+		if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 			reqLogger.WithError(err).Errorf("Important!!!!!update phase from %s to %s failed", originalPhase, phase)
 		}
 		return forget, nil
@@ -269,7 +267,7 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 				return forget, nil
 			}
 			// update annotation to cb
-			if err = r.client.Update(ctx, cb); err != nil {
+			if err = r.client.Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorln("add annotation to chaosblade failed")
 			}
 			if cb.Status.ExpStatuses != nil {
@@ -282,7 +280,7 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 				}
 			}
 			cb.Status.Phase = phase
-			if err := r.client.Status().Update(ctx, cb); err != nil {
+			if err := r.client.Status().Update(context.TODO(), cb); err != nil {
 				reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
 			}
 			return forget, nil
@@ -293,7 +291,7 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 }
 
 // finalizeChaosBlade
-func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade) error {
+func (r *ReconcileChaosBlade) finalizeChaosBlade(reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade) error {
 	phase := v1alpha1.ClusterPhaseDestroyed
 	reqLogger.Infoln("Finalize the chaosblade")
 	if cb.Status.ExpStatuses != nil &&
@@ -308,7 +306,7 @@ func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger 
 		}
 	}
 	cb.Status.Phase = phase
-	err := r.client.Status().Update(ctx, cb)
+	err := r.client.Status().Update(context.TODO(), cb)
 	if err != nil {
 		return fmt.Errorf("update chaosblade status failed in finalize phase, %v", err)
 	}
