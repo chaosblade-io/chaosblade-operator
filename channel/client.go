@@ -30,7 +30,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // Client contains the kubernetes client, operator client and kubeconfig
@@ -41,17 +43,25 @@ type Client struct {
 }
 
 // NewClientFunc returns the controller client
-func NewClientFunc() client.NewClientFunc {
-	return func(config *rest.Config, options client.Options) (client.Client, error) {
+func NewClientFunc() manager.NewClientFunc {
+	return func(cache cache.Cache, config *rest.Config, options client.Options) (client.Client, error) {
+		// Create the Client for Write operations.
 		c, err := client.New(config, options)
 		if err != nil {
 			return nil, err
 		}
-		return &Client{
-			Interface: kubernetes.NewForConfigOrDie(config),
-			Client:    c,
-			Config:    config,
-		}, nil
+		cli := &Client{}
+		cli.Interface = kubernetes.NewForConfigOrDie(config)
+		cli.Client = &client.DelegatingClient{
+			Reader: &client.DelegatingReader{
+				CacheReader:  cache,
+				ClientReader: c,
+			},
+			Writer:       c,
+			StatusClient: c,
+		}
+		cli.Config = config
+		return cli, nil
 	}
 }
 
