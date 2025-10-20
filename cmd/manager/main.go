@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"runtime"
 	"strings"
 
@@ -28,18 +29,22 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
@@ -87,7 +92,7 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("Get apiserver config error, %v", err)
 	}
-	err = leader.Become(context.TODO(), "chaosblade-operator-lock")
+	err = leader.Become(context.Background(), "chaosblade-operator-lock")
 	if err != nil {
 		logrus.Fatalf("Become leader error, %v", err)
 	}
@@ -133,38 +138,53 @@ func initLogger() {
 }
 
 func addWebhook(m manager.Manager) error {
-	hookServer := &webhook.Server{
+	server := webhook.NewServer(webhook.Options{
 		Port: webhookcfg.Port,
-	}
-	if err := m.Add(hookServer); err != nil {
+	})
+	if err := m.Add(server); err != nil {
 		return err
 	}
 	logrus.Infof("registering %s to the webhook server", "mutating-pods")
-	hookServer.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.Mutator{}})
+	server.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.Mutator{}})
 	return nil
 }
 
 // createManager supports multi namespaces configuration
 func createManager(cfg *rest.Config) (manager.Manager, error) {
+	scheme := apiruntime.NewScheme()
+	runtimeutil.Must(metav1.AddMetaToScheme(scheme))
+	runtimeutil.Must(corev1.AddToScheme(scheme))
+	runtimeutil.Must(apis.AddToScheme(scheme))
 	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		return nil, err
 	}
 	logrus.Infof("Get watch namespace is %s", watchNamespace)
 	if strings.Contains(watchNamespace, ",") {
-		namespaces := strings.Split(watchNamespace, ",")
+		defaultNsps := make(map[string]cache.Config)
+		for _, nsp := range strings.Split(watchNamespace, ",") {
+			defaultNsps[nsp] = cache.Config{}
+		}
 		return manager.New(cfg, manager.Options{
-			NewCache: cache.MultiNamespacedCacheBuilder(namespaces),
-			MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
-				return apiutil.NewDynamicRESTMapper(c)
+			Cache: cache.Options{
+				Scheme:            scheme,
+				DefaultNamespaces: defaultNsps,
+			},
+			Scheme: scheme,
+			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+				return apiutil.NewDynamicRESTMapper(c, httpClient)
 			},
 			NewClient: channel.NewClientFunc(),
 		})
 	}
 	return manager.New(cfg, manager.Options{
-		Namespace: watchNamespace,
-		MapperProvider: func(c *rest.Config) (meta.RESTMapper, error) {
-			return apiutil.NewDynamicRESTMapper(c)
+		Cache: cache.Options{
+			Scheme:            scheme,
+			DefaultNamespaces: map[string]cache.Config{watchNamespace: {}},
+		},
+		Scheme: scheme,
+		MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
+			return apiutil.NewDynamicRESTMapper(c, httpClient)
 		},
 		NewClient: channel.NewClientFunc(),
 	})
