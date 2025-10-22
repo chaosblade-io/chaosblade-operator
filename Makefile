@@ -1,3 +1,17 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 .PHONY: show-version linux_amd64 linux_arm64 pre_build operator chaos_fuse yaml build_binary build_linux_amd64_image build_linux_arm64_image build_linux_amd64_helm build_linux_arm64_helm build_linux_amd64_release build_linux_arm64_release push_image test clean help
 
 # Default target - show help when no target is specified
@@ -231,7 +245,7 @@ clean:
 	rm -rf $(BUILD_IMAGE_PATH)/$(BUILD_TARGET_DIR_NAME)
 
 .PHONY: format
-format:
+format: license-format
 	@echo "Running goimports and gofumpt to format Go code..."
 	@./hack/update-imports.sh
 	@./hack/update-gofmt.sh
@@ -241,6 +255,16 @@ verify:
 	@echo "Verifying Go code formatting and import order..."
 	@./hack/verify-gofmt.sh
 	@./hack/verify-imports.sh
+
+.PHONY: license-check
+license-check:
+	@echo "Checking license headers..."
+	docker run -it --rm -v $(shell pwd):/github/workspace ghcr.io/korandoru/hawkeye check
+
+.PHONY: license-format
+license-format:
+	@echo "Formatting license headers..."
+	docker run -it --rm -v $(shell pwd):/github/workspace ghcr.io/korandoru/hawkeye format
 
 # Help information
 help:
@@ -255,8 +279,9 @@ help:
 	@echo "  build_linux_arm64_release - Build image and Helm package for ARM64"
 	@echo "  push_image     - Push images to image registry"
 	@echo "  show-version   - Display current version information"
-	@echo  " format 	  - Format Go code using goimports and gofumpt"
-	@echo  " verify 	  - Verify Go code formatting and import order"
+	@echo " format 	  - Format Go code using goimports and gofumpt"
+	@echo " verify 	  - Verify Go code formatting and import order"
+	@echo " license-check  - Check license headers in source files"
 	@echo "  clean          - Clean build artifacts"
 	@echo ""
 	@echo "Version-related environment variables:"
