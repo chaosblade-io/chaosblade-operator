@@ -46,7 +46,7 @@ const (
 // PodMutator set default values for pod
 type Mutator struct {
 	client  client.Client
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
 func (v *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -180,7 +180,7 @@ func (v *Mutator) InjectClient(c client.Client) error {
 }
 
 // InjectDecoder injects the decoder.
-func (v *Mutator) InjectDecoder(d *admission.Decoder) error {
+func (v *Mutator) InjectDecoder(d admission.Decoder) error {
 	v.decoder = d
 	return nil
 }

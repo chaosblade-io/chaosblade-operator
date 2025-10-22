@@ -51,7 +51,7 @@ func NewChaosbladeHookServer(addr string) *ChaosbladeHookServer {
 	}
 }
 
-func (s *ChaosbladeHookServer) Start(stop <-chan struct{}) error {
+func (s *ChaosbladeHookServer) Start(stop context.Context) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc(InjectPath, s.InjectHandler)
 	mux.HandleFunc(RecoverPath, s.RecoverHandler)
@@ -65,7 +65,7 @@ func (s *ChaosbladeHookServer) Start(stop <-chan struct{}) error {
 	}()
 	for {
 		select {
-		case <-stop:
+		case <-stop.Done():
 			return server.Shutdown(context.Background())
 		case err := <-errCh:
 			if err != nil {

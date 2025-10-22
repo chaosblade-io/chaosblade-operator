@@ -28,7 +28,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/ethercflow/hookfs/hookfs"
 	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	chaosbladehook "github.com/chaosblade-io/chaosblade-operator/pkg/hookfs"
 )
@@ -52,19 +52,19 @@ func main() {
 		"original":   original,
 		"mountpoint": mountpoint,
 	})
-	stopCh := signals.SetupSignalHandler()
+	stopCtx := signals.SetupSignalHandler()
 	chaosbladeHookServer := chaosbladehook.NewChaosbladeHookServer(address)
 	logFields.Infoln("Start chaosblade hook server.")
-	go chaosbladeHookServer.Start(stopCh)
+	go chaosbladeHookServer.Start(stopCtx)
 
 	logFields.Infoln("Start fuse server.")
-	if err := startFuseServer(stopCh); err != nil {
+	if err := startFuseServer(stopCtx); err != nil {
 		logFields.WithError(err).Fatalln("Start fuse server failed")
 	}
 }
 
 // startFuseServer starts hookfs server
-func startFuseServer(stop <-chan struct{}) error {
+func startFuseServer(stop context.Context) error {
 	if !util.IsExist(original) {
 		if err := os.MkdirAll(original, os.FileMode(755)); err != nil {
 			return fmt.Errorf("create original directory error, %v", err)
@@ -85,7 +85,7 @@ func startFuseServer(stop <-chan struct{}) error {
 	}()
 	for {
 		select {
-		case <-stop:
+		case <-stop.Done():
 			logFields := logrus.WithFields(logrus.Fields{
 				"address":    address,
 				"original":   original,
