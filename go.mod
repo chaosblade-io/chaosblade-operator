@@ -154,6 +154,7 @@ require (
 )
 
 replace (
+	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v1.2.1
 	k8s.io/client-go => k8s.io/client-go v0.31.0
 	k8s.io/client-go/kubernetes/scheme => k8s.io/client-go/kubernetes/scheme v0.31.0
 )
