@@ -85,13 +85,27 @@ func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuse
 							StreamOptions: channel.StreamOptions{
 								ErrDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
+									// 先尝试解析响应，如果成功则不打印错误日志
+									decoded := spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+									if resp, ok := decoded.(*spec.Response); ok && resp.Success {
+										// 响应成功，不打印错误日志
+										return resp
+									}
+									// 响应失败，打印错误日志
 									util.Errorf(identifier.Id, util.GetRunFuncName(), spec.K8sExecFailed.Sprintf("pods/exec", content))
-									return spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+									return decoded
 								},
 								OutDecoder: func(bytes []byte) interface{} {
 									content := string(bytes)
+									// 先尝试解析响应，如果成功则不打印错误日志
+									decoded := spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+									if resp, ok := decoded.(*spec.Response); ok && resp.Success {
+										// 响应成功，不打印错误日志
+										return resp
+									}
+									// 响应失败，打印错误日志
 									util.Errorf(identifier.Id, util.GetRunFuncName(), spec.K8sExecFailed.Sprintf("pods/exec", content))
-									return spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+									return decoded
 								},
 							},
 							PodName:       podName,
@@ -172,14 +186,27 @@ func execCommands(isDestroy bool, rsStatus v1alpha1.ResourceStatus,
 			},
 			ErrDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
+				// 先尝试解析响应，如果成功则不打印错误日志
+				decoded := spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+				if resp, ok := decoded.(*spec.Response); ok && resp.Success {
+					// 响应成功，不打印错误日志
+					return resp
+				}
+				// 响应失败，打印错误日志
 				util.Errorf(identifier.Id, util.GetRunFuncName(), spec.K8sExecFailed.Sprintf("pods/exec", content))
-				return spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+				return decoded
 			},
 			OutDecoder: func(bytes []byte) interface{} {
 				content := string(bytes)
 				util.Infof(identifier.Id, util.GetRunFuncName(), fmt.Sprintf("exec output: %s", content))
-				// TODO ?? 不应该返回错我
-				return spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+				// 先尝试解析响应，如果成功则直接返回，不返回错误
+				decoded := spec.Decode(content, spec.ResponseFailWithFlags(spec.K8sExecFailed, "pods/exec", content))
+				if resp, ok := decoded.(*spec.Response); ok && resp.Success {
+					// 响应成功，直接返回成功响应
+					return resp
+				}
+				// 响应失败，返回错误响应
+				return decoded
 			},
 		},
 		PodName:       podName,
