@@ -20,7 +20,7 @@ import "sync"
 
 var (
 	// MaxWorkers can be configured via environment variable or flag
-	MaxWorkers = 64
+	MaxWorkers int
 )
 
 type DoWorkFunc func(workID int)

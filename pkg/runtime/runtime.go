@@ -19,6 +19,7 @@ package runtime
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/aliyun"
 	_ "github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/community"
@@ -48,6 +49,14 @@ func init() {
 
 func initRuntimeData() {
 	chaosblade.Constant = chaosblade.Products[version.Product]
+	// Set default value for parallelizer.MaxWorkers
+	model.MaxWorkers = MaxWorkers
+}
+
+// Init initializes the runtime by syncing flag values to dependent packages.
+// This should be called after flag.Parse() in main().
+func Init() {
+	model.MaxWorkers = MaxWorkers
 }
 
 func FlagSet() *pflag.FlagSet {
