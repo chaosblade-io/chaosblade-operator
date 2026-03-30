@@ -30,13 +30,15 @@ var (
 	LogLevel                string
 	MaxConcurrentReconciles int
 	QPS                     float32
+	MaxWorkers              int
 )
 
 func init() {
 	flagSet = pflag.NewFlagSet("operator", pflag.ExitOnError)
 	flagSet.StringVar(&LogLevel, "log-level", "info", "Log level, such as panic|fatal|error|warn|info|debug|trace")
-	flagSet.IntVar(&MaxConcurrentReconciles, "reconcile-count", 20, "Max concurrent reconciles count, default value is 20")
-	flagSet.Float32Var(&QPS, "qps", 20, "qps of kubernetes client")
+	flagSet.IntVar(&MaxConcurrentReconciles, "max-concurrent-reconciles", 50, "Max concurrent reconciles count, default value is 50")
+	flagSet.Float32Var(&QPS, "qps", 100, "qps of kubernetes client, increased from 20 to 100 for better performance")
+	flagSet.IntVar(&MaxWorkers, "max-workers", 64, "Max workers for parallel execution, default value is 64")
 
 	flagSet.AddFlagSet(aliyun.FlagSet())
 	flagSet.AddFlagSet(chaosblade.FlagSet())
