@@ -79,6 +79,9 @@ func main() {
 	showVersion := pflag.Bool("version", false, "显示版本信息")
 	pflag.Parse()
 
+	// Initialize runtime after flag parsing to sync MaxWorkers to parallelizer
+	operator.Init()
+
 	// 如果只是查看版本，则显示后退出
 	if *showVersion {
 		printVersion()
