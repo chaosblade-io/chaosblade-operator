@@ -24,6 +24,8 @@ webhook:
 
 daemonset:
   enable: true
+  # Must match DaemonSet metadata.name, pod labels app/name, and container name. Operator uses the same value for exec and for listing tool pods.
+  name: chaosblade-tool
 
 remove:
   blade:

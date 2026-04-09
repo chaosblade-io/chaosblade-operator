@@ -24,6 +24,7 @@ webhook:
 
 daemonset:
   enable: true
+  name: chaosblade-tool
 
 remove:
   blade:

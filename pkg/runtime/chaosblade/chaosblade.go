@@ -40,12 +40,19 @@ const (
 )
 
 const (
-	DaemonsetPodName           = "chaosblade-tool"
 	DefaultRemoveBladeInterval = "72h"
 )
 
-var DaemonsetPodLabels = map[string]string{
-	"app": "chaosblade-tool",
+// DaemonsetPodName is the DaemonSet resource name, the tool container name, and the value of the app label used to list tool pods.
+// Override with --chaosblade-daemonset-name (e.g. otel-c-tool when renaming the Helm daemonset).
+var DaemonsetPodName = "chaosblade-tool"
+
+// DaemonsetPodLabels is rebuilt in SyncDaemonsetLabels after flags are parsed; do not mutate before main().
+var DaemonsetPodLabels map[string]string
+
+// SyncDaemonsetLabels sets DaemonsetPodLabels from DaemonsetPodName (must run after pflag.Parse).
+func SyncDaemonsetLabels() {
+	DaemonsetPodLabels = map[string]string{"app": DaemonsetPodName}
 }
 
 // set in runtime
@@ -74,6 +81,8 @@ func init() {
 	f.StringVar(&RemoveBladeInterval, "remove-blade-interval", DefaultRemoveBladeInterval, "Periodically clean up blade state is destroying, default value is 24h.")
 	f.StringVar(&DownloadUrl, "chaosblade-download-url", "", "The chaosblade downloaded address which works when the chaosblade is deployed in download mode.")
 	f.StringVar(&DaemonsetPodNamespace, "chaosblade-namespace", "chaosblade", "The chaosblade deployment namespace")
+	f.StringVar(&DaemonsetPodName, "chaosblade-daemonset-name", "chaosblade-tool", "Name of the chaosblade tool DaemonSet, container name, and app label for selecting tool pods on nodes")
+	SyncDaemonsetLabels()
 }
 
 func FlagSet() *pflag.FlagSet {

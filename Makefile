@@ -37,6 +37,10 @@ ifeq ($(BLADE_VENDOR), )
 	BLADE_VENDOR=community
 endif
 
+# Helm chart version must be SemVer (major.minor.patch[-prerelease]).
+# Convert e.g. 1.8.0.1-rca -> 1.8.0-1-rca so Helm validation passes.
+HELM_CHART_VERSION := $(shell echo "$(BLADE_VERSION)" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.([0-9]+)(.*)$$/\1-\2\3/')
+
 # Dynamically get Git information
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -186,32 +190,34 @@ push_image:
 # Build Helm packages with version updates
 build_linux_amd64_helm: show-version pre_build
 	@echo "Building Linux AMD64 Helm package..."
-	@# Update Chart.yaml versions
+	@# Update Chart.yaml: version must be SemVer-compatible (HELM_CHART_VERSION), appVersion keeps full BLADE_VERSION
 	@sed -i.bak 's/^appVersion: ".*"/appVersion: "$(BLADE_VERSION)"/' deploy/helm/chaosblade-operator/Chart.yaml
-	@sed -i.bak 's/^version: .*/version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/Chart.yaml
+	@sed -i.bak 's/^version: .*/version: $(HELM_CHART_VERSION)/' deploy/helm/chaosblade-operator/Chart.yaml
 	@# Update values.yaml versions
 	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/values.yaml
 	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator/values.yaml
 	@# Clean up backup files
 	@rm -f deploy/helm/chaosblade-operator/Chart.yaml.bak deploy/helm/chaosblade-operator/values.yaml.bak
-	@# Package Helm chart
-	@helm package deploy/helm/chaosblade-operator --destination $(BUILD_TARGET) --version $(BLADE_VERSION) --app-version $(BLADE_VERSION)
-	@# Rename the package to include architecture
-	@mv $(BUILD_TARGET)/chaosblade-operator-$(BLADE_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-amd64-$(BLADE_VERSION).tgz
+	@# Package Helm chart (chart version must be SemVer for validation)
+	@helm package deploy/helm/chaosblade-operator --destination $(BUILD_TARGET) --version $(HELM_CHART_VERSION) --app-version $(BLADE_VERSION)
+	@# Rename the package to include architecture (use BLADE_VERSION in filename for consistency)
+	@mv $(BUILD_TARGET)/chaosblade-operator-$(HELM_CHART_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-amd64-$(BLADE_VERSION).tgz
 	@echo "Linux AMD64 Helm package created: $(BUILD_TARGET)/chaosblade-operator-amd64-$(BLADE_VERSION).tgz"
 
 build_linux_arm64_helm: show-version pre_build
 	@echo "Building Linux ARM64 Helm package..."
-	@# Update Chart.yaml versions
+	@# Update Chart.yaml: version must be SemVer-compatible (HELM_CHART_VERSION), appVersion keeps full BLADE_VERSION
 	@sed -i.bak 's/^appVersion: ".*"/appVersion: "$(BLADE_VERSION)"/' deploy/helm/chaosblade-operator-arm64/Chart.yaml
-	@sed -i.bak 's/^version: .*/version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/Chart.yaml
+	@sed -i.bak 's/^version: .*/version: $(HELM_CHART_VERSION)/' deploy/helm/chaosblade-operator-arm64/Chart.yaml
 	@# Update values.yaml versions
 	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/values.yaml
 	@sed -i.bak 's/^  version: .*/  version: $(BLADE_VERSION)/' deploy/helm/chaosblade-operator-arm64/values.yaml
 	@# Clean up backup files
 	@rm -f deploy/helm/chaosblade-operator-arm64/Chart.yaml.bak deploy/helm/chaosblade-operator-arm64/values.yaml.bak
-	@# Package Helm chart
-	@helm package deploy/helm/chaosblade-operator-arm64 --destination $(BUILD_TARGET) --version $(BLADE_VERSION) --app-version $(BLADE_VERSION)
+	@# Package Helm chart (chart version must be SemVer for validation)
+	@helm package deploy/helm/chaosblade-operator-arm64 --destination $(BUILD_TARGET) --version $(HELM_CHART_VERSION) --app-version $(BLADE_VERSION)
+	@# Rename to include architecture (use BLADE_VERSION in filename for consistency)
+	@mv $(BUILD_TARGET)/chaosblade-operator-arm64-$(HELM_CHART_VERSION).tgz $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz
 	@echo "Linux ARM64 Helm package created: $(BUILD_TARGET)/chaosblade-operator-arm64-$(BLADE_VERSION).tgz"
 
 ##----------------------------------------------------------------------------

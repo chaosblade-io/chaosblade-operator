@@ -58,6 +58,7 @@ spec:
           - '--chaosblade-download-url={{ .Values.blade.downloadUrl }}'
           {{- end }}
           - '--chaosblade-namespace={{ .Release.Namespace }}'
+          - '--chaosblade-daemonset-name={{ .Values.daemonset.name }}'
           imagePullPolicy: {{ .Values.operator.pullPolicy }}
           env:
             - name: WATCH_NAMESPACE

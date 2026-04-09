@@ -62,6 +62,7 @@ func printVersion() {
 	logrus.Infof("Git Branch: %v", version.GitBranch)
 	logrus.Infof("Platform: %v", version.Platform)
 	logrus.Infof("Daemonset Enable: %t", chaosblade.DaemonsetEnable)
+	logrus.Infof("Chaosblade daemonset name: %s", chaosblade.DaemonsetPodName)
 }
 
 func main() {
@@ -73,6 +74,7 @@ func main() {
 	// 添加版本标志
 	showVersion := pflag.Bool("version", false, "显示版本信息")
 	pflag.Parse()
+	chaosblade.SyncDaemonsetLabels()
 
 	// 如果只是查看版本，则显示后退出
 	if *showVersion {
