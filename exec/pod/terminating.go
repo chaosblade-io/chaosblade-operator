@@ -117,7 +117,7 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 	for _, meta := range containerObjectMetaList {
 		status := v1alpha1.ResourceStatus{
 			Kind:       v1alpha1.PodKind,
-			Identifier: fmt.Sprintf("%s/%s/%s", meta.Namespace, meta.NodeName, meta.PodName),
+			Identifier: meta.GetIdentifier(),
 		}
 
 		pod := &v1.Pod{}
@@ -193,7 +193,7 @@ func (d *PodTerminatingActionExecutor) destroy(uid string, ctx context.Context, 
 	for _, meta := range containerObjectMetaList {
 		status := v1alpha1.ResourceStatus{
 			Kind:       v1alpha1.PodKind,
-			Identifier: fmt.Sprintf("%s/%s/%s", meta.Namespace, meta.NodeName, meta.PodName),
+			Identifier: meta.GetIdentifier(),
 		}
 
 		pod := &v1.Pod{}
