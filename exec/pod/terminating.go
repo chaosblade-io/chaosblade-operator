@@ -133,7 +133,6 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 		if pod.DeletionTimestamp != nil {
 			logrusField.Infof("pod %s/%s is already terminating, skip", meta.Namespace, meta.PodName)
 			status = status.CreateSuccessResourceStatus()
-			status.Error = "pod is already in Terminating state"
 			statuses = append(statuses, status)
 			success = true
 			continue
