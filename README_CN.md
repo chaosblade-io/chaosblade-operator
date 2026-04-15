@@ -24,6 +24,8 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
     * Container: 杀 Container
+* Service:
+    * Service: 创建、修改Service
 
 ## 本地构建&安装
 

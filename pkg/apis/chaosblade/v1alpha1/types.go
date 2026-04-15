@@ -95,6 +95,7 @@ const (
 	PodKind       = "pod"
 	ContainerKind = "container"
 	NodeKind      = "node"
+	ServiceKind   = "service"
 )
 
 type ResourceStatus struct {

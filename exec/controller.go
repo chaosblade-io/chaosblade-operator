@@ -28,6 +28,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/exec/node"
 	"github.com/chaosblade-io/chaosblade-operator/exec/pod"
+	"github.com/chaosblade-io/chaosblade-operator/exec/service"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
@@ -51,6 +52,7 @@ func NewDispatcherExecutor(client *channel.Client) *ResourceDispatchedController
 			node.NewExpController(client),
 			pod.NewExpController(client),
 			container.NewExpController(client),
+			service.NewExpController(client),
 		)
 	})
 	return executor

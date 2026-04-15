@@ -26,7 +26,8 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Disk: specify the directory disk occupation, disk IO read and write load, etc.
     * Memory: specify memory usage
     * Container: remove container
-
+* Service:
+    * Service: create, modify service
 
 ## Local Build & Installation
 
