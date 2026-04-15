@@ -134,7 +134,7 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		util.Errorf(uid, util.GetRunFuncName(), "at least one of externalTrafficPolicy or internalTrafficPolicy is required")
 		return spec.ResponseFailWithResult(spec.ParameterLess,
 			v1alpha1.CreateFailExperimentStatus("at least one of externalTrafficPolicy or internalTrafficPolicy is required", []v1alpha1.ResourceStatus{}),
-			ExternalTrafficPolicyFlag)
+			fmt.Sprintf("%s or %s", ExternalTrafficPolicyFlag, InternalTrafficPolicyFlag))
 	}
 
 	if externalPolicy != "" && !isValidPolicy(externalPolicy) {
