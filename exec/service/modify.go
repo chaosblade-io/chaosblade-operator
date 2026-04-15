@@ -227,7 +227,14 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 		restored := false
 		extAnnotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, ExternalTrafficPolicyFlag)
 		if original, ok := svc.Annotations[extAnnotationKey]; ok {
-			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicy(original)
+			if !isValidPolicy(original) {
+				err := fmt.Errorf("invalid externalTrafficPolicy value %q for service %s/%s", original, meta.Namespace, meta.ServiceName)
+				logrusField.Errorf("restore service %s err, %v", meta.ServiceName, err)
+				status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+				statuses = append(statuses, status)
+				continue
+			}
+			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyType(original)
 			delete(svc.Annotations, extAnnotationKey)
 			restored = true
 		}
