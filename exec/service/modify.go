@@ -171,16 +171,20 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 
 	if externalPolicy != "" {
 		annotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, ExternalTrafficPolicyFlag)
-		svc.Annotations[annotationKey] = string(svc.Spec.ExternalTrafficPolicy)
+		if _, exists := svc.Annotations[annotationKey]; !exists {
+			svc.Annotations[annotationKey] = string(svc.Spec.ExternalTrafficPolicy)
+		}
 		svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicy(externalPolicy)
 	}
 
 	if internalPolicy != "" {
 		annotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, InternalTrafficPolicyFlag)
-		if svc.Spec.InternalTrafficPolicy != nil {
-			svc.Annotations[annotationKey] = string(*svc.Spec.InternalTrafficPolicy)
-		} else {
-			svc.Annotations[annotationKey] = ""
+		if _, exists := svc.Annotations[annotationKey]; !exists {
+			if svc.Spec.InternalTrafficPolicy != nil {
+				svc.Annotations[annotationKey] = string(*svc.Spec.InternalTrafficPolicy)
+			} else {
+				svc.Annotations[annotationKey] = ""
+			}
 		}
 		policy := v1.ServiceInternalTrafficPolicyType(internalPolicy)
 		svc.Spec.InternalTrafficPolicy = &policy
