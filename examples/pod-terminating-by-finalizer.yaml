@@ -15,7 +15,7 @@
 apiVersion: chaosblade.io/v1alpha1
 kind: ChaosBlade
 metadata:
-  name: pod-terminating-by-names
+  name: pod-terminating-by-finalizer
 spec:
   experiments:
   - scope: pod
@@ -28,4 +28,4 @@ spec:
       - "nginx-140862721796080896-0"
     - name: namespace
       value:
-      - "default"
+      - "nginx"
