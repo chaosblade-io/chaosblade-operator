@@ -24,6 +24,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -194,10 +195,18 @@ func (d *PodTerminatingActionExecutor) destroy(uid string, ctx context.Context, 
 		pod := &v1.Pod{}
 		err := d.client.Get(context.TODO(), types.NamespacedName{Name: meta.PodName, Namespace: meta.Namespace}, pod)
 		if err != nil {
-			logrusField.Warningf("get pod %s/%s err, %v", meta.Namespace, meta.PodName, err)
-			// Pod may already be fully deleted after finalizer removal, treat as success
-			status = status.CreateSuccessResourceStatus()
-			status.State = v1alpha1.DestroyedState
+			// Distinguish between NotFound and other errors (RBAC, API server unreachable, etc.)
+			if apierrors.IsNotFound(err) {
+				// Pod is already fully deleted, treat as success
+				logrusField.Infof("pod %s/%s already deleted", meta.Namespace, meta.PodName)
+				status = status.CreateSuccessResourceStatus()
+				status.State = v1alpha1.DestroyedState
+			} else {
+				// Other errors mean the finalizer may still be present
+				logrusField.Warningf("get pod %s/%s err, %v", meta.Namespace, meta.PodName, err)
+				status = status.CreateFailResourceStatus(fmt.Sprintf("get pod failed: %v", err), spec.K8sExecFailed.Code)
+				allSuccess = false
+			}
 			statuses = append(statuses, status)
 			continue
 		}
