@@ -18,10 +18,8 @@ package model
 
 import "sync"
 
-var (
-	// MaxWorkers can be configured via environment variable or flag
-	MaxWorkers int
-)
+// MaxWorkers can be configured via environment variable or flag
+var MaxWorkers int
 
 type DoWorkFunc func(workID int)
 
