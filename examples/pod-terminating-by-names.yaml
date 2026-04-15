@@ -28,4 +28,4 @@ spec:
       - "nginx-140862721796080896-0"
     - name: namespace
       value:
-      - "nginx"
+      - "default"
