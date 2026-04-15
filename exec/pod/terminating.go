@@ -121,7 +121,7 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 		}
 
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(), types.NamespacedName{Name: meta.PodName, Namespace: meta.Namespace}, pod)
+		err := d.client.Get(ctx, types.NamespacedName{Name: meta.PodName, Namespace: meta.Namespace}, pod)
 		if err != nil {
 			logrusField.Warningf("get pod %s/%s err, %v", meta.Namespace, meta.PodName, err)
 			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
@@ -147,7 +147,7 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 		}
 
 		// Step 2: Delete the pod, it will be stuck in Terminating because of the finalizer
-		if err := d.client.Delete(context.TODO(), pod); err != nil {
+		if err := d.client.Delete(ctx, pod); err != nil {
 			logrusField.Warningf("delete pod %s/%s err, %v", meta.Namespace, meta.PodName, err)
 			// Best-effort rollback: remove the finalizer we just added
 			if rbErr := d.removeFinalizer(ctx, pod); rbErr != nil {
@@ -196,7 +196,7 @@ func (d *PodTerminatingActionExecutor) destroy(uid string, ctx context.Context, 
 		}
 
 		pod := &v1.Pod{}
-		err := d.client.Get(context.TODO(), types.NamespacedName{Name: meta.PodName, Namespace: meta.Namespace}, pod)
+		err := d.client.Get(ctx, types.NamespacedName{Name: meta.PodName, Namespace: meta.Namespace}, pod)
 		if err != nil {
 			// Distinguish between NotFound and other errors (RBAC, API server unreachable, etc.)
 			if apierrors.IsNotFound(err) {
