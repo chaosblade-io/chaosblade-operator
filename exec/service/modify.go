@@ -174,7 +174,21 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		if _, exists := svc.Annotations[annotationKey]; !exists {
 			svc.Annotations[annotationKey] = string(svc.Spec.ExternalTrafficPolicy)
 		}
-		svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicy(externalPolicy)
+		switch externalPolicy {
+		case string(v1.ServiceExternalTrafficPolicyTypeLocal):
+			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
+		case string(v1.ServiceExternalTrafficPolicyTypeCluster):
+			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeCluster
+		default:
+			err := fmt.Errorf("invalid externalTrafficPolicy %q, must be %q or %q",
+				externalPolicy,
+				v1.ServiceExternalTrafficPolicyTypeLocal,
+				v1.ServiceExternalTrafficPolicyTypeCluster)
+			logrusField.Errorf("modify service %s err, %v", serviceName, err)
+			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+			return spec.ReturnResultIgnoreCode(
+				v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+		}
 	}
 
 	if internalPolicy != "" {
