@@ -150,6 +150,10 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 		// Step 2: Delete the pod, it will be stuck in Terminating because of the finalizer
 		if err := d.client.Delete(context.TODO(), pod); err != nil {
 			logrusField.Warningf("delete pod %s/%s err, %v", meta.Namespace, meta.PodName, err)
+			// Best-effort rollback: remove the finalizer we just added
+			if rbErr := d.removeFinalizer(ctx, pod); rbErr != nil {
+				logrusField.Warningf("rollback finalizer for pod %s/%s failed: %v", meta.Namespace, meta.PodName, rbErr)
+			}
 			status = status.CreateFailResourceStatus(fmt.Sprintf("delete pod failed: %v", err), spec.K8sExecFailed.Code)
 			statuses = append(statuses, status)
 			continue
