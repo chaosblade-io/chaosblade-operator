@@ -143,6 +143,11 @@ func (d *CreateServiceActionExecutor) create(uid string, ctx context.Context, ex
 			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("count is invalid: %v", err), []v1alpha1.ResourceStatus{}),
 			CountFlag, countStr, err)
 	}
+	if count < 1 {
+		return spec.ResponseFailWithResult(spec.ParameterIllegal,
+			v1alpha1.CreateFailExperimentStatus("count is invalid: must be greater than or equal to 1", []v1alpha1.ResourceStatus{}),
+			CountFlag, countStr)
+	}
 
 	portBase := 8000
 	if v := expModel.ActionFlags[PortBaseFlag]; v != "" {
