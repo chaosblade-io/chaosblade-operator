@@ -19,6 +19,7 @@ package pod
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -28,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -35,6 +37,8 @@ import (
 )
 
 const (
+	// ChaosBladePVAnnotation is the annotation for PV resources created by containercreating action
+	ChaosBladePVAnnotation = "chaosblade.io/pv"
 	// ChaosBladePVCAnnotation is the annotation for PVC resources created by containercreating action
 	ChaosBladePVCAnnotation = "chaosblade.io/pvc"
 	// ChaosBladePodAnnotation is the annotation for Pod resources created by containercreating action
@@ -55,20 +59,8 @@ func NewPodContainerCreatingActionSpec(client *channel.Client) spec.ExpActionCom
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
-					Name: "storage-class",
-					Desc: "StorageClass name for the faulty PVC, the PVC will be pending if the StorageClass does not exist. Default: chaosblade-fake-sc",
-				},
-				&spec.ExpFlag{
 					Name: "volume-mount-path",
 					Desc: "Volume mount path in the container. Default: /mnt/data",
-				},
-				&spec.ExpFlag{
-					Name: "access-mode",
-					Desc: "PVC access mode, values: ReadWriteOnce, ReadOnlyMany, ReadWriteMany. Default: ReadWriteOnce",
-				},
-				&spec.ExpFlag{
-					Name: "storage-request",
-					Desc: "PVC storage request size. Default: 1Gi",
 				},
 				&spec.ExpFlag{
 					Name:   "random",
@@ -78,13 +70,10 @@ func NewPodContainerCreatingActionSpec(client *channel.Client) spec.ExpActionCom
 			},
 			ActionExecutor: &PodContainerCreatingActionExecutor{client: client},
 			ActionExample: `# Create a pod stuck in ContainerCreating state in the default namespace
-blade create k8s pod-pod containercreating --names nginx-app --namespace default --kubeconfig ~/.kube/config
+blade create k8s pod-pod containercreating --namespace default --kubeconfig ~/.kube/config
 
-# Create a pod stuck in ContainerCreating state by labels with custom StorageClass
-blade create k8s pod-pod containercreating --labels app=guestbook --namespace default --storage-class fake-storage --kubeconfig ~/.kube/config
-
-# Create a pod stuck in ContainerCreating state with custom PVC parameters
-blade create k8s pod-pod containercreating --names nginx-app --namespace default --access-mode ReadWriteMany --storage-request 5Gi --kubeconfig ~/.kube/config
+# Create a pod stuck in ContainerCreating state with custom volume mount path
+blade create k8s pod-pod containercreating --namespace default --volume-mount-path /data --kubeconfig ~/.kube/config
 `,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
@@ -105,9 +94,10 @@ func (*PodContainerCreatingActionSpec) ShortDesc() string {
 
 func (*PodContainerCreatingActionSpec) LongDesc() string {
 	return "Simulate the scenario where a Pod is stuck in ContainerCreating state due to storage volume mount failure. " +
-		"This fault is injected by creating a PVC that references a non-existent StorageClass (which keeps the PVC in Pending state), " +
-		"then creating a Pod that mounts this PVC. Since the PVC cannot be bound, the Pod remains stuck in ContainerCreating state. " +
-		"When the experiment is destroyed, the created Pod and PVC will be cleaned up."
+		"This fault is injected by creating a PV with an unreachable NFS server and a PVC bound to it, " +
+		"then creating a Pod that mounts this PVC. Since the NFS server is unreachable, the volume mount fails " +
+		"and the Pod remains stuck in ContainerCreating state. " +
+		"When the experiment is destroyed, the created Pod, PVC, and PV will be cleaned up."
 }
 
 type PodContainerCreatingActionExecutor struct {
@@ -139,34 +129,12 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 	}
 
 	// Parse flags with defaults
-	storageClass := expModel.ActionFlags["storage-class"]
-	if storageClass == "" {
-		storageClass = "chaosblade-fake-sc"
-	}
 	volumeMountPath := expModel.ActionFlags["volume-mount-path"]
 	if volumeMountPath == "" {
 		volumeMountPath = "/mnt/data"
 	}
-	accessMode := expModel.ActionFlags["access-mode"]
-	if accessMode == "" {
-		accessMode = string(v1.ReadWriteOnce)
-	}
-	storageRequest := expModel.ActionFlags["storage-request"]
-	if storageRequest == "" {
-		storageRequest = "1Gi"
-	}
 
-	// Validate storage request format
-	storageQuantity, err := resource.ParseQuantity(storageRequest)
-	if err != nil {
-		errMsg := fmt.Sprintf("invalid storage-request %q: %v", storageRequest, err)
-		logrusField.Errorln(errMsg)
-		return spec.ResponseFailWithResult(spec.ParameterIllegal,
-			v1alpha1.CreateFailExperimentStatus(errMsg, []v1alpha1.ResourceStatus{}),
-			"storage-request", storageRequest, err)
-	}
-
-	// Deduplicate by namespace - create one faulty Pod+PVC per unique namespace
+	// Deduplicate by namespace - create one faulty PV+PVC+Pod per unique namespace
 	seenNamespaces := make(map[string]bool)
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
@@ -177,6 +145,7 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 		}
 		seenNamespaces[meta.Namespace] = true
 
+		pvName := fmt.Sprintf("chaosblade-cc-%s-pv", experimentId)
 		pvcName := fmt.Sprintf("chaosblade-cc-%s-pvc", experimentId)
 		podName := fmt.Sprintf("chaosblade-cc-%s-pod", experimentId)
 
@@ -185,29 +154,55 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 			Identifier: fmt.Sprintf("%s//%s", meta.Namespace, podName),
 		}
 
-		// Step 1: Create PVC referencing non-existent StorageClass
-		if err := d.createPVC(ctx, meta.Namespace, pvcName, storageClass, accessMode, storageQuantity, experimentId); err != nil {
+		// Step 1: Create PV with unreachable NFS server
+		if err := d.createPV(ctx, pvName, experimentId); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				logrusField.Infof("PV %s already exists, skip creation", pvName)
+			} else {
+				logrusField.Warningf("create PV %s failed: %v", pvName, err)
+				status = status.CreateFailResourceStatus(fmt.Sprintf("create PV failed: %v", err), spec.K8sExecFailed.Code)
+				statuses = append(statuses, status)
+				continue
+			}
+		} else {
+			logrusField.Infof("created PV %s with unreachable NFS server", pvName)
+		}
+
+		// Step 2: Create PVC bound to the PV (PVC will be Bound, but mount will fail)
+		if err := d.createPVC(ctx, meta.Namespace, pvcName, pvName, experimentId); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				logrusField.Infof("PVC %s/%s already exists, skip creation", meta.Namespace, pvcName)
 			} else {
 				logrusField.Warningf("create PVC %s/%s failed: %v", meta.Namespace, pvcName, err)
+				// Best-effort rollback: delete the PV we just created
+				if delErr := d.deletePV(ctx, pvName); delErr != nil {
+					logrusField.Warningf("rollback PV %s failed: %v", pvName, delErr)
+				}
 				status = status.CreateFailResourceStatus(fmt.Sprintf("create PVC failed: %v", err), spec.K8sExecFailed.Code)
 				statuses = append(statuses, status)
 				continue
 			}
 		} else {
-			logrusField.Infof("created PVC %s/%s referencing non-existent StorageClass %s", meta.Namespace, pvcName, storageClass)
+			logrusField.Infof("created PVC %s/%s bound to PV %s", meta.Namespace, pvcName, pvName)
 		}
 
-		// Step 2: Create Pod that mounts the pending PVC
+		// Step 3: Wait for PVC to be Bound before creating Pod
+		if err := d.waitForPVCBound(ctx, meta.Namespace, pvcName, 30*time.Second); err != nil {
+			logrusField.Warningf("PVC %s/%s is not bound yet: %v", meta.Namespace, pvcName, err)
+		}
+
+		// Step 4: Create Pod that mounts the PVC (will be stuck in ContainerCreating)
 		if err := d.createPod(ctx, meta.Namespace, podName, pvcName, volumeMountPath, experimentId); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				logrusField.Infof("Pod %s/%s already exists, skip creation", meta.Namespace, podName)
 			} else {
 				logrusField.Warningf("create Pod %s/%s failed: %v", meta.Namespace, podName, err)
-				// Best-effort rollback: delete the PVC we just created
+				// Best-effort rollback: delete PVC and PV
 				if delErr := d.deletePVC(ctx, meta.Namespace, pvcName); delErr != nil {
 					logrusField.Warningf("rollback PVC %s/%s failed: %v", meta.Namespace, pvcName, delErr)
+				}
+				if delErr := d.deletePV(ctx, pvName); delErr != nil {
+					logrusField.Warningf("rollback PV %s failed: %v", pvName, delErr)
 				}
 				status = status.CreateFailResourceStatus(fmt.Sprintf("create Pod failed: %v", err), spec.K8sExecFailed.Code)
 				statuses = append(statuses, status)
@@ -252,6 +247,7 @@ func (d *PodContainerCreatingActionExecutor) destroy(uid string, ctx context.Con
 		}
 		seenNamespaces[meta.Namespace] = true
 
+		pvName := fmt.Sprintf("chaosblade-cc-%s-pv", experimentId)
 		pvcName := fmt.Sprintf("chaosblade-cc-%s-pvc", experimentId)
 		podName := meta.PodName
 		namespace := meta.Namespace
@@ -282,10 +278,20 @@ func (d *PodContainerCreatingActionExecutor) destroy(uid string, ctx context.Con
 				logrusField.Infof("PVC %s/%s already deleted", namespace, pvcName)
 			} else {
 				logrusField.Warningf("delete PVC %s/%s failed: %v", namespace, pvcName, err)
-				// PVC deletion failure is not critical, just warn
 			}
 		} else {
 			logrusField.Infof("deleted PVC %s/%s", namespace, pvcName)
+		}
+
+		// Step 3: Delete PV (non-critical, warn only on failure)
+		if err := d.deletePV(ctx, pvName); err != nil {
+			if apierrors.IsNotFound(err) {
+				logrusField.Infof("PV %s already deleted", pvName)
+			} else {
+				logrusField.Warningf("delete PV %s failed: %v", pvName, err)
+			}
+		} else {
+			logrusField.Infof("deleted PV %s", pvName)
 		}
 
 		status = status.CreateSuccessResourceStatus()
@@ -299,9 +305,44 @@ func (d *PodContainerCreatingActionExecutor) destroy(uid string, ctx context.Con
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus("see resStatuses for details", statuses))
 }
 
-// createPVC creates a PersistentVolumeClaim that references a non-existent StorageClass,
-// which will cause it to remain in Pending state indefinitely.
-func (d *PodContainerCreatingActionExecutor) createPVC(ctx context.Context, namespace, pvcName, storageClass, accessMode string, storageQuantity resource.Quantity, experimentId string) error {
+// createPV creates a PersistentVolume with an unreachable NFS server.
+// The PV will be Available, allowing PVC binding, but the NFS mount will fail
+// when a Pod tries to use it, causing the Pod to be stuck in ContainerCreating.
+func (d *PodContainerCreatingActionExecutor) createPV(ctx context.Context, pvName, experimentId string) error {
+	pv := &v1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvName,
+			Annotations: map[string]string{
+				ChaosBladePVAnnotation:         ChaosBladeActionCreate,
+				ChaosBladeExperimentAnnotation: experimentId,
+			},
+		},
+		Spec: v1.PersistentVolumeSpec{
+			Capacity: v1.ResourceList{
+				v1.ResourceStorage: resource.MustParse("1Gi"),
+			},
+			AccessModes: []v1.PersistentVolumeAccessMode{
+				v1.ReadWriteOnce,
+			},
+			PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimDelete,
+			PersistentVolumeSource: v1.PersistentVolumeSource{
+				NFS: &v1.NFSVolumeSource{
+					// Use a non-routable IP address to simulate unreachable NFS server
+					Server:   "10.255.255.1",
+					Path:     "/chaosblade-fake-nfs",
+					ReadOnly: false,
+				},
+			},
+		},
+	}
+	return d.client.Create(ctx, pv)
+}
+
+// createPVC creates a PersistentVolumeClaim that binds to the specified PV.
+// The PVC will be Bound to the PV, but the actual volume mount will fail
+// because the NFS server is unreachable.
+func (d *PodContainerCreatingActionExecutor) createPVC(ctx context.Context, namespace, pvcName, pvName, experimentId string) error {
+	emptyStr := ""
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -312,22 +353,23 @@ func (d *PodContainerCreatingActionExecutor) createPVC(ctx context.Context, name
 			},
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
-			StorageClassName: &storageClass,
+			StorageClassName: &emptyStr,
 			AccessModes: []v1.PersistentVolumeAccessMode{
-				v1.PersistentVolumeAccessMode(accessMode),
+				v1.ReadWriteOnce,
 			},
 			Resources: v1.VolumeResourceRequirements{
 				Requests: v1.ResourceList{
-					v1.ResourceStorage: storageQuantity,
+					v1.ResourceStorage: resource.MustParse("1Gi"),
 				},
 			},
+			VolumeName: pvName,
 		},
 	}
 	return d.client.Create(ctx, pvc)
 }
 
 // createPod creates a Pod that mounts the given PVC, which will cause it to be
-// stuck in ContainerCreating state because the PVC is Pending.
+// stuck in ContainerCreating state because the NFS mount fails.
 func (d *PodContainerCreatingActionExecutor) createPod(ctx context.Context, namespace, podName, pvcName, volumeMountPath, experimentId string) error {
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -353,6 +395,12 @@ func (d *PodContainerCreatingActionExecutor) createPod(ctx context.Context, name
 							MountPath: volumeMountPath,
 						},
 					},
+				},
+			},
+			// Tolerate all taints so the Pod can be scheduled on any node
+			Tolerations: []v1.Toleration{
+				{
+					Operator: v1.TolerationOpExists,
 				},
 			},
 			Volumes: []v1.Volume{
@@ -390,4 +438,31 @@ func (d *PodContainerCreatingActionExecutor) deletePVC(ctx context.Context, name
 		},
 	}
 	return d.client.Delete(ctx, pvc)
+}
+
+// waitForPVCBound polls until the PVC is in Bound state or timeout is reached
+func (d *PodContainerCreatingActionExecutor) waitForPVCBound(ctx context.Context, namespace, pvcName string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		pvc := &v1.PersistentVolumeClaim{}
+		err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: pvcName}, pvc)
+		if err != nil {
+			return err
+		}
+		if pvc.Status.Phase == v1.ClaimBound {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("PVC %s/%s is not bound after %v", namespace, pvcName, timeout)
+}
+
+// deletePV deletes a PersistentVolume by name
+func (d *PodContainerCreatingActionExecutor) deletePV(ctx context.Context, pvName string) error {
+	pv := &v1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvName,
+		},
+	}
+	return d.client.Delete(ctx, pv)
 }

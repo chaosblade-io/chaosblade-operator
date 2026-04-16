@@ -18,6 +18,7 @@ package pod
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -51,6 +52,25 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
+
+	// containercreating action creates new resources (PVC+Pod) and does not require
+	// finding existing pods. It only needs the namespace to know where to create them.
+	if expModel.ActionName == "containercreating" {
+		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+		if namespace == "" {
+			namespace = model.DefaultNamespace
+		}
+		containerObjectMetaList := model.ContainerMatchedList{
+			model.ContainerObjectMeta{
+				Namespace: namespace,
+				PodName:   fmt.Sprintf("chaosblade-cc-%s-pod", experimentId),
+			},
+		}
+		logrusField.Infof("creating containercreating experiment in namespace %s", namespace)
+		ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+		return e.Exec(ctx, expModel)
+	}
+
 	pods, resp := e.GetMatchedPodResources(ctx, *expModel)
 	if !resp.Success {
 		logrusField.Errorf("uid: %s, get matched pod experiment failed, %v", experimentId, resp.Err)

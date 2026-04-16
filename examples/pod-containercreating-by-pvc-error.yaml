@@ -23,12 +23,9 @@ spec:
     action: containercreating
     desc: "Make pod stuck in ContainerCreating state by creating a Pod that mounts a pending PVC"
     matchers:
-    - name: names
-      value:
-      - "nginx-app"
     - name: namespace
       value:
-      - "default"
+      - "nginx"
     # Optional: customize PVC parameters
     # - name: storage-class
     #   value:
