@@ -224,6 +224,17 @@ blade create k8s pod-script delay --time 10000 --file test.sh --function-name st
 				action.SetExample(`
 # Add commands to the script "start0() { echo this-is-error-message; exit 1; ... }"
 blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+			case *PodContainerCreatingActionSpec:
+				action.SetLongDesc("Make pod stuck in ContainerCreating state by creating a Pod that mounts a pending PVC")
+				action.SetExample(
+					`# Create a pod stuck in ContainerCreating state due to PVC mount failure
+blade create k8s pod-pod containercreating --names nginx-app --namespace default --kubeconfig ~/.kube/config
+
+# Create a pod stuck in ContainerCreating state by labels with custom StorageClass
+blade create k8s pod-pod containercreating --labels app=guestbook --namespace default --storage-class fake-storage --kubeconfig ~/.kube/config
+
+# Create a pod stuck in ContainerCreating state with custom PVC parameters
+blade create k8s pod-pod containercreating --names nginx-app --namespace default --access-mode ReadWriteMany --storage-request 5Gi --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
@@ -261,6 +272,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewPodIOActionSpec(client),
 				NewFailPodActionSpec(client),
 				NewPodTerminatingActionSpec(client),
+				NewPodContainerCreatingActionSpec(client),
 			},
 		},
 	}
