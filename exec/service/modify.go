@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -32,10 +33,10 @@ import (
 )
 
 const (
-	ServiceNameFlag            = "name"
-	ExternalTrafficPolicyFlag  = "externalTrafficPolicy"
-	InternalTrafficPolicyFlag  = "internalTrafficPolicy"
-	OriginalPolicyAnnotationFn = "chaosblade.io/original-%s"
+	ServiceNameFlag           = "name"
+	ExternalTrafficPolicyFlag = "externalTrafficPolicy"
+	InternalTrafficPolicyFlag = "internalTrafficPolicy"
+	ServiceModifyAnnotation   = "chaosblade.io/service"
 )
 
 type ModifyServiceActionSpec struct {
@@ -169,11 +170,9 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		svc.Annotations = make(map[string]string)
 	}
 
+	var modifiedParams []string
+
 	if externalPolicy != "" {
-		annotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, ExternalTrafficPolicyFlag)
-		if _, exists := svc.Annotations[annotationKey]; !exists {
-			svc.Annotations[annotationKey] = string(svc.Spec.ExternalTrafficPolicy)
-		}
 		switch externalPolicy {
 		case string(v1.ServiceExternalTrafficPolicyTypeLocal):
 			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
@@ -189,20 +188,16 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 			return spec.ReturnResultIgnoreCode(
 				v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
 		}
+		modifiedParams = append(modifiedParams, "modify-"+ExternalTrafficPolicyFlag)
 	}
 
 	if internalPolicy != "" {
-		annotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, InternalTrafficPolicyFlag)
-		if _, exists := svc.Annotations[annotationKey]; !exists {
-			if svc.Spec.InternalTrafficPolicy != nil {
-				svc.Annotations[annotationKey] = string(*svc.Spec.InternalTrafficPolicy)
-			} else {
-				svc.Annotations[annotationKey] = ""
-			}
-		}
 		policy := v1.ServiceInternalTrafficPolicyType(internalPolicy)
 		svc.Spec.InternalTrafficPolicy = &policy
+		modifiedParams = append(modifiedParams, "modify-"+InternalTrafficPolicyFlag)
 	}
+
+	svc.Annotations[ServiceModifyAnnotation] = strings.Join(modifiedParams, ",")
 
 	if err := d.client.Update(context.TODO(), svc); err != nil {
 		logrusField.Errorf("update service %s err, %v", serviceName, err)
@@ -242,34 +237,8 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 			continue
 		}
 
-		restored := false
-		extAnnotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, ExternalTrafficPolicyFlag)
-		if original, ok := svc.Annotations[extAnnotationKey]; ok {
-			if !isValidPolicy(original) {
-				err := fmt.Errorf("invalid externalTrafficPolicy value %q for service %s/%s", original, meta.Namespace, meta.ServiceName)
-				logrusField.Errorf("restore service %s err, %v", meta.ServiceName, err)
-				status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
-				statuses = append(statuses, status)
-				continue
-			}
-			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyType(original)
-			delete(svc.Annotations, extAnnotationKey)
-			restored = true
-		}
-
-		intAnnotationKey := fmt.Sprintf(OriginalPolicyAnnotationFn, InternalTrafficPolicyFlag)
-		if original, ok := svc.Annotations[intAnnotationKey]; ok {
-			if original == "" {
-				svc.Spec.InternalTrafficPolicy = nil
-			} else {
-				policy := v1.ServiceInternalTrafficPolicyType(original)
-				svc.Spec.InternalTrafficPolicy = &policy
-			}
-			delete(svc.Annotations, intAnnotationKey)
-			restored = true
-		}
-
-		if restored {
+		if _, ok := svc.Annotations[ServiceModifyAnnotation]; ok {
+			delete(svc.Annotations, ServiceModifyAnnotation)
 			if err := d.client.Update(context.TODO(), svc); err != nil {
 				logrusField.Errorf("restore service %s err, %v", meta.ServiceName, err)
 				status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
