@@ -36,7 +36,7 @@ const (
 	ServiceNameFlag           = "name"
 	ExternalTrafficPolicyFlag = "externalTrafficPolicy"
 	InternalTrafficPolicyFlag = "internalTrafficPolicy"
-	ServiceModifyAnnotation   = "chaosblade.io/service"
+	ServiceModifyAnnotation   = "chaosblade.io/service-modify"
 )
 
 type ModifyServiceActionSpec struct {
@@ -170,8 +170,6 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		svc.Annotations = make(map[string]string)
 	}
 
-	var modifiedParams []string
-
 	if externalPolicy != "" {
 		switch externalPolicy {
 		case string(v1.ServiceExternalTrafficPolicyTypeLocal):
@@ -188,16 +186,18 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 			return spec.ReturnResultIgnoreCode(
 				v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
 		}
-		modifiedParams = append(modifiedParams, "modify-"+ExternalTrafficPolicyFlag)
 	}
 
 	if internalPolicy != "" {
 		policy := v1.ServiceInternalTrafficPolicyType(internalPolicy)
 		svc.Spec.InternalTrafficPolicy = &policy
-		modifiedParams = append(modifiedParams, "modify-"+InternalTrafficPolicyFlag)
 	}
 
-	svc.Annotations[ServiceModifyAnnotation] = strings.Join(modifiedParams, ",")
+	if existing := svc.Annotations[ServiceModifyAnnotation]; existing != "" {
+		svc.Annotations[ServiceModifyAnnotation] = existing + "," + uid
+	} else {
+		svc.Annotations[ServiceModifyAnnotation] = uid
+	}
 
 	if err := d.client.Update(context.TODO(), svc); err != nil {
 		logrusField.Errorf("update service %s err, %v", serviceName, err)
@@ -237,8 +237,13 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 			continue
 		}
 
-		if _, ok := svc.Annotations[ServiceModifyAnnotation]; ok {
-			delete(svc.Annotations, ServiceModifyAnnotation)
+		if existing, ok := svc.Annotations[ServiceModifyAnnotation]; ok {
+			updated := removeUidFromCsv(existing, uid)
+			if updated == "" {
+				delete(svc.Annotations, ServiceModifyAnnotation)
+			} else {
+				svc.Annotations[ServiceModifyAnnotation] = updated
+			}
 			if err := d.client.Update(context.TODO(), svc); err != nil {
 				logrusField.Errorf("restore service %s err, %v", meta.ServiceName, err)
 				status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
@@ -256,4 +261,15 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 
 func isValidPolicy(policy string) bool {
 	return policy == "Local" || policy == "Cluster"
+}
+
+func removeUidFromCsv(csv, target string) string {
+	uids := strings.Split(csv, ",")
+	result := make([]string, 0, len(uids))
+	for _, u := range uids {
+		if u != target {
+			result = append(result, u)
+		}
+	}
+	return strings.Join(result, ",")
 }

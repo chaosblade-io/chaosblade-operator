@@ -163,13 +163,13 @@ func (d *CreateServiceActionExecutor) create(uid string, ctx context.Context, ex
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
 	for i := 0; i < serviceCount; i++ {
-		serviceName := fmt.Sprintf("%s-%d", namePrefix, i)
+		serviceName := fmt.Sprintf("%s-%s-%d", namePrefix, uid, i)
 		status := v1alpha1.ResourceStatus{
 			Kind:       v1alpha1.ServiceKind,
 			Identifier: fmt.Sprintf("%s/%s", namespace, serviceName),
 		}
 
-		svc := buildService(serviceName, namespace, portsPerService)
+		svc := buildService(serviceName, namespace, portsPerService, uid)
 		if err := d.client.Create(context.TODO(), svc); err != nil {
 			logrusField.Warningf("create service %s err, %v", serviceName, err)
 			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
@@ -229,7 +229,7 @@ func (d *CreateServiceActionExecutor) destroy(uid string, ctx context.Context, e
 	return spec.ReturnResultIgnoreCode(experimentStatus)
 }
 
-func buildService(name, namespace string, portsPerService int) *v1.Service {
+func buildService(name, namespace string, portsPerService int, uid string) *v1.Service {
 	const portBase = 8000
 	ports := make([]v1.ServicePort, 0, portsPerService)
 	for i := 0; i < portsPerService; i++ {
@@ -246,7 +246,7 @@ func buildService(name, namespace string, portsPerService int) *v1.Service {
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"chaosblade.io/service": "create",
+				"chaosblade.io/service-create": uid,
 			},
 		},
 		Spec: v1.ServiceSpec{
