@@ -34,10 +34,9 @@ import (
 )
 
 const (
-	NamePrefixFlag = "name-prefix"
-	CountFlag      = "count"
-	PortBaseFlag   = "port-base"
-	PortCountFlag  = "port-count"
+	NamePrefixFlag      = "name-prefix"
+	ServiceCountFlag    = "service-count"
+	PortsPerServiceFlag = "ports-per-service"
 )
 
 type CreateServiceActionSpec struct {
@@ -56,25 +55,20 @@ func NewCreateServiceActionSpec(client *channel.Client) spec.ExpActionCommandSpe
 					Required: true,
 				},
 				&spec.ExpFlag{
-					Name:     CountFlag,
+					Name:     ServiceCountFlag,
 					Desc:     "Number of services to create",
 					NoArgs:   false,
 					Required: true,
 				},
 				&spec.ExpFlag{
-					Name:   PortBaseFlag,
-					Desc:   "Base port number for service ports, default is 8000",
-					NoArgs: false,
-				},
-				&spec.ExpFlag{
-					Name:   PortCountFlag,
-					Desc:   "Number of ports per service, default is 10",
+					Name:   PortsPerServiceFlag,
+					Desc:   "Number of ports per service, min 1, max 100, default 10",
 					NoArgs: false,
 				},
 			},
 			ActionExecutor: &CreateServiceActionExecutor{client: client},
-			ActionExample: `# Create 1000 services with prefix my-service in default namespace
-blade create k8s service-self create --name-prefix my-service --namespace default --count 1000 --kubeconfig ~/.kube/config`,
+			ActionExample: `# Create 2000 services with prefix my-service in default namespace
+blade create k8s service-self create --name-prefix my-service --namespace default --service-count 2000 --kubeconfig ~/.kube/config`,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
 	}
@@ -130,57 +124,52 @@ func (d *CreateServiceActionExecutor) create(uid string, ctx context.Context, ex
 		namespace = "default"
 	}
 
-	countStr := expModel.ActionFlags[CountFlag]
-	if countStr == "" {
-		util.Errorf(uid, util.GetRunFuncName(), "count is required")
+	serviceCountStr := expModel.ActionFlags[ServiceCountFlag]
+	if serviceCountStr == "" {
+		util.Errorf(uid, util.GetRunFuncName(), "service-count is required")
 		return spec.ResponseFailWithResult(spec.ParameterLess,
-			v1alpha1.CreateFailExperimentStatus("count is required", []v1alpha1.ResourceStatus{}),
-			CountFlag)
+			v1alpha1.CreateFailExperimentStatus("service-count is required", []v1alpha1.ResourceStatus{}),
+			ServiceCountFlag)
 	}
-	count, err := strconv.Atoi(countStr)
+	serviceCount, err := strconv.Atoi(serviceCountStr)
 	if err != nil {
 		return spec.ResponseFailWithResult(spec.ParameterIllegal,
-			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("count is invalid: %v", err), []v1alpha1.ResourceStatus{}),
-			CountFlag, countStr, err)
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("service-count is invalid: %v", err), []v1alpha1.ResourceStatus{}),
+			ServiceCountFlag, serviceCountStr, err)
 	}
-	if count < 1 {
+	if serviceCount < 1 || serviceCount > 20000 {
 		return spec.ResponseFailWithResult(spec.ParameterIllegal,
-			v1alpha1.CreateFailExperimentStatus("count is invalid: must be greater than or equal to 1", []v1alpha1.ResourceStatus{}),
-			CountFlag, countStr)
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("service-count must be between 1 and 20000, got %d", serviceCount), []v1alpha1.ResourceStatus{}),
+			ServiceCountFlag, strconv.Itoa(serviceCount), "must be between 1 and 20000")
 	}
 
-	portBase := 8000
-	if v := expModel.ActionFlags[PortBaseFlag]; v != "" {
-		portBase, err = strconv.Atoi(v)
+	portsPerService := 10
+	if v := expModel.ActionFlags[PortsPerServiceFlag]; v != "" {
+		portsPerService, err = strconv.Atoi(v)
 		if err != nil {
 			return spec.ResponseFailWithResult(spec.ParameterIllegal,
-				v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("port-base is invalid: %v", err), []v1alpha1.ResourceStatus{}),
-				PortBaseFlag, v, err)
+				v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("ports-per-service is invalid: %v", err), []v1alpha1.ResourceStatus{}),
+				PortsPerServiceFlag, v, err)
 		}
 	}
-
-	portCount := 10
-	if v := expModel.ActionFlags[PortCountFlag]; v != "" {
-		portCount, err = strconv.Atoi(v)
-		if err != nil {
-			return spec.ResponseFailWithResult(spec.ParameterIllegal,
-				v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("port-count is invalid: %v", err), []v1alpha1.ResourceStatus{}),
-				PortCountFlag, v, err)
-		}
+	if portsPerService < 1 || portsPerService > 100 {
+		return spec.ResponseFailWithResult(spec.ParameterIllegal,
+			v1alpha1.CreateFailExperimentStatus(fmt.Sprintf("ports-per-service must be between 1 and 100, got %d", portsPerService), []v1alpha1.ResourceStatus{}),
+			PortsPerServiceFlag, strconv.Itoa(portsPerService), "must be between 1 and 100")
 	}
 
-	logrusField.Infof("creating %d services with prefix %s in namespace %s", count, namePrefix, namespace)
+	logrusField.Infof("creating %d services with prefix %s in namespace %s", serviceCount, namePrefix, namespace)
 
 	statuses := make([]v1alpha1.ResourceStatus, 0)
 	success := false
-	for i := 0; i < count; i++ {
+	for i := 0; i < serviceCount; i++ {
 		serviceName := fmt.Sprintf("%s-%d", namePrefix, i)
 		status := v1alpha1.ResourceStatus{
 			Kind:       v1alpha1.ServiceKind,
 			Identifier: fmt.Sprintf("%s/%s", namespace, serviceName),
 		}
 
-		svc := buildService(serviceName, namespace, portBase, portCount)
+		svc := buildService(serviceName, namespace, portsPerService)
 		if err := d.client.Create(context.TODO(), svc); err != nil {
 			logrusField.Warningf("create service %s err, %v", serviceName, err)
 			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
@@ -240,9 +229,10 @@ func (d *CreateServiceActionExecutor) destroy(uid string, ctx context.Context, e
 	return spec.ReturnResultIgnoreCode(experimentStatus)
 }
 
-func buildService(name, namespace string, portBase, portCount int) *v1.Service {
-	ports := make([]v1.ServicePort, 0, portCount)
-	for i := 0; i < portCount; i++ {
+func buildService(name, namespace string, portsPerService int) *v1.Service {
+	const portBase = 8000
+	ports := make([]v1.ServicePort, 0, portsPerService)
+	for i := 0; i < portsPerService; i++ {
 		port := int32(portBase + i)
 		ports = append(ports, v1.ServicePort{
 			Name:       fmt.Sprintf("p%d", port),
@@ -255,6 +245,9 @@ func buildService(name, namespace string, portBase, portCount int) *v1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"chaosblade.io/service": "create",
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: ports,
