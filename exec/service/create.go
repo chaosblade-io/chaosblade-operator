@@ -246,7 +246,7 @@ func buildService(name, namespace string, portsPerService int, uid string) *v1.S
 			Name:      name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"chaosblade.io/service-create": uid,
+				"chaosblade.io/service": fmt.Sprintf("create-%s", uid),
 			},
 		},
 		Spec: v1.ServiceSpec{

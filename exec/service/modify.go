@@ -18,8 +18,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -33,10 +33,11 @@ import (
 )
 
 const (
-	ServiceNameFlag           = "name"
-	ExternalTrafficPolicyFlag = "externalTrafficPolicy"
-	InternalTrafficPolicyFlag = "internalTrafficPolicy"
-	ServiceModifyAnnotation   = "chaosblade.io/service-modify"
+	ServiceNameFlag                = "name"
+	ExternalTrafficPolicyFlag      = "externalTrafficPolicy"
+	InternalTrafficPolicyFlag      = "internalTrafficPolicy"
+	ServiceAnnotation              = "chaosblade.io/service"
+	ServiceModifyHistoryAnnotation = "chaosblade.io/service-modify-history"
 )
 
 type ModifyServiceActionSpec struct {
@@ -166,11 +167,23 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
 	}
 
+	if existing, ok := svc.Annotations[ServiceAnnotation]; ok && existing != "" {
+		err := fmt.Errorf("service %s/%s already has chaos experiment injected (annotation %s=%s), modifying service configuration is not allowed",
+			namespace, serviceName, ServiceAnnotation, existing)
+		logrusField.Warningf("%v", err)
+		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+		return spec.ReturnResultIgnoreCode(
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+	}
+
 	if svc.Annotations == nil {
 		svc.Annotations = make(map[string]string)
 	}
 
+	history := make(map[string]string)
+
 	if externalPolicy != "" {
+		history[ExternalTrafficPolicyFlag] = string(svc.Spec.ExternalTrafficPolicy)
 		switch externalPolicy {
 		case string(v1.ServiceExternalTrafficPolicyTypeLocal):
 			svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
@@ -189,15 +202,24 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 	}
 
 	if internalPolicy != "" {
+		originalInternal := ""
+		if svc.Spec.InternalTrafficPolicy != nil {
+			originalInternal = string(*svc.Spec.InternalTrafficPolicy)
+		}
+		history[InternalTrafficPolicyFlag] = originalInternal
 		policy := v1.ServiceInternalTrafficPolicyType(internalPolicy)
 		svc.Spec.InternalTrafficPolicy = &policy
 	}
 
-	if existing := svc.Annotations[ServiceModifyAnnotation]; existing != "" {
-		svc.Annotations[ServiceModifyAnnotation] = existing + "," + uid
-	} else {
-		svc.Annotations[ServiceModifyAnnotation] = uid
+	historyBytes, err := json.Marshal(history)
+	if err != nil {
+		logrusField.Errorf("marshal modify history for service %s err, %v", serviceName, err)
+		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+		return spec.ReturnResultIgnoreCode(
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
 	}
+	svc.Annotations[ServiceAnnotation] = fmt.Sprintf("modify-%s", uid)
+	svc.Annotations[ServiceModifyHistoryAnnotation] = string(historyBytes)
 
 	if err := d.client.Update(context.TODO(), svc); err != nil {
 		logrusField.Errorf("update service %s err, %v", serviceName, err)
@@ -237,13 +259,30 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 			continue
 		}
 
-		if existing, ok := svc.Annotations[ServiceModifyAnnotation]; ok {
-			updated := removeUidFromCsv(existing, uid)
-			if updated == "" {
-				delete(svc.Annotations, ServiceModifyAnnotation)
-			} else {
-				svc.Annotations[ServiceModifyAnnotation] = updated
+		expected := fmt.Sprintf("modify-%s", uid)
+		if existing, ok := svc.Annotations[ServiceAnnotation]; ok && existing == expected {
+			if historyStr, hasHistory := svc.Annotations[ServiceModifyHistoryAnnotation]; hasHistory {
+				history := make(map[string]string)
+				if err := json.Unmarshal([]byte(historyStr), &history); err != nil {
+					logrusField.Errorf("unmarshal modify history for service %s err, %v", meta.ServiceName, err)
+					status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+					statuses = append(statuses, status)
+					continue
+				}
+				if original, exists := history[ExternalTrafficPolicyFlag]; exists {
+					svc.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyType(original)
+				}
+				if original, exists := history[InternalTrafficPolicyFlag]; exists {
+					if original == "" {
+						svc.Spec.InternalTrafficPolicy = nil
+					} else {
+						restored := v1.ServiceInternalTrafficPolicyType(original)
+						svc.Spec.InternalTrafficPolicy = &restored
+					}
+				}
+				delete(svc.Annotations, ServiceModifyHistoryAnnotation)
 			}
+			delete(svc.Annotations, ServiceAnnotation)
 			if err := d.client.Update(context.TODO(), svc); err != nil {
 				logrusField.Errorf("restore service %s err, %v", meta.ServiceName, err)
 				status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
@@ -261,15 +300,4 @@ func (d *ModifyServiceActionExecutor) destroy(uid string, ctx context.Context, e
 
 func isValidPolicy(policy string) bool {
 	return policy == "Local" || policy == "Cluster"
-}
-
-func removeUidFromCsv(csv, target string) string {
-	uids := strings.Split(csv, ",")
-	result := make([]string, 0, len(uids))
-	for _, u := range uids {
-		if u != target {
-			result = append(result, u)
-		}
-	}
-	return strings.Join(result, ",")
 }
