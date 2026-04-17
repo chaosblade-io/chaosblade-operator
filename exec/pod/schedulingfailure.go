@@ -37,8 +37,14 @@ import (
 )
 
 const (
-	// ChaosBladeWorkloadAnnotation is the annotation for workload resources modified by schedulingfailure action
-	ChaosBladeWorkloadAnnotation = "chaosblade.io/workload"
+	// ChaosBladeDeploymentAnnotation indicates the deployment resource is modified
+	ChaosBladeDeploymentAnnotation = "chaosblade.io/deployment"
+	// ChaosBladeDaemonSetAnnotation indicates the daemonset resource is modified
+	ChaosBladeDaemonSetAnnotation = "chaosblade.io/daemonset"
+	// ChaosBladeStatefulSetAnnotation indicates the statefulset resource is modified
+	ChaosBladeStatefulSetAnnotation = "chaosblade.io/statefulset"
+	// ChaosBladeModifyAction indicates modify action
+	ChaosBladeModifyAction = "modify"
 	// ChaosBladeOriginalAffinityAnnotation stores the original affinity configuration
 	ChaosBladeOriginalAffinityAnnotation = "chaosblade.io/original-affinity"
 	// ChaosBladeOriginalNodeSelectorAnnotation stores the original node selector configuration
@@ -328,7 +334,7 @@ func (d *PodSchedulingFailureActionExecutor) injectDeploymentSchedulingFailure(c
 	if deployment.Annotations == nil {
 		deployment.Annotations = make(map[string]string)
 	}
-	deployment.Annotations[ChaosBladeWorkloadAnnotation] = ChaosBladeSchedulingFailureAction
+	deployment.Annotations[ChaosBladeDeploymentAnnotation] = ChaosBladeModifyAction
 	deployment.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
 	// Backup and inject affinity
@@ -344,7 +350,7 @@ func (d *PodSchedulingFailureActionExecutor) injectDaemonSetSchedulingFailure(ct
 	if daemonset.Annotations == nil {
 		daemonset.Annotations = make(map[string]string)
 	}
-	daemonset.Annotations[ChaosBladeWorkloadAnnotation] = ChaosBladeSchedulingFailureAction
+	daemonset.Annotations[ChaosBladeDaemonSetAnnotation] = ChaosBladeModifyAction
 	daemonset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
 	if err := d.backupAndInjectAffinity(&daemonset.Spec.Template.Spec, daemonset.Annotations, affinityType); err != nil {
@@ -359,7 +365,7 @@ func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(
 	if statefulset.Annotations == nil {
 		statefulset.Annotations = make(map[string]string)
 	}
-	statefulset.Annotations[ChaosBladeWorkloadAnnotation] = ChaosBladeSchedulingFailureAction
+	statefulset.Annotations[ChaosBladeStatefulSetAnnotation] = ChaosBladeModifyAction
 	statefulset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
 	if err := d.backupAndInjectAffinity(&statefulset.Spec.Template.Spec, statefulset.Annotations, affinityType); err != nil {
@@ -503,7 +509,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreDeployment(ctx context.Conte
 	}
 
 	// Clean up annotations
-	delete(deployment.Annotations, ChaosBladeWorkloadAnnotation)
+	delete(deployment.Annotations, ChaosBladeDeploymentAnnotation)
 	delete(deployment.Annotations, ChaosBladeExperimentAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalAffinityAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
@@ -521,7 +527,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreDaemonSet(ctx context.Contex
 		return err
 	}
 
-	delete(daemonset.Annotations, ChaosBladeWorkloadAnnotation)
+	delete(daemonset.Annotations, ChaosBladeDaemonSetAnnotation)
 	delete(daemonset.Annotations, ChaosBladeExperimentAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalAffinityAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
@@ -539,7 +545,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreStatefulSet(ctx context.Cont
 		return err
 	}
 
-	delete(statefulset.Annotations, ChaosBladeWorkloadAnnotation)
+	delete(statefulset.Annotations, ChaosBladeStatefulSetAnnotation)
 	delete(statefulset.Annotations, ChaosBladeExperimentAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalAffinityAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
