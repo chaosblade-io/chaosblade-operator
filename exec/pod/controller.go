@@ -19,6 +19,7 @@ package pod
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -56,12 +57,13 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	// containercreating action creates new resources (PV+PVC+Pod) and does not require
 	// finding existing pods. It only needs the namespace to know where to create them.
 	if expModel.ActionName == "containercreating" {
-		if resp := model.CheckPodFlags(expModel.ActionFlags); !resp.Success {
-			return resp
-		}
+		// Validate namespace: must be specified and only one value
 		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
 		if namespace == "" {
-			namespace = model.DefaultNamespace
+			return spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+		}
+		if strings.Contains(namespace, ",") {
+			return spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
 		}
 		containerObjectMetaList := model.ContainerMatchedList{
 			model.ContainerObjectMeta{
