@@ -288,23 +288,31 @@ func (d *PodContainerCreatingActionExecutor) destroy(uid string, ctx context.Con
 			logrusField.Infof("deleted Pod %s/%s", namespace, podName)
 		}
 
-		// Step 2: Delete PVC (non-critical, warn only on failure)
+		// Step 2: Delete PVC
 		if err := d.deletePVC(ctx, namespace, pvcName); err != nil {
 			if apierrors.IsNotFound(err) {
 				logrusField.Infof("PVC %s/%s already deleted", namespace, pvcName)
 			} else {
 				logrusField.Warningf("delete PVC %s/%s failed: %v", namespace, pvcName, err)
+				status = status.CreateFailResourceStatus(fmt.Sprintf("delete PVC failed: %v", err), spec.K8sExecFailed.Code)
+				statuses = append(statuses, status)
+				allSuccess = false
+				continue
 			}
 		} else {
 			logrusField.Infof("deleted PVC %s/%s", namespace, pvcName)
 		}
 
-		// Step 3: Delete PV (non-critical, warn only on failure)
+		// Step 3: Delete PV
 		if err := d.deletePV(ctx, pvName); err != nil {
 			if apierrors.IsNotFound(err) {
 				logrusField.Infof("PV %s already deleted", pvName)
 			} else {
 				logrusField.Warningf("delete PV %s failed: %v", pvName, err)
+				status = status.CreateFailResourceStatus(fmt.Sprintf("delete PV failed: %v", err), spec.K8sExecFailed.Code)
+				statuses = append(statuses, status)
+				allSuccess = false
+				continue
 			}
 		} else {
 			logrusField.Infof("deleted PV %s", pvName)
