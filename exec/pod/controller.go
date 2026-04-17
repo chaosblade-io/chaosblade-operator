@@ -18,8 +18,6 @@ package pod
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/chaosblade-io/chaosblade-exec-cri/exec/container"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -54,57 +52,21 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 
-	// containercreating action creates new resources (PV+PVC+Pod) and does not require
-	// finding existing pods. It only needs the namespace to know where to create them.
-	if expModel.ActionName == "containercreating" {
-		// Validate namespace: must be specified and only one value
-		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
-		if namespace == "" {
-			return spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+	// Get action spec to check if it implements ActionPreProcessor
+	actionSpec := e.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
+	if actionSpec != nil {
+		if preProcessor, ok := actionSpec.(model.ActionPreProcessor); ok {
+			newCtx, resp := preProcessor.PreCreate(ctx, expModel, e.Client)
+			if resp != nil {
+				return resp
+			}
+			ctx = newCtx
+			logrusField.Infof("creating %s experiment with pre-processing", expModel.ActionName)
+			return e.Exec(ctx, expModel)
 		}
-		if strings.Contains(namespace, ",") {
-			return spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
-		}
-		containerObjectMetaList := model.ContainerMatchedList{
-			model.ContainerObjectMeta{
-				Namespace: namespace,
-				PodName:   fmt.Sprintf("chaosblade-cc-%s-pod", experimentId),
-			},
-		}
-		logrusField.Infof("creating containercreating experiment in namespace %s", namespace)
-		ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
-		return e.Exec(ctx, expModel)
 	}
 
-	// schedulingfailure action modifies workload (Deployment/DaemonSet/StatefulSet) affinity
-	// and does not require finding existing pods. It needs workload-type, workload-name and namespace.
-	if expModel.ActionName == "schedulingfailure" {
-		// Validate required flags
-		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
-		workloadType := expModel.ActionFlags["workload-type"]
-		if workloadType == "" {
-			workloadType = "deployment"
-		}
-		workloadName := expModel.ActionFlags["workload-name"]
-
-		if namespace == "" {
-			return spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
-		}
-		if workloadName == "" {
-			return spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
-		}
-
-		containerObjectMetaList := model.ContainerMatchedList{
-			model.ContainerObjectMeta{
-				Namespace: namespace,
-				PodName:   fmt.Sprintf("chaosblade-sf-%s-%s", workloadType, workloadName),
-			},
-		}
-		logrusField.Infof("creating schedulingfailure experiment for %s/%s in namespace %s", workloadType, workloadName, namespace)
-		ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
-		return e.Exec(ctx, expModel)
-	}
-
+	// Default flow: find matched pods and execute
 	pods, resp := e.GetMatchedPodResources(ctx, *expModel)
 	if !resp.Success {
 		logrusField.Errorf("uid: %s, get matched pod experiment failed, %v", experimentId, resp.Err)

@@ -19,6 +19,7 @@ package pod
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -51,11 +52,12 @@ const (
 
 type PodContainerCreatingActionSpec struct {
 	spec.BaseExpActionCommandSpec
+	client *channel.Client
 }
 
 func NewPodContainerCreatingActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 	return &PodContainerCreatingActionSpec{
-		spec.BaseExpActionCommandSpec{
+		BaseExpActionCommandSpec: spec.BaseExpActionCommandSpec{
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
@@ -72,6 +74,7 @@ blade create k8s pod-pod containercreating --namespace default --volume-mount-pa
 `,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
+		client: client,
 	}
 }
 
@@ -498,4 +501,29 @@ func (d *PodContainerCreatingActionExecutor) deletePV(ctx context.Context, pvNam
 		},
 	}
 	return d.client.Delete(ctx, pv)
+}
+
+// PreCreate implements model.ActionPreProcessor interface.
+// It validates the namespace and prepares the context for containercreating action.
+func (a *PodContainerCreatingActionSpec) PreCreate(ctx context.Context, expModel *spec.ExpModel, client *channel.Client) (context.Context, *spec.Response) {
+	experimentId := model.GetExperimentIdFromContext(ctx)
+
+	// Validate namespace: must be specified and only one value
+	namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+	if namespace == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+	}
+	if strings.Contains(namespace, ",") {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
+	}
+
+	containerObjectMetaList := model.ContainerMatchedList{
+		model.ContainerObjectMeta{
+			Namespace: namespace,
+			PodName:   fmt.Sprintf("chaosblade-cc-%s-pod", experimentId),
+		},
+	}
+
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return ctx, nil
 }

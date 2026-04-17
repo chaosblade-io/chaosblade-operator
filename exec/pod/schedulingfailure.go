@@ -58,11 +58,12 @@ const (
 
 type PodSchedulingFailureActionSpec struct {
 	spec.BaseExpActionCommandSpec
+	client *channel.Client
 }
 
 func NewPodSchedulingFailureActionSpec(client *channel.Client) spec.ExpActionCommandSpec {
 	return &PodSchedulingFailureActionSpec{
-		spec.BaseExpActionCommandSpec{
+		BaseExpActionCommandSpec: spec.BaseExpActionCommandSpec{
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
@@ -87,6 +88,7 @@ blade create k8s pod-pod schedulingfailure --namespace default --workload-type d
 `,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
+		client: client,
 	}
 }
 
@@ -495,6 +497,35 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 	}
 
 	return nil
+}
+
+// PreCreate implements model.ActionPreProcessor interface.
+// It validates the required flags and prepares the context for schedulingfailure action.
+func (a *PodSchedulingFailureActionSpec) PreCreate(ctx context.Context, expModel *spec.ExpModel, client *channel.Client) (context.Context, *spec.Response) {
+	// Validate required flags
+	namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+	workloadType := expModel.ActionFlags["workload-type"]
+	if workloadType == "" {
+		workloadType = "deployment"
+	}
+	workloadName := expModel.ActionFlags["workload-name"]
+
+	if namespace == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+	}
+	if workloadName == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
+	}
+
+	containerObjectMetaList := model.ContainerMatchedList{
+		model.ContainerObjectMeta{
+			Namespace: namespace,
+			PodName:   fmt.Sprintf("chaosblade-sf-%s-%s", workloadType, workloadName),
+		},
+	}
+
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return ctx, nil
 }
 
 // restoreDeployment restores a Deployment's original affinity configuration
