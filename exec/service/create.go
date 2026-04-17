@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -206,6 +207,24 @@ func (d *CreateServiceActionExecutor) destroy(uid string, ctx context.Context, e
 			Id:         meta.Id,
 			Kind:       v1alpha1.ServiceKind,
 			Identifier: fmt.Sprintf("%s/%s", meta.Namespace, meta.ServiceName),
+		}
+
+		svc := &v1.Service{}
+		objectKey := types.NamespacedName{Name: meta.ServiceName, Namespace: meta.Namespace}
+		if err := d.client.Get(context.TODO(), objectKey, svc); err != nil {
+			logrusField.Warningf("get service %s err, %v", meta.ServiceName, err)
+			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
+			statuses = append(statuses, status)
+			continue
+		}
+
+		if _, ok := svc.Annotations[ServiceAnnotation]; !ok {
+			errMsg := fmt.Sprintf("service %s/%s is not created by chaosblade (missing annotation %s), skip delete",
+				meta.Namespace, meta.ServiceName, ServiceAnnotation)
+			logrusField.Warning(errMsg)
+			status = status.CreateFailResourceStatus(errMsg, spec.K8sExecFailed.Code)
+			statuses = append(statuses, status)
+			continue
 		}
 
 		objectMeta := metav1.ObjectMeta{Name: meta.ServiceName, Namespace: meta.Namespace}
