@@ -53,9 +53,12 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 
-	// containercreating action creates new resources (PVC+Pod) and does not require
+	// containercreating action creates new resources (PV+PVC+Pod) and does not require
 	// finding existing pods. It only needs the namespace to know where to create them.
 	if expModel.ActionName == "containercreating" {
+		if resp := model.CheckPodFlags(expModel.ActionFlags); !resp.Success {
+			return resp
+		}
 		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
 		if namespace == "" {
 			namespace = model.DefaultNamespace

@@ -21,21 +21,12 @@ spec:
   - scope: pod
     target: pod
     action: containercreating
-    desc: "Make pod stuck in ContainerCreating state by creating a Pod that mounts a pending PVC"
+    desc: "Make pod stuck in ContainerCreating state by PVC mount failure"
     matchers:
     - name: namespace
       value:
       - "nginx"
-    # Optional: customize PVC parameters
-    # - name: storage-class
-    #   value:
-    #   - "chaosblade-fake-sc"
+    # Optional: customize volume mount path in the container
     # - name: volume-mount-path
     #   value:
     #   - "/mnt/data"
-    # - name: access-mode
-    #   value:
-    #   - "ReadWriteOnce"
-    # - name: storage-request
-    #   value:
-    #   - "1Gi"

@@ -62,11 +62,6 @@ func NewPodContainerCreatingActionSpec(client *channel.Client) spec.ExpActionCom
 					Name: "volume-mount-path",
 					Desc: "Volume mount path in the container. Default: /mnt/data",
 				},
-				&spec.ExpFlag{
-					Name:   "random",
-					Desc:   "Randomly select pod",
-					NoArgs: true,
-				},
 			},
 			ActionExecutor: &PodContainerCreatingActionExecutor{client: client},
 			ActionExample: `# Create a pod stuck in ContainerCreating state in the default namespace
@@ -174,12 +169,24 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 				logrusField.Infof("PVC %s/%s already exists, skip creation", meta.Namespace, pvcName)
 			} else {
 				logrusField.Warningf("create PVC %s/%s failed: %v", meta.Namespace, pvcName, err)
-				// Best-effort rollback: delete the PV we just created
+				// Best-effort rollback: delete the PV we just created.
+				// If rollback fails, the PV will be leaked because we record
+				// a failed status and Destroy only processes successful ones.
+				// To prevent leaks, record success so Destroy will retry cleanup.
+				pvDeleted := true
 				if delErr := d.deletePV(ctx, pvName); delErr != nil {
 					logrusField.Warningf("rollback PV %s failed: %v", pvName, delErr)
+					pvDeleted = false
 				}
-				status = status.CreateFailResourceStatus(fmt.Sprintf("create PVC failed: %v", err), spec.K8sExecFailed.Code)
-				statuses = append(statuses, status)
+				if pvDeleted {
+					status = status.CreateFailResourceStatus(fmt.Sprintf("create PVC failed: %v", err), spec.K8sExecFailed.Code)
+					statuses = append(statuses, status)
+				} else {
+					logrusField.Warningf("rollback incomplete, recording success status to ensure Destroy can clean up")
+					status = status.CreateSuccessResourceStatus()
+					statuses = append(statuses, status)
+					success = true
+				}
 				continue
 			}
 		} else {
@@ -208,12 +215,14 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 				} else {
 					pvcDeleted = true
 				}
+				pvDeleted := true
 				if delErr := d.deletePV(ctx, pvName); delErr != nil {
 					logrusField.Warningf("rollback PV %s failed: %v", pvName, delErr)
+					pvDeleted = false
 				}
 				// If rollback fully succeeded, record failure (no leaked resources).
-				// If rollback failed, record success so Destroy will retry cleanup.
-				if pvcDeleted {
+				// If any rollback step failed, record success so Destroy will retry cleanup.
+				if pvcDeleted && pvDeleted {
 					status = status.CreateFailResourceStatus(fmt.Sprintf("create Pod failed: %v", err), spec.K8sExecFailed.Code)
 					statuses = append(statuses, status)
 				} else {
