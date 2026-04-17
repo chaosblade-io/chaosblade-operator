@@ -197,15 +197,31 @@ func (d *PodContainerCreatingActionExecutor) create(uid string, ctx context.Cont
 				logrusField.Infof("Pod %s/%s already exists, skip creation", meta.Namespace, podName)
 			} else {
 				logrusField.Warningf("create Pod %s/%s failed: %v", meta.Namespace, podName, err)
-				// Best-effort rollback: delete PVC and PV
+				// Best-effort rollback: delete PVC and PV.
+				// If rollback fails, resources will be leaked because we record
+				// a failed status and Destroy only processes successful ones.
+				// To prevent leaks, we still record success so Destroy will
+				// attempt cleanup (destroy is idempotent and handles NotFound).
+				pvcDeleted := false
 				if delErr := d.deletePVC(ctx, meta.Namespace, pvcName); delErr != nil {
 					logrusField.Warningf("rollback PVC %s/%s failed: %v", meta.Namespace, pvcName, delErr)
+				} else {
+					pvcDeleted = true
 				}
 				if delErr := d.deletePV(ctx, pvName); delErr != nil {
 					logrusField.Warningf("rollback PV %s failed: %v", pvName, delErr)
 				}
-				status = status.CreateFailResourceStatus(fmt.Sprintf("create Pod failed: %v", err), spec.K8sExecFailed.Code)
-				statuses = append(statuses, status)
+				// If rollback fully succeeded, record failure (no leaked resources).
+				// If rollback failed, record success so Destroy will retry cleanup.
+				if pvcDeleted {
+					status = status.CreateFailResourceStatus(fmt.Sprintf("create Pod failed: %v", err), spec.K8sExecFailed.Code)
+					statuses = append(statuses, status)
+				} else {
+					logrusField.Warningf("rollback incomplete, recording success status to ensure Destroy can clean up")
+					status = status.CreateSuccessResourceStatus()
+					statuses = append(statuses, status)
+					success = true
+				}
 				continue
 			}
 		} else {
