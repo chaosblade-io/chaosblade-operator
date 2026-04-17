@@ -76,6 +76,35 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		return e.Exec(ctx, expModel)
 	}
 
+	// schedulingfailure action modifies workload (Deployment/DaemonSet/StatefulSet) affinity
+	// and does not require finding existing pods. It needs workload-type, workload-name and namespace.
+	if expModel.ActionName == "schedulingfailure" {
+		// Validate required flags
+		namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+		workloadType := expModel.ActionFlags["workload-type"]
+		if workloadType == "" {
+			workloadType = "deployment"
+		}
+		workloadName := expModel.ActionFlags["workload-name"]
+
+		if namespace == "" {
+			return spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+		}
+		if workloadName == "" {
+			return spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
+		}
+
+		containerObjectMetaList := model.ContainerMatchedList{
+			model.ContainerObjectMeta{
+				Namespace: namespace,
+				PodName:   fmt.Sprintf("chaosblade-sf-%s-%s", workloadType, workloadName),
+			},
+		}
+		logrusField.Infof("creating schedulingfailure experiment for %s/%s in namespace %s", workloadType, workloadName, namespace)
+		ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+		return e.Exec(ctx, expModel)
+	}
+
 	pods, resp := e.GetMatchedPodResources(ctx, *expModel)
 	if !resp.Success {
 		logrusField.Errorf("uid: %s, get matched pod experiment failed, %v", experimentId, resp.Err)

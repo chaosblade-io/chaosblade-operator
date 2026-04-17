@@ -232,6 +232,14 @@ blade create k8s pod-pod containercreating --namespace default --kubeconfig ~/.k
 
 # Create a pod stuck in ContainerCreating state with custom volume mount path
 blade create k8s pod-pod containercreating --namespace default --volume-mount-path /data --kubeconfig ~/.kube/config`)
+			case *PodSchedulingFailureActionSpec:
+				action.SetLongDesc("Make pod scheduling fail by injecting unreachable affinity rules to the target workload (Deployment/DaemonSet/StatefulSet). The scheduler will not find any node matching the rules, causing the Pod to remain in Pending state.")
+				action.SetExample(
+					`# Inject scheduling failure to a deployment by node affinity
+blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --kubeconfig ~/.kube/config
+
+# Inject scheduling failure using node-selector
+blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --affinity-type node-selector --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
@@ -270,6 +278,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewFailPodActionSpec(client),
 				NewPodTerminatingActionSpec(client),
 				NewPodContainerCreatingActionSpec(client),
+				NewPodSchedulingFailureActionSpec(client),
 			},
 		},
 	}
