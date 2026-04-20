@@ -17,7 +17,7 @@
 # injected unreachable affinity rules.
 #
 # Prerequisites:
-# - A deployment named "nginx-deployment" should exist in the target namespace
+# - A deployment named "nginx-sf-test" should exist in the target namespace
 # - The operator should have RBAC permissions to get/update deployments
 
 apiVersion: chaosblade.io/v1alpha1

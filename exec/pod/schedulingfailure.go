@@ -53,6 +53,8 @@ const (
 	ChaosBladeOriginalPodAntiAffinityAnnotation = "chaosblade.io/original-pod-anti-affinity"
 	// ChaosBladeOriginalNodeSelectorAnnotation stores the original node selector configuration
 	ChaosBladeOriginalNodeSelectorAnnotation = "chaosblade.io/original-nodeselector"
+	// ChaosBladeAffinityTypeAnnotation records which affinity type was injected
+	ChaosBladeAffinityTypeAnnotation = "chaosblade.io/affinity-type"
 	// ChaosBladeSchedulingFailureAction indicates scheduling failure action
 	ChaosBladeSchedulingFailureAction = "schedulingfailure"
 	// UnreachableNodeLabel is a label that no node will have
@@ -378,6 +380,8 @@ func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(
 // backupAndInjectAffinity backs up original affinity and injects unreachable affinity rules
 // podLabels is used by pod-anti-affinity to target the workload's own labels
 func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1.PodSpec, annotations map[string]string, affinityType string, podLabels map[string]string) error {
+	annotations[ChaosBladeAffinityTypeAnnotation] = affinityType
+
 	switch affinityType {
 	case "node-affinity":
 		// Backup original affinity
@@ -573,6 +577,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreDeployment(ctx context.Conte
 	// Clean up annotations
 	delete(deployment.Annotations, ChaosBladeDeploymentAnnotation)
 	delete(deployment.Annotations, ChaosBladeExperimentAnnotation)
+	delete(deployment.Annotations, ChaosBladeAffinityTypeAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
@@ -593,6 +598,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreDaemonSet(ctx context.Contex
 
 	delete(daemonset.Annotations, ChaosBladeDaemonSetAnnotation)
 	delete(daemonset.Annotations, ChaosBladeExperimentAnnotation)
+	delete(daemonset.Annotations, ChaosBladeAffinityTypeAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
@@ -613,6 +619,7 @@ func (d *PodSchedulingFailureActionExecutor) restoreStatefulSet(ctx context.Cont
 
 	delete(statefulset.Annotations, ChaosBladeStatefulSetAnnotation)
 	delete(statefulset.Annotations, ChaosBladeExperimentAnnotation)
+	delete(statefulset.Annotations, ChaosBladeAffinityTypeAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
@@ -621,57 +628,77 @@ func (d *PodSchedulingFailureActionExecutor) restoreStatefulSet(ctx context.Cont
 	return d.client.Update(ctx, statefulset)
 }
 
-// restoreAffinity restores the original affinity configuration from annotations
+// restoreAffinity restores only the affinity field that was modified during injection.
+// It uses the ChaosBladeAffinityTypeAnnotation to determine which field to restore,
+// avoiding unintentional clearing of pre-existing affinity/selector settings.
 func (d *PodSchedulingFailureActionExecutor) restoreAffinity(podSpec *v1.PodSpec, annotations map[string]string) error {
-	// Restore node affinity
-	if originalNodeAffinityStr, ok := annotations[ChaosBladeOriginalNodeAffinityAnnotation]; ok {
-		var nodeAffinity v1.NodeAffinity
-		if err := json.Unmarshal([]byte(originalNodeAffinityStr), &nodeAffinity); err != nil {
-			return fmt.Errorf("unmarshal original node affinity failed: %v", err)
-		}
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = &v1.Affinity{}
-		}
-		podSpec.Affinity.NodeAffinity = &nodeAffinity
-	} else {
-		// No backup means there was no original node affinity, clear injected one
-		if podSpec.Affinity != nil {
-			podSpec.Affinity.NodeAffinity = nil
-		}
+	affinityType := annotations[ChaosBladeAffinityTypeAnnotation]
+	if affinityType == "" {
+		return fmt.Errorf("affinity type annotation not found, cannot determine which field to restore")
 	}
 
-	// Restore pod affinity
-	if originalPodAffinityStr, ok := annotations[ChaosBladeOriginalPodAffinityAnnotation]; ok {
-		var podAffinity v1.PodAffinity
-		if err := json.Unmarshal([]byte(originalPodAffinityStr), &podAffinity); err != nil {
-			return fmt.Errorf("unmarshal original pod affinity failed: %v", err)
+	switch affinityType {
+	case "node-affinity":
+		if originalNodeAffinityStr, ok := annotations[ChaosBladeOriginalNodeAffinityAnnotation]; ok {
+			var nodeAffinity v1.NodeAffinity
+			if err := json.Unmarshal([]byte(originalNodeAffinityStr), &nodeAffinity); err != nil {
+				return fmt.Errorf("unmarshal original node affinity failed: %v", err)
+			}
+			if podSpec.Affinity == nil {
+				podSpec.Affinity = &v1.Affinity{}
+			}
+			podSpec.Affinity.NodeAffinity = &nodeAffinity
+		} else {
+			if podSpec.Affinity != nil {
+				podSpec.Affinity.NodeAffinity = nil
+			}
 		}
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = &v1.Affinity{}
-		}
-		podSpec.Affinity.PodAffinity = &podAffinity
-	} else {
-		// No backup means there was no original pod affinity, clear injected one
-		if podSpec.Affinity != nil {
-			podSpec.Affinity.PodAffinity = nil
-		}
-	}
 
-	// Restore pod anti-affinity
-	if originalPodAntiAffinityStr, ok := annotations[ChaosBladeOriginalPodAntiAffinityAnnotation]; ok {
-		var podAntiAffinity v1.PodAntiAffinity
-		if err := json.Unmarshal([]byte(originalPodAntiAffinityStr), &podAntiAffinity); err != nil {
-			return fmt.Errorf("unmarshal original pod anti-affinity failed: %v", err)
+	case "pod-affinity":
+		if originalPodAffinityStr, ok := annotations[ChaosBladeOriginalPodAffinityAnnotation]; ok {
+			var podAffinity v1.PodAffinity
+			if err := json.Unmarshal([]byte(originalPodAffinityStr), &podAffinity); err != nil {
+				return fmt.Errorf("unmarshal original pod affinity failed: %v", err)
+			}
+			if podSpec.Affinity == nil {
+				podSpec.Affinity = &v1.Affinity{}
+			}
+			podSpec.Affinity.PodAffinity = &podAffinity
+		} else {
+			if podSpec.Affinity != nil {
+				podSpec.Affinity.PodAffinity = nil
+			}
 		}
-		if podSpec.Affinity == nil {
-			podSpec.Affinity = &v1.Affinity{}
+
+	case "pod-anti-affinity":
+		if originalPodAntiAffinityStr, ok := annotations[ChaosBladeOriginalPodAntiAffinityAnnotation]; ok {
+			var podAntiAffinity v1.PodAntiAffinity
+			if err := json.Unmarshal([]byte(originalPodAntiAffinityStr), &podAntiAffinity); err != nil {
+				return fmt.Errorf("unmarshal original pod anti-affinity failed: %v", err)
+			}
+			if podSpec.Affinity == nil {
+				podSpec.Affinity = &v1.Affinity{}
+			}
+			podSpec.Affinity.PodAntiAffinity = &podAntiAffinity
+		} else {
+			if podSpec.Affinity != nil {
+				podSpec.Affinity.PodAntiAffinity = nil
+			}
 		}
-		podSpec.Affinity.PodAntiAffinity = &podAntiAffinity
-	} else {
-		// No backup means there was no original pod anti-affinity, clear injected one
-		if podSpec.Affinity != nil {
-			podSpec.Affinity.PodAntiAffinity = nil
+
+	case "node-selector":
+		if originalNodeSelectorStr, ok := annotations[ChaosBladeOriginalNodeSelectorAnnotation]; ok {
+			var originalNodeSelector map[string]string
+			if err := json.Unmarshal([]byte(originalNodeSelectorStr), &originalNodeSelector); err != nil {
+				return fmt.Errorf("unmarshal original node selector failed: %v", err)
+			}
+			podSpec.NodeSelector = originalNodeSelector
+		} else {
+			podSpec.NodeSelector = nil
 		}
+
+	default:
+		return fmt.Errorf("unknown affinity type in annotation: %s", affinityType)
 	}
 
 	// Clean up empty Affinity struct
@@ -680,18 +707,6 @@ func (d *PodSchedulingFailureActionExecutor) restoreAffinity(podSpec *v1.PodSpec
 		podSpec.Affinity.PodAffinity == nil &&
 		podSpec.Affinity.PodAntiAffinity == nil {
 		podSpec.Affinity = nil
-	}
-
-	// Restore node selector
-	if originalNodeSelectorStr, ok := annotations[ChaosBladeOriginalNodeSelectorAnnotation]; ok {
-		var originalNodeSelector map[string]string
-		if err := json.Unmarshal([]byte(originalNodeSelectorStr), &originalNodeSelector); err != nil {
-			return fmt.Errorf("unmarshal original node selector failed: %v", err)
-		}
-		podSpec.NodeSelector = originalNodeSelector
-	} else {
-		// No backup means there was no original node selector, clear injected one
-		podSpec.NodeSelector = nil
 	}
 
 	return nil

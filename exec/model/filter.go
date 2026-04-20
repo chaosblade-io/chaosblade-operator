@@ -29,7 +29,7 @@ import (
 
 func GetOneAvailableContainerIdFromPod(pod v1.Pod) (containerId, containerName, runtime string, err error) {
 	containerStatuses := pod.Status.ContainerStatuses
-	if containerStatuses == nil || len(containerStatuses) == 0 {
+	if len(containerStatuses) == 0 {
 		return "", "", "", fmt.Errorf("the container statues is empty in %s pod", pod.Name)
 	}
 	for _, containerStatus := range containerStatuses {
