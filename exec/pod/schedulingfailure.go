@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -330,11 +331,23 @@ func (d *PodSchedulingFailureActionExecutor) destroy(uid string, ctx context.Con
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
 }
 
+// ensureNoConflictingExperiment checks whether the workload is already modified by
+// another chaosblade experiment. This prevents overwriting backup data from a
+// running experiment, which would make the workload unrecoverable on destroy.
+func ensureNoConflictingExperiment(annotations map[string]string, experimentId string) error {
+	if existingId, ok := annotations[ChaosBladeExperimentAnnotation]; ok && existingId != "" && existingId != experimentId {
+		return fmt.Errorf("workload is already modified by another chaosblade experiment: %s", existingId)
+	}
+	return nil
+}
+
 // injectDeploymentSchedulingFailure injects scheduling failure to a Deployment
 func (d *PodSchedulingFailureActionExecutor) injectDeploymentSchedulingFailure(ctx context.Context, deployment *appsv1.Deployment, affinityType, experimentId string) error {
-	// Backup original configuration
 	if deployment.Annotations == nil {
 		deployment.Annotations = make(map[string]string)
+	}
+	if err := ensureNoConflictingExperiment(deployment.Annotations, experimentId); err != nil {
+		return err
 	}
 	deployment.Annotations[ChaosBladeDeploymentAnnotation] = ChaosBladeModifyAction
 	deployment.Annotations[ChaosBladeExperimentAnnotation] = experimentId
@@ -352,6 +365,9 @@ func (d *PodSchedulingFailureActionExecutor) injectDaemonSetSchedulingFailure(ct
 	if daemonset.Annotations == nil {
 		daemonset.Annotations = make(map[string]string)
 	}
+	if err := ensureNoConflictingExperiment(daemonset.Annotations, experimentId); err != nil {
+		return err
+	}
 	daemonset.Annotations[ChaosBladeDaemonSetAnnotation] = ChaosBladeModifyAction
 	daemonset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
@@ -366,6 +382,9 @@ func (d *PodSchedulingFailureActionExecutor) injectDaemonSetSchedulingFailure(ct
 func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(ctx context.Context, statefulset *appsv1.StatefulSet, affinityType, experimentId string) error {
 	if statefulset.Annotations == nil {
 		statefulset.Annotations = make(map[string]string)
+	}
+	if err := ensureNoConflictingExperiment(statefulset.Annotations, experimentId); err != nil {
+		return err
 	}
 	statefulset.Annotations[ChaosBladeStatefulSetAnnotation] = ChaosBladeModifyAction
 	statefulset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
@@ -478,10 +497,11 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 		// on nodes that already have a pod with the same labels.
 		// With enough replicas (> number of available nodes), pods will be Pending.
 		var matchExpressions []metav1.LabelSelectorRequirement
-		for key := range podLabels {
+		for key, value := range podLabels {
 			matchExpressions = append(matchExpressions, metav1.LabelSelectorRequirement{
 				Key:      key,
-				Operator: metav1.LabelSelectorOpExists,
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{value},
 			})
 		}
 		if len(matchExpressions) == 0 {
@@ -525,6 +545,9 @@ func (a *PodSchedulingFailureActionSpec) PreCreate(ctx context.Context, expModel
 	if namespace == "" {
 		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
 	}
+	if strings.Contains(namespace, ",") {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
+	}
 	if workloadName == "" {
 		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
 	}
@@ -551,6 +574,16 @@ func (a *PodSchedulingFailureActionSpec) PreDestroy(ctx context.Context, expMode
 		workloadType = "deployment"
 	}
 	workloadName := expModel.ActionFlags["workload-name"]
+
+	if namespace == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+	}
+	if strings.Contains(namespace, ",") {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
+	}
+	if workloadName == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
+	}
 
 	containerObjectMetaList := model.ContainerMatchedList{
 		model.ContainerObjectMeta{
