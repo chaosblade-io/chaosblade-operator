@@ -23,6 +23,7 @@ import (
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
 // ActionPreProcessor defines the interface for action-specific pre-processing
@@ -34,6 +35,11 @@ type ActionPreProcessor interface {
 	// if validation fails or early return is needed.
 	// If Response is nil, the main flow continues with the returned context.
 	PreCreate(ctx context.Context, expModel *spec.ExpModel, client *channel.Client) (context.Context, *spec.Response)
+	// PreDestroy is called before the main destroy flow.
+	// Returns a modified context for downstream processing, or a Response
+	// if validation fails or early return is needed.
+	// If Response is nil, the main flow continues with the returned context.
+	PreDestroy(ctx context.Context, expModel *spec.ExpModel, client *channel.Client, oldExpStatus v1alpha1.ExperimentStatus) (context.Context, *spec.Response)
 }
 
 // ResourceExpModelSpec contains node, pod, container

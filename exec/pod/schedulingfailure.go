@@ -338,7 +338,7 @@ func (d *PodSchedulingFailureActionExecutor) injectDeploymentSchedulingFailure(c
 	deployment.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
 	// Backup and inject affinity
-	if err := d.backupAndInjectAffinity(&deployment.Spec.Template.Spec, deployment.Annotations, affinityType); err != nil {
+	if err := d.backupAndInjectAffinity(&deployment.Spec.Template.Spec, deployment.Annotations, affinityType, deployment.Spec.Template.Labels); err != nil {
 		return err
 	}
 
@@ -353,7 +353,7 @@ func (d *PodSchedulingFailureActionExecutor) injectDaemonSetSchedulingFailure(ct
 	daemonset.Annotations[ChaosBladeDaemonSetAnnotation] = ChaosBladeModifyAction
 	daemonset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
-	if err := d.backupAndInjectAffinity(&daemonset.Spec.Template.Spec, daemonset.Annotations, affinityType); err != nil {
+	if err := d.backupAndInjectAffinity(&daemonset.Spec.Template.Spec, daemonset.Annotations, affinityType, daemonset.Spec.Template.Labels); err != nil {
 		return err
 	}
 
@@ -368,7 +368,7 @@ func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(
 	statefulset.Annotations[ChaosBladeStatefulSetAnnotation] = ChaosBladeModifyAction
 	statefulset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
-	if err := d.backupAndInjectAffinity(&statefulset.Spec.Template.Spec, statefulset.Annotations, affinityType); err != nil {
+	if err := d.backupAndInjectAffinity(&statefulset.Spec.Template.Spec, statefulset.Annotations, affinityType, statefulset.Spec.Template.Labels); err != nil {
 		return err
 	}
 
@@ -376,7 +376,8 @@ func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(
 }
 
 // backupAndInjectAffinity backs up original affinity and injects unreachable affinity rules
-func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1.PodSpec, annotations map[string]string, affinityType string) error {
+// podLabels is used by pod-anti-affinity to target the workload's own labels
+func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1.PodSpec, annotations map[string]string, affinityType string, podLabels map[string]string) error {
 	switch affinityType {
 	case "node-affinity":
 		// Backup original affinity
@@ -412,7 +413,7 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 
 	case "node-selector":
 		// Backup original node selector
-		if podSpec.NodeSelector != nil && len(podSpec.NodeSelector) > 0 {
+		if len(podSpec.NodeSelector) > 0 {
 			originalBytes, err := json.Marshal(podSpec.NodeSelector)
 			if err != nil {
 				return fmt.Errorf("marshal original node selector failed: %v", err)
@@ -468,17 +469,26 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 			annotations[ChaosBladeOriginalPodAntiAffinityAnnotation] = string(originalBytes)
 		}
 
-		// Inject unreachable pod anti-affinity (this will block scheduling on any node)
+		// Inject pod anti-affinity against the workload's own labels
+		// This creates a "one pod per node" constraint: new pods can't be scheduled
+		// on nodes that already have a pod with the same labels.
+		// With enough replicas (> number of available nodes), pods will be Pending.
+		var matchExpressions []metav1.LabelSelectorRequirement
+		for key := range podLabels {
+			matchExpressions = append(matchExpressions, metav1.LabelSelectorRequirement{
+				Key:      key,
+				Operator: metav1.LabelSelectorOpExists,
+			})
+		}
+		if len(matchExpressions) == 0 {
+			return fmt.Errorf("pod template has no labels, cannot inject pod-anti-affinity")
+		}
+
 		unreachablePodAntiAffinity := &v1.PodAntiAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
 				{
 					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{
-								Key:      "kubernetes.io/hostname",
-								Operator: metav1.LabelSelectorOpExists,
-							},
-						},
+						MatchExpressions: matchExpressions,
 					},
 					TopologyKey: "kubernetes.io/hostname",
 				},
@@ -514,6 +524,29 @@ func (a *PodSchedulingFailureActionSpec) PreCreate(ctx context.Context, expModel
 	if workloadName == "" {
 		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, "workload-name")
 	}
+
+	containerObjectMetaList := model.ContainerMatchedList{
+		model.ContainerObjectMeta{
+			Namespace: namespace,
+			PodName:   fmt.Sprintf("chaosblade-sf-%s-%s", workloadType, workloadName),
+		},
+	}
+
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return ctx, nil
+}
+
+// PreDestroy implements model.ActionPreProcessor interface.
+// It prepares the context for schedulingfailure destroy flow.
+// Unlike the default destroy path, it always attempts to restore the workload
+// regardless of the old experiment status.
+func (a *PodSchedulingFailureActionSpec) PreDestroy(ctx context.Context, expModel *spec.ExpModel, client *channel.Client, oldExpStatus v1alpha1.ExperimentStatus) (context.Context, *spec.Response) {
+	namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+	workloadType := expModel.ActionFlags["workload-type"]
+	if workloadType == "" {
+		workloadType = "deployment"
+	}
+	workloadName := expModel.ActionFlags["workload-name"]
 
 	containerObjectMetaList := model.ContainerMatchedList{
 		model.ContainerObjectMeta{

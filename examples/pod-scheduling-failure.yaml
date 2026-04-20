@@ -33,13 +33,16 @@ spec:
     matchers:
     - name: namespace
       value:
-      - "default"
+      - "nginx"
     - name: workload-type
       value:
       - "deployment"
     - name: workload-name
       value:
-      - "nginx-deployment"
+      - "nginx-sf-test"
+    - name: affinity-type
+      value:
+      - "node-affinity"
     # Optional: specify affinity type
     # Supported values: node-affinity (default), node-selector, pod-affinity, pod-anti-affinity
     # - name: affinity-type

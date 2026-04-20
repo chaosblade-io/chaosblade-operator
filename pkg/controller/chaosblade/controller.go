@@ -200,17 +200,25 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 	// Destroyed->delete
 	// Remove the Finalizer if the CR object status is destroyed to delete it
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroyed {
-		cb.SetFinalizers(remove(cb.GetFinalizers(), chaosbladeFinalizer))
-		err := r.client.Update(ctx, cb)
+		// Re-fetch the CR to avoid conflict
+		latestCb := &v1alpha1.ChaosBlade{}
+		if err := r.client.Get(ctx, request.NamespacedName, latestCb); err != nil {
+			reqLogger.WithError(err).Errorln("re-fetch chaosblade failed before removing finalizer")
+			return reconcile.Result{}, err
+		}
+		latestCb.SetFinalizers(remove(latestCb.GetFinalizers(), chaosbladeFinalizer))
+		err := r.client.Update(ctx, latestCb)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("remove chaosblade finalizer failed at destroyed phase")
+			return reconcile.Result{}, err
 		}
 		return forget, nil
 	}
 	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroying || cb.GetDeletionTimestamp() != nil {
-		err := r.finalizeChaosBlade(ctx, reqLogger, cb)
+		err := r.finalizeChaosBlade(ctx, reqLogger, cb, request.NamespacedName)
 		if err != nil {
 			reqLogger.WithError(err).Errorln("finalize chaosblade failed at destroying phase")
+			return reconcile.Result{}, err
 		}
 		return forget, nil
 	}
@@ -221,12 +229,14 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 			cb.Status.ExpStatuses = make([]v1alpha1.ExperimentStatus, 0)
 			if err := r.client.Status().Update(ctx, cb); err != nil {
 				reqLogger.WithError(err).Errorln("update chaosblade phase to Initialized failed")
+				return reconcile.Result{}, err
 			}
 		} else {
 			cb.SetFinalizers(append(cb.GetFinalizers(), chaosbladeFinalizer))
 			// Update CR
 			if err := r.client.Update(ctx, cb); err != nil {
 				reqLogger.WithError(err).Errorln("add finalizer to chaosblade failed")
+				return reconcile.Result{}, err
 			}
 		}
 		return forget, nil
@@ -245,10 +255,17 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 			}
 			expStatusList = append(expStatusList, experimentStatus)
 		}
-		cb.Status.ExpStatuses = expStatusList
-		cb.Status.Phase = phase
-		if err := r.client.Status().Update(ctx, cb); err != nil {
-			reqLogger.WithError(err).Errorf("Important!!!!!update phase from %s to %s failed", originalPhase, phase)
+		// Re-fetch the CR to avoid conflict
+		latestCb := &v1alpha1.ChaosBlade{}
+		if err := r.client.Get(ctx, request.NamespacedName, latestCb); err != nil {
+			reqLogger.WithError(err).Errorln("re-fetch chaosblade failed before status update")
+			return reconcile.Result{}, err
+		}
+		latestCb.Status.ExpStatuses = expStatusList
+		latestCb.Status.Phase = phase
+		if err := r.client.Status().Update(ctx, latestCb); err != nil {
+			reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
+			return reconcile.Result{}, err
 		}
 		return forget, nil
 	}
@@ -293,7 +310,7 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 }
 
 // finalizeChaosBlade
-func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade) error {
+func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger *logrus.Entry, cb *v1alpha1.ChaosBlade, namespacedName types.NamespacedName) error {
 	phase := v1alpha1.ClusterPhaseDestroyed
 	reqLogger.Infoln("Finalize the chaosblade")
 	if cb.Status.ExpStatuses != nil &&
@@ -307,12 +324,18 @@ func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger 
 			cb.Status.ExpStatuses[idx] = oldExpStatus
 		}
 	}
-	cb.Status.Phase = phase
-	err := r.client.Status().Update(ctx, cb)
+	// Re-fetch the CR to avoid conflict
+	latestCb := &v1alpha1.ChaosBlade{}
+	if err := r.client.Get(ctx, namespacedName, latestCb); err != nil {
+		return fmt.Errorf("re-fetch chaosblade failed in finalize phase, %v", err)
+	}
+	latestCb.Status.ExpStatuses = cb.Status.ExpStatuses
+	latestCb.Status.Phase = phase
+	err := r.client.Status().Update(ctx, latestCb)
 	if err != nil {
 		return fmt.Errorf("update chaosblade status failed in finalize phase, %v", err)
 	}
-	if cb.Status.Phase == v1alpha1.ClusterPhaseDestroying {
+	if phase == v1alpha1.ClusterPhaseDestroying {
 		return fmt.Errorf("failed to destory, please see the experiment status")
 	}
 	reqLogger.Info("Successfully finalized chaosblade")

@@ -29,6 +29,7 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,6 +155,7 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 	scheme := apiruntime.NewScheme()
 	runtimeutil.Must(metav1.AddMetaToScheme(scheme))
 	runtimeutil.Must(corev1.AddToScheme(scheme))
+	runtimeutil.Must(appsv1.AddToScheme(scheme))
 	runtimeutil.Must(apis.AddToScheme(scheme))
 	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {

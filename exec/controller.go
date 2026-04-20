@@ -91,7 +91,9 @@ func (e *ResourceDispatchedController) Destroy(bladeName string, expSpec v1alpha
 	}
 	if oldExpStatus.ResStatuses == nil ||
 		len(oldExpStatus.ResStatuses) == 0 {
-		return model.CreateDestroyedStatus(oldExpStatus)
+		// Still attempt to destroy - the action may have succeeded but status wasn't recorded
+		// (e.g., due to status update conflict). The action's destroy logic should handle
+		// the case where the resource was never modified.
 	}
 	ctx := spec.SetDestroyFlag(context.Background(), bladeName)
 	ctx = model.SetExperimentIdToContext(ctx, bladeName)

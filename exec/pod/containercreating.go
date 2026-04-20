@@ -527,3 +527,20 @@ func (a *PodContainerCreatingActionSpec) PreCreate(ctx context.Context, expModel
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return ctx, nil
 }
+
+// PreDestroy implements model.ActionPreProcessor interface.
+// It prepares the context for containercreating destroy flow.
+func (a *PodContainerCreatingActionSpec) PreDestroy(ctx context.Context, expModel *spec.ExpModel, client *channel.Client, oldExpStatus v1alpha1.ExperimentStatus) (context.Context, *spec.Response) {
+	experimentId := model.GetExperimentIdFromContext(ctx)
+	namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+
+	containerObjectMetaList := model.ContainerMatchedList{
+		model.ContainerObjectMeta{
+			Namespace: namespace,
+			PodName:   fmt.Sprintf("chaosblade-cc-%s-pod", experimentId),
+		},
+	}
+
+	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
+	return ctx, nil
+}

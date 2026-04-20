@@ -84,8 +84,24 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 }
 
 func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.ExperimentSpec, oldExpStatus v1alpha1.ExperimentStatus) *spec.Response {
-	logrus.WithField("experiment", model.GetExperimentIdFromContext(ctx)).Infoln("start to destroy")
 	expModel := model.ExtractExpModelFromExperimentSpec(expSpec)
+	experimentId := model.GetExperimentIdFromContext(ctx)
+	logrus.WithField("experiment", experimentId).Infoln("start to destroy")
+
+	// Check if action implements ActionPreProcessor - use the same path as Create
+	actionSpec := e.ResourceModelSpec.GetExpActionModelSpec(expModel.Target, expModel.ActionName)
+	if actionSpec != nil {
+		if preProcessor, ok := actionSpec.(model.ActionPreProcessor); ok {
+			newCtx, resp := preProcessor.PreDestroy(ctx, expModel, e.Client, oldExpStatus)
+			if resp != nil {
+				return resp
+			}
+			ctx = newCtx
+			return e.Exec(ctx, expModel)
+		}
+	}
+
+	// Default flow: find matched containers and destroy
 	statuses := oldExpStatus.ResStatuses
 	if statuses == nil {
 		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{}))
