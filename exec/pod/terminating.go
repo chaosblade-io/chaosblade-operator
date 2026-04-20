@@ -46,13 +46,7 @@ func NewPodTerminatingActionSpec(client *channel.Client) spec.ExpActionCommandSp
 	return &PodTerminatingActionSpec{
 		spec.BaseExpActionCommandSpec{
 			ActionMatchers: []spec.ExpFlagSpec{},
-			ActionFlags: []spec.ExpFlagSpec{
-				&spec.ExpFlag{
-					Name:   "random",
-					Desc:   "Randomly select pod",
-					NoArgs: true,
-				},
-			},
+			ActionFlags:    []spec.ExpFlagSpec{},
 			ActionExecutor: &PodTerminatingActionExecutor{client: client},
 			ActionExample: `# Make the pod stuck in Terminating state in the default namespace
 blade create k8s pod-pod terminating --names nginx-app --namespace default --kubeconfig ~/.kube/config
@@ -132,10 +126,9 @@ func (d *PodTerminatingActionExecutor) create(uid string, ctx context.Context, e
 
 		// Skip if pod is already being deleted
 		if pod.DeletionTimestamp != nil {
-			logrusField.Infof("pod %s/%s is already terminating, skip", meta.Namespace, meta.PodName)
-			status = status.CreateSuccessResourceStatus()
+			logrusField.Warningf("pod %s/%s is already terminating, cannot inject fault", meta.Namespace, meta.PodName)
+			status = status.CreateFailResourceStatus("pod is already in Terminating state, no fault injected", spec.K8sExecFailed.Code)
 			statuses = append(statuses, status)
-			success = true
 			continue
 		}
 

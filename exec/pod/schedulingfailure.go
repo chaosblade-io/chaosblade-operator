@@ -45,8 +45,12 @@ const (
 	ChaosBladeStatefulSetAnnotation = "chaosblade.io/statefulset"
 	// ChaosBladeModifyAction indicates modify action
 	ChaosBladeModifyAction = "modify"
-	// ChaosBladeOriginalAffinityAnnotation stores the original affinity configuration
-	ChaosBladeOriginalAffinityAnnotation = "chaosblade.io/original-affinity"
+	// ChaosBladeOriginalNodeAffinityAnnotation stores the original node affinity configuration
+	ChaosBladeOriginalNodeAffinityAnnotation = "chaosblade.io/original-node-affinity"
+	// ChaosBladeOriginalPodAffinityAnnotation stores the original pod affinity configuration
+	ChaosBladeOriginalPodAffinityAnnotation = "chaosblade.io/original-pod-affinity"
+	// ChaosBladeOriginalPodAntiAffinityAnnotation stores the original pod anti-affinity configuration
+	ChaosBladeOriginalPodAntiAffinityAnnotation = "chaosblade.io/original-pod-anti-affinity"
 	// ChaosBladeOriginalNodeSelectorAnnotation stores the original node selector configuration
 	ChaosBladeOriginalNodeSelectorAnnotation = "chaosblade.io/original-nodeselector"
 	// ChaosBladeSchedulingFailureAction indicates scheduling failure action
@@ -235,6 +239,24 @@ func (d *PodSchedulingFailureActionExecutor) create(uid string, ctx context.Cont
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{status}))
 }
 
+// handleGetError handles errors from client.Get operations in destroy.
+// Returns true if the error was handled (NotFound or other error), false otherwise.
+// When returning true, the response pointer is set with the appropriate status.
+func handleGetError(err error, namespace, workloadType, workloadName string, status *v1alpha1.ResourceStatus, logrusField *logrus.Entry) (*spec.Response, bool) {
+	if err == nil {
+		return nil, false
+	}
+	if apierrors.IsNotFound(err) {
+		logrusField.Infof("%s %s/%s already deleted", workloadType, namespace, workloadName)
+		*status = status.CreateSuccessResourceStatus()
+		status.State = v1alpha1.DestroyedState
+		return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{*status})), true
+	}
+	logrusField.Warningf("get %s %s/%s failed: %v", workloadType, namespace, workloadName, err)
+	*status = status.CreateFailResourceStatus(fmt.Sprintf("get %s failed: %v", workloadType, err), spec.K8sExecFailed.Code)
+	return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus(status.Error, []v1alpha1.ResourceStatus{*status})), true
+}
+
 func (d *PodSchedulingFailureActionExecutor) destroy(uid string, ctx context.Context, expModel *spec.ExpModel) *spec.Response {
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
@@ -257,16 +279,8 @@ func (d *PodSchedulingFailureActionExecutor) destroy(uid string, ctx context.Con
 	case "deployment":
 		deployment := &appsv1.Deployment{}
 		err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: workloadName}, deployment)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logrusField.Infof("deployment %s/%s already deleted", namespace, workloadName)
-				status = status.CreateSuccessResourceStatus()
-				status.State = v1alpha1.DestroyedState
-				return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
-			}
-			logrusField.Warningf("get deployment %s/%s failed: %v", namespace, workloadName, err)
-			status = status.CreateFailResourceStatus(fmt.Sprintf("get deployment failed: %v", err), spec.K8sExecFailed.Code)
-			return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus(status.Error, []v1alpha1.ResourceStatus{status}))
+		if resp, handled := handleGetError(err, namespace, workloadType, workloadName, &status, logrusField); handled {
+			return resp
 		}
 
 		if err := d.restoreDeployment(ctx, deployment, experimentId); err != nil {
@@ -279,16 +293,8 @@ func (d *PodSchedulingFailureActionExecutor) destroy(uid string, ctx context.Con
 	case "daemonset":
 		daemonset := &appsv1.DaemonSet{}
 		err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: workloadName}, daemonset)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logrusField.Infof("daemonset %s/%s already deleted", namespace, workloadName)
-				status = status.CreateSuccessResourceStatus()
-				status.State = v1alpha1.DestroyedState
-				return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
-			}
-			logrusField.Warningf("get daemonset %s/%s failed: %v", namespace, workloadName, err)
-			status = status.CreateFailResourceStatus(fmt.Sprintf("get daemonset failed: %v", err), spec.K8sExecFailed.Code)
-			return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus(status.Error, []v1alpha1.ResourceStatus{status}))
+		if resp, handled := handleGetError(err, namespace, workloadType, workloadName, &status, logrusField); handled {
+			return resp
 		}
 
 		if err := d.restoreDaemonSet(ctx, daemonset, experimentId); err != nil {
@@ -301,16 +307,8 @@ func (d *PodSchedulingFailureActionExecutor) destroy(uid string, ctx context.Con
 	case "statefulset":
 		statefulset := &appsv1.StatefulSet{}
 		err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: workloadName}, statefulset)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logrusField.Infof("statefulset %s/%s already deleted", namespace, workloadName)
-				status = status.CreateSuccessResourceStatus()
-				status.State = v1alpha1.DestroyedState
-				return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
-			}
-			logrusField.Warningf("get statefulset %s/%s failed: %v", namespace, workloadName, err)
-			status = status.CreateFailResourceStatus(fmt.Sprintf("get statefulset failed: %v", err), spec.K8sExecFailed.Code)
-			return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus(status.Error, []v1alpha1.ResourceStatus{status}))
+		if resp, handled := handleGetError(err, namespace, workloadType, workloadName, &status, logrusField); handled {
+			return resp
 		}
 
 		if err := d.restoreStatefulSet(ctx, statefulset, experimentId); err != nil {
@@ -387,7 +385,7 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 			if err != nil {
 				return fmt.Errorf("marshal original node affinity failed: %v", err)
 			}
-			annotations[ChaosBladeOriginalAffinityAnnotation] = string(originalBytes)
+			annotations[ChaosBladeOriginalNodeAffinityAnnotation] = string(originalBytes)
 		}
 
 		// Inject unreachable node affinity
@@ -434,7 +432,7 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 			if err != nil {
 				return fmt.Errorf("marshal original pod affinity failed: %v", err)
 			}
-			annotations[ChaosBladeOriginalAffinityAnnotation] = string(originalBytes)
+			annotations[ChaosBladeOriginalPodAffinityAnnotation] = string(originalBytes)
 		}
 
 		// Inject unreachable pod affinity
@@ -467,7 +465,7 @@ func (d *PodSchedulingFailureActionExecutor) backupAndInjectAffinity(podSpec *v1
 			if err != nil {
 				return fmt.Errorf("marshal original pod anti-affinity failed: %v", err)
 			}
-			annotations[ChaosBladeOriginalAffinityAnnotation] = string(originalBytes)
+			annotations[ChaosBladeOriginalPodAntiAffinityAnnotation] = string(originalBytes)
 		}
 
 		// Inject unreachable pod anti-affinity (this will block scheduling on any node)
@@ -542,7 +540,9 @@ func (d *PodSchedulingFailureActionExecutor) restoreDeployment(ctx context.Conte
 	// Clean up annotations
 	delete(deployment.Annotations, ChaosBladeDeploymentAnnotation)
 	delete(deployment.Annotations, ChaosBladeExperimentAnnotation)
-	delete(deployment.Annotations, ChaosBladeOriginalAffinityAnnotation)
+	delete(deployment.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
+	delete(deployment.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
+	delete(deployment.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
 	delete(deployment.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
 
 	return d.client.Update(ctx, deployment)
@@ -560,7 +560,9 @@ func (d *PodSchedulingFailureActionExecutor) restoreDaemonSet(ctx context.Contex
 
 	delete(daemonset.Annotations, ChaosBladeDaemonSetAnnotation)
 	delete(daemonset.Annotations, ChaosBladeExperimentAnnotation)
-	delete(daemonset.Annotations, ChaosBladeOriginalAffinityAnnotation)
+	delete(daemonset.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
+	delete(daemonset.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
+	delete(daemonset.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
 	delete(daemonset.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
 
 	return d.client.Update(ctx, daemonset)
@@ -578,7 +580,9 @@ func (d *PodSchedulingFailureActionExecutor) restoreStatefulSet(ctx context.Cont
 
 	delete(statefulset.Annotations, ChaosBladeStatefulSetAnnotation)
 	delete(statefulset.Annotations, ChaosBladeExperimentAnnotation)
-	delete(statefulset.Annotations, ChaosBladeOriginalAffinityAnnotation)
+	delete(statefulset.Annotations, ChaosBladeOriginalNodeAffinityAnnotation)
+	delete(statefulset.Annotations, ChaosBladeOriginalPodAffinityAnnotation)
+	delete(statefulset.Annotations, ChaosBladeOriginalPodAntiAffinityAnnotation)
 	delete(statefulset.Annotations, ChaosBladeOriginalNodeSelectorAnnotation)
 
 	return d.client.Update(ctx, statefulset)
@@ -587,51 +591,62 @@ func (d *PodSchedulingFailureActionExecutor) restoreStatefulSet(ctx context.Cont
 // restoreAffinity restores the original affinity configuration from annotations
 func (d *PodSchedulingFailureActionExecutor) restoreAffinity(podSpec *v1.PodSpec, annotations map[string]string) error {
 	// Restore node affinity
-	if originalAffinityStr, ok := annotations[ChaosBladeOriginalAffinityAnnotation]; ok {
-		var originalAffinity interface{}
-		if err := json.Unmarshal([]byte(originalAffinityStr), &originalAffinity); err != nil {
-			return fmt.Errorf("unmarshal original affinity failed: %v", err)
+	if originalNodeAffinityStr, ok := annotations[ChaosBladeOriginalNodeAffinityAnnotation]; ok {
+		var nodeAffinity v1.NodeAffinity
+		if err := json.Unmarshal([]byte(originalNodeAffinityStr), &nodeAffinity); err != nil {
+			return fmt.Errorf("unmarshal original node affinity failed: %v", err)
 		}
-
-		// Try to determine the type and restore
-		switch v := originalAffinity.(type) {
-		case map[string]interface{}:
-			// Could be NodeAffinity or PodAffinity or PodAntiAffinity
-			// Check which one was backed up by looking at the structure
-			if _, hasNodeSelectorTerms := v["nodeSelectorTerms"]; hasNodeSelectorTerms {
-				var nodeAffinity v1.NodeAffinity
-				if err := json.Unmarshal([]byte(originalAffinityStr), &nodeAffinity); err != nil {
-					return fmt.Errorf("unmarshal node affinity failed: %v", err)
-				}
-				if podSpec.Affinity == nil {
-					podSpec.Affinity = &v1.Affinity{}
-				}
-				podSpec.Affinity.NodeAffinity = &nodeAffinity
-			} else if _, hasRequiredDuringScheduling := v["requiredDuringSchedulingIgnoredDuringExecution"]; hasRequiredDuringScheduling {
-				// Could be PodAffinity or PodAntiAffinity - restore to both for simplicity
-				var podAffinity v1.PodAffinity
-				if err := json.Unmarshal([]byte(originalAffinityStr), &podAffinity); err != nil {
-					return fmt.Errorf("unmarshal pod affinity failed: %v", err)
-				}
-				if podSpec.Affinity == nil {
-					podSpec.Affinity = &v1.Affinity{}
-				}
-				podSpec.Affinity.PodAffinity = &podAffinity
-			}
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &v1.Affinity{}
 		}
+		podSpec.Affinity.NodeAffinity = &nodeAffinity
 	} else {
-		// No backup means there was no original affinity, clear injected one
+		// No backup means there was no original node affinity, clear injected one
 		if podSpec.Affinity != nil {
 			podSpec.Affinity.NodeAffinity = nil
-			podSpec.Affinity.PodAffinity = nil
-			podSpec.Affinity.PodAntiAffinity = nil
-			// If all affinity fields are nil, set Affinity to nil
-			if podSpec.Affinity.NodeAffinity == nil &&
-				podSpec.Affinity.PodAffinity == nil &&
-				podSpec.Affinity.PodAntiAffinity == nil {
-				podSpec.Affinity = nil
-			}
 		}
+	}
+
+	// Restore pod affinity
+	if originalPodAffinityStr, ok := annotations[ChaosBladeOriginalPodAffinityAnnotation]; ok {
+		var podAffinity v1.PodAffinity
+		if err := json.Unmarshal([]byte(originalPodAffinityStr), &podAffinity); err != nil {
+			return fmt.Errorf("unmarshal original pod affinity failed: %v", err)
+		}
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &v1.Affinity{}
+		}
+		podSpec.Affinity.PodAffinity = &podAffinity
+	} else {
+		// No backup means there was no original pod affinity, clear injected one
+		if podSpec.Affinity != nil {
+			podSpec.Affinity.PodAffinity = nil
+		}
+	}
+
+	// Restore pod anti-affinity
+	if originalPodAntiAffinityStr, ok := annotations[ChaosBladeOriginalPodAntiAffinityAnnotation]; ok {
+		var podAntiAffinity v1.PodAntiAffinity
+		if err := json.Unmarshal([]byte(originalPodAntiAffinityStr), &podAntiAffinity); err != nil {
+			return fmt.Errorf("unmarshal original pod anti-affinity failed: %v", err)
+		}
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = &v1.Affinity{}
+		}
+		podSpec.Affinity.PodAntiAffinity = &podAntiAffinity
+	} else {
+		// No backup means there was no original pod anti-affinity, clear injected one
+		if podSpec.Affinity != nil {
+			podSpec.Affinity.PodAntiAffinity = nil
+		}
+	}
+
+	// Clean up empty Affinity struct
+	if podSpec.Affinity != nil &&
+		podSpec.Affinity.NodeAffinity == nil &&
+		podSpec.Affinity.PodAffinity == nil &&
+		podSpec.Affinity.PodAntiAffinity == nil {
+		podSpec.Affinity = nil
 	}
 
 	// Restore node selector

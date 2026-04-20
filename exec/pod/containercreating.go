@@ -277,7 +277,7 @@ func (d *PodContainerCreatingActionExecutor) destroy(uid string, ctx context.Con
 
 		pvName := fmt.Sprintf("chaosblade-cc-%s-pv", experimentId)
 		pvcName := fmt.Sprintf("chaosblade-cc-%s-pvc", experimentId)
-		podName := meta.PodName
+		podName := fmt.Sprintf("chaosblade-cc-%s-pod", experimentId)
 		namespace := meta.Namespace
 
 		status := v1alpha1.ResourceStatus{
