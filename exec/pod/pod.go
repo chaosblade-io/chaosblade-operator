@@ -240,6 +240,17 @@ blade create k8s pod-pod schedulingfailure --namespace default --workload-type d
 
 # Inject scheduling failure using node-selector
 blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --affinity-type node-selector --kubeconfig ~/.kube/config`)
+			case *ImagePullSecretsErrorActionSpec:
+				action.SetLongDesc("Simulate image pull authentication failure by corrupting the credentials in the Secret referenced by the Pod's imagePullSecrets. The original Secret is backed up and restored when the experiment is destroyed.")
+				action.SetExample(
+					`# Simulate image pull authentication failure for a specific pod
+blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace default --kubeconfig ~/.kube/config
+
+# Simulate image pull authentication failure for pods selected by labels
+blade create k8s pod-pod imagepullsecretserror --labels app=nginx --namespace default --kubeconfig ~/.kube/config
+
+# Corrupt only a specific imagePullSecret
+blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace default --secret-name my-registry-secret --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
@@ -280,6 +291,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewPodContainerCreatingActionSpec(client),
 				NewPodSchedulingFailureActionSpec(client),
 				NewImageConfigActionSpec(client),
+				NewImagePullSecretsErrorActionSpec(client),
 			},
 		},
 	}
