@@ -74,16 +74,21 @@ func NewPodSchedulingFailureActionSpec(client *channel.Client) spec.ExpActionCom
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
-					Name: "workload-type",
-					Desc: "Workload type: deployment, daemonset, statefulset. Default: deployment",
+					Name:     "workload-type",
+					Desc:     "Workload type: deployment, daemonset, statefulset. Default: deployment",
+					Required: false,
+					Default:  "deployment",
 				},
 				&spec.ExpFlag{
-					Name: "workload-name",
-					Desc: "Workload name to inject scheduling failure",
+					Name:     "workload-name",
+					Desc:     "Workload name to inject scheduling failure",
+					Required: true,
 				},
 				&spec.ExpFlag{
-					Name: "affinity-type",
-					Desc: "Affinity type to inject: node-affinity, node-selector, pod-affinity, pod-anti-affinity. Default: node-affinity",
+					Name:     "affinity-type",
+					Desc:     "Affinity type to inject: node-affinity, node-selector, pod-affinity, pod-anti-affinity. Default: node-affinity",
+					Required: false,
+					Default:  "node-affinity",
 				},
 			},
 			ActionExecutor: &PodSchedulingFailureActionExecutor{client: client},
