@@ -40,11 +40,8 @@ spec:
     - name: workload-name
       value:
       - "nginx-sf-test"
-    - name: affinity-type
-      value:
-      - "node-affinity"
-    # Optional: specify affinity type
-    # Supported values: node-affinity (default), node-selector, pod-affinity, pod-anti-affinity
+    # Optional: affinity type, default is node-affinity
+    # Supported values: node-affinity, node-selector, pod-affinity, pod-anti-affinity
     # - name: affinity-type
     #   value:
     #   - "node-affinity"

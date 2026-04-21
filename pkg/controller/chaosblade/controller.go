@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -255,15 +256,16 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 			}
 			expStatusList = append(expStatusList, experimentStatus)
 		}
-		// Re-fetch the CR to avoid conflict
-		latestCb := &v1alpha1.ChaosBlade{}
-		if err := r.client.Get(ctx, request.NamespacedName, latestCb); err != nil {
-			reqLogger.WithError(err).Errorln("re-fetch chaosblade failed before status update")
-			return reconcile.Result{}, err
-		}
-		latestCb.Status.ExpStatuses = expStatusList
-		latestCb.Status.Phase = phase
-		if err := r.client.Status().Update(ctx, latestCb); err != nil {
+		// Retry status update on conflict to avoid re-executing Create side effects
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			latestCb := &v1alpha1.ChaosBlade{}
+			if err := r.client.Get(ctx, request.NamespacedName, latestCb); err != nil {
+				return err
+			}
+			latestCb.Status.ExpStatuses = expStatusList
+			latestCb.Status.Phase = phase
+			return r.client.Status().Update(ctx, latestCb)
+		}); err != nil {
 			reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
 			return reconcile.Result{}, err
 		}
@@ -298,8 +300,19 @@ func (r *ReconcileChaosBlade) Reconcile(ctx context.Context, request reconcile.R
 					cb.Status.ExpStatuses[idx] = experimentStatus
 				}
 			}
+			// Retry status update on conflict to avoid re-executing Destroy side effects
+			updatedExpStatuses := make([]v1alpha1.ExperimentStatus, len(cb.Status.ExpStatuses))
+			copy(updatedExpStatuses, cb.Status.ExpStatuses)
 			cb.Status.Phase = phase
-			if err := r.client.Status().Update(ctx, cb); err != nil {
+			if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				latestCb := &v1alpha1.ChaosBlade{}
+				if err := r.client.Get(ctx, request.NamespacedName, latestCb); err != nil {
+					return err
+				}
+				latestCb.Status.ExpStatuses = updatedExpStatuses
+				latestCb.Status.Phase = phase
+				return r.client.Status().Update(ctx, latestCb)
+			}); err != nil {
 				reqLogger.WithError(err).Errorf("update phase from %s to %s failed", originalPhase, phase)
 			}
 			return forget, nil
@@ -324,19 +337,20 @@ func (r *ReconcileChaosBlade) finalizeChaosBlade(ctx context.Context, reqLogger 
 			cb.Status.ExpStatuses[idx] = oldExpStatus
 		}
 	}
-	// Re-fetch the CR to avoid conflict
-	latestCb := &v1alpha1.ChaosBlade{}
-	if err := r.client.Get(ctx, namespacedName, latestCb); err != nil {
-		return fmt.Errorf("re-fetch chaosblade failed in finalize phase, %v", err)
-	}
-	latestCb.Status.ExpStatuses = cb.Status.ExpStatuses
-	latestCb.Status.Phase = phase
-	err := r.client.Status().Update(ctx, latestCb)
-	if err != nil {
+	// Retry status update on conflict to avoid re-executing Destroy side effects
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latestCb := &v1alpha1.ChaosBlade{}
+		if err := r.client.Get(ctx, namespacedName, latestCb); err != nil {
+			return err
+		}
+		latestCb.Status.ExpStatuses = cb.Status.ExpStatuses
+		latestCb.Status.Phase = phase
+		return r.client.Status().Update(ctx, latestCb)
+	}); err != nil {
 		return fmt.Errorf("update chaosblade status failed in finalize phase, %v", err)
 	}
 	if phase == v1alpha1.ClusterPhaseDestroying {
-		return fmt.Errorf("failed to destory, please see the experiment status")
+		return fmt.Errorf("failed to destroy, please see the experiment status")
 	}
 	reqLogger.Info("Successfully finalized chaosblade")
 	return nil

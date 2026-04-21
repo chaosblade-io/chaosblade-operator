@@ -349,6 +349,11 @@ func (d *PodSchedulingFailureActionExecutor) injectDeploymentSchedulingFailure(c
 	if err := ensureNoConflictingExperiment(deployment.Annotations, experimentId); err != nil {
 		return err
 	}
+	// Idempotent: if already modified by the same experiment, skip re-injection
+	// to avoid overwriting the saved original affinity backup.
+	if deployment.Annotations[ChaosBladeExperimentAnnotation] == experimentId {
+		return nil
+	}
 	deployment.Annotations[ChaosBladeDeploymentAnnotation] = ChaosBladeModifyAction
 	deployment.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
@@ -368,6 +373,9 @@ func (d *PodSchedulingFailureActionExecutor) injectDaemonSetSchedulingFailure(ct
 	if err := ensureNoConflictingExperiment(daemonset.Annotations, experimentId); err != nil {
 		return err
 	}
+	if daemonset.Annotations[ChaosBladeExperimentAnnotation] == experimentId {
+		return nil
+	}
 	daemonset.Annotations[ChaosBladeDaemonSetAnnotation] = ChaosBladeModifyAction
 	daemonset.Annotations[ChaosBladeExperimentAnnotation] = experimentId
 
@@ -385,6 +393,9 @@ func (d *PodSchedulingFailureActionExecutor) injectStatefulSetSchedulingFailure(
 	}
 	if err := ensureNoConflictingExperiment(statefulset.Annotations, experimentId); err != nil {
 		return err
+	}
+	if statefulset.Annotations[ChaosBladeExperimentAnnotation] == experimentId {
+		return nil
 	}
 	statefulset.Annotations[ChaosBladeStatefulSetAnnotation] = ChaosBladeModifyAction
 	statefulset.Annotations[ChaosBladeExperimentAnnotation] = experimentId

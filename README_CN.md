@@ -12,7 +12,7 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 进程：指定进程 Hang、强杀指定进程等
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
-* Pod:
+* Pod：
     * 网络：指定网卡、端口、IP 等包延迟、丢包、包阻塞、包重复、包乱序、包损坏等
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
@@ -24,7 +24,7 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
     * Container: 杀 Container
-* Service:
+* Service：
     * Service: 创建、修改Service
 
 ## 本地构建&安装

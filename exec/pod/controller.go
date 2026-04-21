@@ -103,7 +103,7 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 
 	// Default flow: find matched containers and destroy
 	statuses := oldExpStatus.ResStatuses
-	if statuses == nil {
+	if len(statuses) == 0 {
 		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{}))
 	}
 	containerObjectMetaList := model.ContainerMatchedList{}
@@ -114,6 +114,9 @@ func (e *ExpController) Destroy(ctx context.Context, expSpec v1alpha1.Experiment
 		containerObjectMeta := model.ParseIdentifier(status.Identifier)
 		containerObjectMeta.Id = status.Id
 		containerObjectMetaList = append(containerObjectMetaList, containerObjectMeta)
+	}
+	if len(containerObjectMetaList) == 0 {
+		return spec.ReturnSuccess(v1alpha1.CreateSuccessExperimentStatus([]v1alpha1.ResourceStatus{}))
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
 	return e.Exec(ctx, expModel)
