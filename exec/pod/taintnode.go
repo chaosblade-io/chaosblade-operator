@@ -27,8 +27,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
@@ -48,11 +48,10 @@ const (
 	DefaultTaintEffect = "NoSchedule"
 )
 
-// chaosBladeTaintAnnotations returns all taintnode-related annotation keys for cleanup.
+// chaosBladeTaintAnnotations returns the taintnode-owned annotation keys for cleanup.
 func chaosBladeTaintAnnotations() []string {
 	return []string{
 		ChaosBladeOriginalTaintsAnnotation,
-		ChaosBladeAffinityTypeAnnotation,
 		ChaosBladeExperimentAnnotation,
 	}
 }
@@ -150,8 +149,10 @@ func parseTaintNodeFlags(expModel *spec.ExpModel) (nodeNames []string, taintKey,
 	if nodesFlag == "" {
 		return nil, "", "", "", fmt.Errorf("nodes flag is required")
 	}
-	nodeNames = strings.Split(nodesFlag, ",")
-
+	nodeNames, err = parseNodeNames(nodesFlag)
+	if err != nil {
+		return nil, "", "", "", err
+	}
 	taintKey = expModel.ActionFlags["taint-key"]
 	if taintKey == "" {
 		taintKey = DefaultTaintKey
@@ -188,24 +189,18 @@ func (d *PodTaintNodeActionExecutor) create(uid string, ctx context.Context, exp
 	var resourceStatuses []v1alpha1.ResourceStatus
 	for _, nodeName := range nodeNames {
 		status := v1alpha1.ResourceStatus{
-			Kind:       v1alpha1.PodKind,
-			Identifier: fmt.Sprintf("%s//%s", "node", nodeName),
+			Kind:       v1alpha1.NodeKind,
+			Identifier: nodeName,
 		}
 
-		node := &v1.Node{}
-		err := d.client.Get(ctx, types.NamespacedName{Name: nodeName}, node)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logrusField.Warningf("node %s not found", nodeName)
-			} else {
-				logrusField.Warningf("get node %s failed: %v", nodeName, err)
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Re-get latest node to avoid conflict
+			latest := &v1.Node{}
+			if err := d.client.Get(ctx, types.NamespacedName{Name: nodeName}, latest); err != nil {
+				return err
 			}
-			status = status.CreateFailResourceStatus(fmt.Sprintf("get node %s failed: %v", nodeName, err), spec.K8sExecFailed.Code)
-			resourceStatuses = append(resourceStatuses, status)
-			continue
-		}
-
-		if err := d.injectTaintToNode(ctx, node, taintKey, taintValue, taintEffect, experimentId); err != nil {
+			return d.injectTaintToNode(ctx, latest, taintKey, taintValue, taintEffect, experimentId)
+		}); err != nil {
 			logrusField.Warningf("inject taint to node %s failed: %v", nodeName, err)
 			status = status.CreateFailResourceStatus(fmt.Sprintf("inject taint to node %s failed: %v", nodeName, err), spec.K8sExecFailed.Code)
 			resourceStatuses = append(resourceStatuses, status)
@@ -235,7 +230,8 @@ func (d *PodTaintNodeActionExecutor) destroy(uid string, ctx context.Context, ex
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 
-	nodeNames, _, _, _, err := parseTaintNodeFlags(expModel)
+	nodesFlag := expModel.ActionFlags["nodes"]
+	nodeNames, err := parseNodeNames(nodesFlag)
 	if err != nil {
 		util.Errorf(uid, util.GetRunFuncName(), err.Error())
 		return spec.ResponseFailWithFlags(spec.ParameterIllegal, err.Error())
@@ -244,27 +240,18 @@ func (d *PodTaintNodeActionExecutor) destroy(uid string, ctx context.Context, ex
 	var resourceStatuses []v1alpha1.ResourceStatus
 	for _, nodeName := range nodeNames {
 		status := v1alpha1.ResourceStatus{
-			Kind:       v1alpha1.PodKind,
-			Identifier: fmt.Sprintf("%s//%s", "node", nodeName),
+			Kind:       v1alpha1.NodeKind,
+			Identifier: nodeName,
 		}
 
-		node := &v1.Node{}
-		err := d.client.Get(ctx, types.NamespacedName{Name: nodeName}, node)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logrusField.Infof("node %s already deleted", nodeName)
-				status = status.CreateSuccessResourceStatus()
-				status.State = v1alpha1.DestroyedState
-				resourceStatuses = append(resourceStatuses, status)
-				continue
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Re-get latest node to avoid conflict
+			latest := &v1.Node{}
+			if err := d.client.Get(ctx, types.NamespacedName{Name: nodeName}, latest); err != nil {
+				return err
 			}
-			logrusField.Warningf("get node %s failed: %v", nodeName, err)
-			status = status.CreateFailResourceStatus(fmt.Sprintf("get node %s failed: %v", nodeName, err), spec.K8sExecFailed.Code)
-			resourceStatuses = append(resourceStatuses, status)
-			continue
-		}
-
-		if err := d.restoreNodeTaints(ctx, node, experimentId); err != nil {
+			return d.restoreNodeTaints(ctx, latest, experimentId)
+		}); err != nil {
 			logrusField.Warningf("restore node %s taints failed: %v", nodeName, err)
 			status = status.CreateFailResourceStatus(fmt.Sprintf("restore node %s taints failed: %v", nodeName, err), spec.K8sExecFailed.Code)
 			resourceStatuses = append(resourceStatuses, status)
@@ -362,6 +349,19 @@ func (d *PodTaintNodeActionExecutor) restoreNodeTaints(ctx context.Context, node
 	return d.client.Update(ctx, node)
 }
 
+// parseNodeNames splits a comma-separated nodes flag, trims whitespace, and rejects empty entries.
+func parseNodeNames(nodesFlag string) ([]string, error) {
+	var result []string
+	for _, n := range strings.Split(nodesFlag, ",") {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			return nil, fmt.Errorf("nodes flag contains empty node name")
+		}
+		result = append(result, n)
+	}
+	return result, nil
+}
+
 // validateTaintNodeFlags validates namespace and nodes flags.
 func validateTaintNodeFlags(nodes string) *spec.Response {
 	if nodes == "" {
@@ -377,21 +377,18 @@ func (a *PodTaintNodeActionSpec) PreCreate(ctx context.Context, expModel *spec.E
 		return ctx, resp
 	}
 
-	nodeNames := strings.Split(nodes, ",")
+	nodeNames, _ := parseNodeNames(nodes)
 	taintEffect := expModel.ActionFlags["taint-effect"]
 	if taintEffect == "" {
 		taintEffect = DefaultTaintEffect
 	}
-	taintKey := expModel.ActionFlags["taint-key"]
-	if taintKey == "" {
-		taintKey = DefaultTaintKey
-	}
-	taintValue := expModel.ActionFlags["taint-value"]
-	if taintValue == "" {
-		taintValue = DefaultTaintValue
+	// Validate taint effect in PreCreate to fail fast
+	switch taintEffect {
+	case string(v1.TaintEffectNoSchedule), string(v1.TaintEffectNoExecute), string(v1.TaintEffectPreferNoSchedule):
+	default:
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterIllegal, fmt.Sprintf("unsupported taint effect: %s, supported values: NoSchedule, NoExecute, PreferNoSchedule", taintEffect))
 	}
 
-	experimentId := model.GetExperimentIdFromContext(ctx)
 	containerObjectMetaList := model.ContainerMatchedList{}
 	for _, nodeName := range nodeNames {
 		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
@@ -402,7 +399,6 @@ func (a *PodTaintNodeActionSpec) PreCreate(ctx context.Context, expModel *spec.E
 	}
 
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)
-	_ = experimentId // experimentId used for logging in create/destroy
 	return ctx, nil
 }
 
@@ -413,7 +409,7 @@ func (a *PodTaintNodeActionSpec) PreDestroy(ctx context.Context, expModel *spec.
 		return ctx, resp
 	}
 
-	nodeNames := strings.Split(nodes, ",")
+	nodeNames, _ := parseNodeNames(nodes)
 	containerObjectMetaList := model.ContainerMatchedList{}
 	for _, nodeName := range nodeNames {
 		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{

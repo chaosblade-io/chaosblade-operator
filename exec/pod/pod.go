@@ -255,10 +255,10 @@ blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace de
 				action.SetLongDesc("Make pod scheduling fail by adding unreachable taint to nodes. The scheduler will not schedule Pods without matching tolerations to the tainted nodes, causing the Pods to remain in Pending state.")
 				action.SetExample(
 					`# Add unreachable taint to nodes to prevent pod scheduling
-	blade create k8s pod-pod taintnode --nodes node1,node2 --kubeconfig ~/.kube/config
-	
-	# Add taint with NoExecute effect (will evict running pods)
-	blade create k8s pod-pod taintnode --nodes node1 --taint-effect NoExecute --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod taintnode --nodes node1,node2 --kubeconfig ~/.kube/config
+
+# Add taint with NoExecute effect (will evict running pods)
+blade create k8s pod-pod taintnode --nodes node1 --taint-effect NoExecute --kubeconfig ~/.kube/config`)
 			case *ConfigMapDeleteActionSpec:
 				action.SetLongDesc("Delete a ConfigMap that a Pod depends on, then restart the Pod to simulate startup failure caused by missing ConfigMap. The original ConfigMap is backed up and restored when the experiment is destroyed.")
 				action.SetExample(
