@@ -17,7 +17,7 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Network: specify network card, port, IP, etc. packet delay, packet loss, packet blocking, packet duplication, packet re-ordering, packet corruption, etc.
     * Disk: specify the directory disk occupation, disk IO read and write load, etc.
     * Memory: specify memory usage
-    * Pod: kill pod, make pod stuck in ContainerCreating state by PVC mount failure, make pod stuck in Terminating state by finalizer, make pod scheduling fail by injecting unreachable affinity rules
+    * Pod: kill pod, make pod stuck in ContainerCreating state by PVC mount failure, make pod stuck in Terminating state by finalizer, make pod scheduling fail by injecting unreachable affinity rules, modify workload (Deployment/DaemonSet/StatefulSet) CPU/Memory resource limits to simulate bad resource sizing
     * IO: specify the file system io exception. Supports 31 file operations and 11 exception scenarios, such as "Too many open files", "Device or resource busy" and so on.
 * Container:
     * CPU: specify CPU usage
