@@ -28,8 +28,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
@@ -68,12 +68,12 @@ func NewBadResourceSizeActionSpec(client *channel.Client) spec.ExpActionCommandS
 				},
 				&spec.ExpFlag{
 					Name:     BadResourceSizeCPUFlag,
-					Desc:     "CPU resource limit to set, e.g. 1m, 500m, 1",
+					Desc:     "CPU resource limit to set, e.g. 1m, 5m",
 					Required: false,
 				},
 				&spec.ExpFlag{
 					Name:     BadResourceSizeMemFlag,
-					Desc:     "Memory resource limit to set, e.g. 128m, 256Mi, 1Gi",
+					Desc:     "Memory resource limit to set, e.g. 128m, 256m",
 					Required: false,
 				},
 			},
@@ -88,10 +88,10 @@ blade create k8s pod-pod badresourcesize --namespace default --workload-type dep
 blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config
 
 # Set resource limits for a statefulset
-blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name redis-app --cpu 500m --mem 256Mi --kubeconfig ~/.kube/config
+blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name redis-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config
 
 # Set resource limits for a daemonset
-blade create k8s pod-pod badresourcesize --namespace default --workload-type daemonset --workload-name fluentd --cpu 100m --mem 128Mi --kubeconfig ~/.kube/config
+blade create k8s pod-pod badresourcesize --namespace default --workload-type daemonset --workload-name fluentd --cpu 1m --mem 128m --kubeconfig ~/.kube/config
 `,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},

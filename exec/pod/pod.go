@@ -251,18 +251,18 @@ blade create k8s pod-pod imagepullsecretserror --labels app=nginx --namespace de
 
 # Corrupt only a specific imagePullSecret
 blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace default --secret-name my-registry-secret --kubeconfig ~/.kube/config`)
-		case *ConfigMapDeleteActionSpec:
-			action.SetLongDesc("Delete a ConfigMap that a Pod depends on, then restart the Pod to simulate startup failure caused by missing ConfigMap. The original ConfigMap is backed up and restored when the experiment is destroyed.")
-			action.SetExample(
-				`# Delete the auto-selected required ConfigMap for pods matching labels
+			case *ConfigMapDeleteActionSpec:
+				action.SetLongDesc("Delete a ConfigMap that a Pod depends on, then restart the Pod to simulate startup failure caused by missing ConfigMap. The original ConfigMap is backed up and restored when the experiment is destroyed.")
+				action.SetExample(
+					`# Delete the auto-selected required ConfigMap for pods matching labels
 blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --kubeconfig ~/.kube/config
 
 # Delete a specific ConfigMap
 blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --configmap-name my-config --kubeconfig ~/.kube/config`)
-		case *BadResourceSizeActionSpec:
-			action.SetLongDesc("Modify the CPU/Memory resource limits of a workload (Deployment/DaemonSet/StatefulSet) to simulate incorrect resource sizing. The original resource configuration is backed up and restored when the experiment is destroyed.")
-			action.SetExample(
-				`# Set CPU resource limit for a deployment
+			case *BadResourceSizeActionSpec:
+				action.SetLongDesc("Modify the CPU/Memory resource limits of a workload (Deployment/DaemonSet/StatefulSet) to simulate incorrect resource sizing. The original resource configuration is backed up and restored when the experiment is destroyed.")
+				action.SetExample(
+					`# Set CPU resource limit for a deployment
 blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --kubeconfig ~/.kube/config
 
 # Set memory resource limit for a deployment
@@ -270,7 +270,7 @@ blade create k8s pod-pod badresourcesize --namespace default --workload-type dep
 
 # Set both CPU and memory resource limits for a deployment
 blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config`)
-		default:
+			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade create k8s pod-%s %s --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
