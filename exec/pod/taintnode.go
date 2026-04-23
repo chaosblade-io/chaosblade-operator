@@ -305,18 +305,17 @@ func (d *PodTaintNodeActionExecutor) injectTaintToNode(ctx context.Context, node
 		node.Annotations[ChaosBladeOriginalTaintsAnnotation] = string(originalBytes)
 	}
 
-	// Add or update the unreachable taint
+	// Add the unreachable taint; refuse to overwrite an existing taint with the same key+effect
 	newTaint := v1.Taint{
 		Key:    taintKey,
 		Value:  taintValue,
 		Effect: v1.TaintEffect(taintEffect),
 	}
 	if idx := findTaintIndex(node.Spec.Taints, newTaint.Key, newTaint.Effect); idx >= 0 {
-		// Same key+effect already exists: update the value in place
-		node.Spec.Taints[idx].Value = newTaint.Value
-	} else {
-		node.Spec.Taints = append(node.Spec.Taints, newTaint)
+		existing := node.Spec.Taints[idx]
+		return fmt.Errorf("node already has taint with key %q and effect %q (value %q); refusing to overwrite existing taint", existing.Key, existing.Effect, existing.Value)
 	}
+	node.Spec.Taints = append(node.Spec.Taints, newTaint)
 
 	// Record injected taint for surgical removal during restore
 	injectedBytes, _ := json.Marshal(newTaint)
@@ -347,7 +346,7 @@ func (d *PodTaintNodeActionExecutor) restoreNodeTaints(ctx context.Context, node
 		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
 			return fmt.Errorf("unmarshal injected taint failed: %v", err)
 		}
-		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+		node.Spec.Taints = removeTaintByKeyEffect(node.Spec.Taints, injected.Key, injected.Effect)
 	} else {
 		// Fallback: no injected-taint annotation, use original snapshot
 		if originalTaintsStr, ok := node.Annotations[ChaosBladeOriginalTaintsAnnotation]; ok {
@@ -380,10 +379,11 @@ func findTaintIndex(taints []v1.Taint, key string, effect v1.TaintEffect) int {
 	return -1
 }
 
-// removeTaint removes the first taint matching key/value/effect from the list.
-func removeTaint(taints []v1.Taint, target v1.Taint) []v1.Taint {
+// removeTaintByKeyEffect removes the first taint matching key+effect from the list.
+// Kubernetes guarantees key+effect uniqueness per node, so this is sufficient for removal.
+func removeTaintByKeyEffect(taints []v1.Taint, key string, effect v1.TaintEffect) []v1.Taint {
 	for i, t := range taints {
-		if t.Key == target.Key && t.Value == target.Value && t.Effect == target.Effect {
+		if t.Key == key && t.Effect == effect {
 			return append(taints[:i], taints[i+1:]...)
 		}
 	}
@@ -403,7 +403,7 @@ func parseNodeNames(nodesFlag string) ([]string, error) {
 	return result, nil
 }
 
-// validateTaintNodeFlags validates namespace and nodes flags.
+// validateTaintNodeFlags validates the nodes flag.
 func validateTaintNodeFlags(nodes string) *spec.Response {
 	if nodes == "" {
 		return spec.ResponseFailWithFlags(spec.ParameterLess, "nodes")

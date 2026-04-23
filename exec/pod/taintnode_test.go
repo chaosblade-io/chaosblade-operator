@@ -18,6 +18,7 @@ package pod
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
@@ -273,6 +274,38 @@ func TestInjectTaintToNode_BackupAndInject(t *testing.T) {
 	}
 }
 
+func TestInjectTaintToNode_DuplicateKeyEffect(t *testing.T) {
+	// Node already has a taint with the same key+effect as the one we want to inject
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-node",
+			Annotations: map[string]string{},
+		},
+		Spec: v1.NodeSpec{
+			Taints: []v1.Taint{
+				{Key: DefaultTaintKey, Value: "existing-value", Effect: v1.TaintEffectNoSchedule},
+			},
+		},
+	}
+
+	executor := &PodTaintNodeActionExecutor{}
+	err := executor.injectTaintToNode(nil, node, DefaultTaintKey, DefaultTaintValue, DefaultTaintEffect, "my-experiment")
+	if err == nil {
+		t.Error("expected error when node already has taint with same key+effect")
+	}
+	if !strings.Contains(err.Error(), "refusing to overwrite") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	// Verify node taints were NOT modified
+	if len(node.Spec.Taints) != 1 {
+		t.Fatalf("expected 1 taint (unchanged), got %d", len(node.Spec.Taints))
+	}
+	if node.Spec.Taints[0].Value != "existing-value" {
+		t.Errorf("existing taint value should be unchanged, got %q", node.Spec.Taints[0].Value)
+	}
+}
+
 func TestRestoreNodeTaints_NotModifiedByExperiment(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -352,7 +385,7 @@ func TestRestoreNodeTaints_SuccessfulRestore(t *testing.T) {
 		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
 			t.Fatalf("failed to unmarshal injected taint: %v", err)
 		}
-		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+		node.Spec.Taints = removeTaintByKeyEffect(node.Spec.Taints, injected.Key, injected.Effect)
 	}
 	delete(node.Annotations, ChaosBladeTaintAnnotation)
 	for _, key := range chaosBladeTaintAnnotations() {
@@ -412,7 +445,7 @@ func TestRestoreNodeTaints_PreservesNewTaints(t *testing.T) {
 		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
 			t.Fatalf("failed to unmarshal injected taint: %v", err)
 		}
-		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+		node.Spec.Taints = removeTaintByKeyEffect(node.Spec.Taints, injected.Key, injected.Effect)
 	}
 	delete(node.Annotations, ChaosBladeTaintAnnotation)
 	for _, key := range chaosBladeTaintAnnotations() {
@@ -461,7 +494,7 @@ func TestRestoreNodeTaints_NoBackup(t *testing.T) {
 		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
 			t.Fatalf("failed to unmarshal injected taint: %v", err)
 		}
-		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+		node.Spec.Taints = removeTaintByKeyEffect(node.Spec.Taints, injected.Key, injected.Effect)
 	}
 	delete(node.Annotations, ChaosBladeTaintAnnotation)
 	for _, key := range chaosBladeTaintAnnotations() {
@@ -475,5 +508,5 @@ func TestRestoreNodeTaints_NoBackup(t *testing.T) {
 }
 
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsString(s[1:], substr) || len(s) >= len(substr) && s[:len(substr)] == substr)
+	return strings.Contains(s, substr)
 }
