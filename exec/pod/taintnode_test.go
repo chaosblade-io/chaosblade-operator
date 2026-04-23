@@ -325,6 +325,8 @@ func TestRestoreNodeTaints_SuccessfulRestore(t *testing.T) {
 		{Key: "sigma.ali/resource-pool", Value: "ackee_pool", Effect: v1.TaintEffectNoSchedule},
 	}
 	backupBytes, _ := json.Marshal(originalTaints)
+	injectedTaint := v1.Taint{Key: DefaultTaintKey, Value: DefaultTaintValue, Effect: v1.TaintEffectNoSchedule}
+	injectedBytes, _ := json.Marshal(injectedTaint)
 
 	node := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -332,6 +334,7 @@ func TestRestoreNodeTaints_SuccessfulRestore(t *testing.T) {
 			Annotations: map[string]string{
 				ChaosBladeExperimentAnnotation:     "my-experiment",
 				ChaosBladeOriginalTaintsAnnotation: string(backupBytes),
+				ChaosBladeInjectedTaintAnnotation:  string(injectedBytes),
 				ChaosBladeTaintAnnotation:          ChaosBladeModifyAction,
 			},
 		},
@@ -343,25 +346,25 @@ func TestRestoreNodeTaints_SuccessfulRestore(t *testing.T) {
 		},
 	}
 
-	// Simulate restore logic without calling restoreNodeTaints (requires real client)
-	if originalTaintsStr, ok := node.Annotations[ChaosBladeOriginalTaintsAnnotation]; ok {
-		var restored []v1.Taint
-		if err := json.Unmarshal([]byte(originalTaintsStr), &restored); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
+	// Simulate restore logic: remove only the injected taint
+	if injectedStr, ok := node.Annotations[ChaosBladeInjectedTaintAnnotation]; ok {
+		var injected v1.Taint
+		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
+			t.Fatalf("failed to unmarshal injected taint: %v", err)
 		}
-		node.Spec.Taints = restored
+		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
 	}
 	delete(node.Annotations, ChaosBladeTaintAnnotation)
 	for _, key := range chaosBladeTaintAnnotations() {
 		delete(node.Annotations, key)
 	}
 
-	// Verify taints restored to original
+	// Verify injected taint removed, original preserved
 	if len(node.Spec.Taints) != 1 {
 		t.Fatalf("expected 1 taint after restore, got %d", len(node.Spec.Taints))
 	}
 	if node.Spec.Taints[0].Key != "sigma.ali/resource-pool" {
-		t.Errorf("restored taint key = %q, want sigma.ali/resource-pool", node.Spec.Taints[0].Key)
+		t.Errorf("remaining taint key = %q, want sigma.ali/resource-pool", node.Spec.Taints[0].Key)
 	}
 
 	// Verify annotations cleaned up
@@ -375,14 +378,74 @@ func TestRestoreNodeTaints_SuccessfulRestore(t *testing.T) {
 	}
 }
 
-func TestRestoreNodeTaints_NoBackup(t *testing.T) {
-	// Node had no taints before injection, so no backup exists
+func TestRestoreNodeTaints_PreservesNewTaints(t *testing.T) {
+	// Simulate: another controller added a taint while experiment was running
+	originalTaints := []v1.Taint{
+		{Key: "sigma.ali/resource-pool", Value: "ackee_pool", Effect: v1.TaintEffectNoSchedule},
+	}
+	backupBytes, _ := json.Marshal(originalTaints)
+	injectedTaint := v1.Taint{Key: DefaultTaintKey, Value: DefaultTaintValue, Effect: v1.TaintEffectNoSchedule}
+	injectedBytes, _ := json.Marshal(injectedTaint)
+
 	node := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-node",
 			Annotations: map[string]string{
-				ChaosBladeExperimentAnnotation: "my-experiment",
-				ChaosBladeTaintAnnotation:      ChaosBladeModifyAction,
+				ChaosBladeExperimentAnnotation:     "my-experiment",
+				ChaosBladeOriginalTaintsAnnotation: string(backupBytes),
+				ChaosBladeInjectedTaintAnnotation:  string(injectedBytes),
+				ChaosBladeTaintAnnotation:          ChaosBladeModifyAction,
+			},
+		},
+		Spec: v1.NodeSpec{
+			Taints: []v1.Taint{
+				{Key: "sigma.ali/resource-pool", Value: "ackee_pool", Effect: v1.TaintEffectNoSchedule},
+				{Key: "other-controller/key", Value: "val", Effect: v1.TaintEffectNoSchedule},
+				{Key: DefaultTaintKey, Value: DefaultTaintValue, Effect: v1.TaintEffectNoSchedule},
+			},
+		},
+	}
+
+	// Simulate restore logic
+	if injectedStr, ok := node.Annotations[ChaosBladeInjectedTaintAnnotation]; ok {
+		var injected v1.Taint
+		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
+			t.Fatalf("failed to unmarshal injected taint: %v", err)
+		}
+		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+	}
+	delete(node.Annotations, ChaosBladeTaintAnnotation)
+	for _, key := range chaosBladeTaintAnnotations() {
+		delete(node.Annotations, key)
+	}
+
+	// Verify: injected taint removed, other-controller taint preserved
+	if len(node.Spec.Taints) != 2 {
+		t.Fatalf("expected 2 taints after restore, got %d: %v", len(node.Spec.Taints), node.Spec.Taints)
+	}
+	found := false
+	for _, t := range node.Spec.Taints {
+		if t.Key == "other-controller/key" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected other-controller taint to be preserved after restore")
+	}
+}
+
+func TestRestoreNodeTaints_NoBackup(t *testing.T) {
+	// Node had no taints before injection, so no backup exists
+	injectedTaint := v1.Taint{Key: DefaultTaintKey, Value: DefaultTaintValue, Effect: v1.TaintEffectNoSchedule}
+	injectedBytes, _ := json.Marshal(injectedTaint)
+
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+			Annotations: map[string]string{
+				ChaosBladeExperimentAnnotation:    "my-experiment",
+				ChaosBladeInjectedTaintAnnotation: string(injectedBytes),
+				ChaosBladeTaintAnnotation:         ChaosBladeModifyAction,
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -392,8 +455,14 @@ func TestRestoreNodeTaints_NoBackup(t *testing.T) {
 		},
 	}
 
-	// Simulate restore logic without calling restoreNodeTaints (requires real client)
-	node.Spec.Taints = nil
+	// Simulate restore logic: remove only the injected taint
+	if injectedStr, ok := node.Annotations[ChaosBladeInjectedTaintAnnotation]; ok {
+		var injected v1.Taint
+		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
+			t.Fatalf("failed to unmarshal injected taint: %v", err)
+		}
+		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
+	}
 	delete(node.Annotations, ChaosBladeTaintAnnotation)
 	for _, key := range chaosBladeTaintAnnotations() {
 		delete(node.Annotations, key)

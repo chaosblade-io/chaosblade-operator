@@ -40,6 +40,8 @@ const (
 	ChaosBladeTaintAnnotation = "chaosblade.io/taint"
 	// ChaosBladeOriginalTaintsAnnotation stores the original node taints
 	ChaosBladeOriginalTaintsAnnotation = "chaosblade.io/original-taints"
+	// ChaosBladeInjectedTaintAnnotation stores the taint injected by this experiment
+	ChaosBladeInjectedTaintAnnotation = "chaosblade.io/injected-taint"
 	// DefaultTaintKey is the default taint key for injection
 	DefaultTaintKey = "chaosblade.io/unreachable"
 	// DefaultTaintValue is the default taint value for injection
@@ -52,6 +54,7 @@ const (
 func chaosBladeTaintAnnotations() []string {
 	return []string{
 		ChaosBladeOriginalTaintsAnnotation,
+		ChaosBladeInjectedTaintAnnotation,
 		ChaosBladeExperimentAnnotation,
 	}
 }
@@ -302,13 +305,22 @@ func (d *PodTaintNodeActionExecutor) injectTaintToNode(ctx context.Context, node
 		node.Annotations[ChaosBladeOriginalTaintsAnnotation] = string(originalBytes)
 	}
 
-	// Add the unreachable taint
+	// Add or update the unreachable taint
 	newTaint := v1.Taint{
 		Key:    taintKey,
 		Value:  taintValue,
 		Effect: v1.TaintEffect(taintEffect),
 	}
-	node.Spec.Taints = append(node.Spec.Taints, newTaint)
+	if idx := findTaintIndex(node.Spec.Taints, newTaint.Key, newTaint.Effect); idx >= 0 {
+		// Same key+effect already exists: update the value in place
+		node.Spec.Taints[idx].Value = newTaint.Value
+	} else {
+		node.Spec.Taints = append(node.Spec.Taints, newTaint)
+	}
+
+	// Record injected taint for surgical removal during restore
+	injectedBytes, _ := json.Marshal(newTaint)
+	node.Annotations[ChaosBladeInjectedTaintAnnotation] = string(injectedBytes)
 
 	// Set annotations
 	node.Annotations[ChaosBladeTaintAnnotation] = ChaosBladeModifyAction
@@ -317,7 +329,8 @@ func (d *PodTaintNodeActionExecutor) injectTaintToNode(ctx context.Context, node
 	return d.client.Update(ctx, node)
 }
 
-// restoreNodeTaints restores a node's original taints.
+// restoreNodeTaints removes only the taint injected by this experiment,
+// preserving any taints added by other controllers during the experiment.
 func (d *PodTaintNodeActionExecutor) restoreNodeTaints(ctx context.Context, node *v1.Node, experimentId string) error {
 	if node.Annotations == nil {
 		return nil
@@ -328,16 +341,24 @@ func (d *PodTaintNodeActionExecutor) restoreNodeTaints(ctx context.Context, node
 		return nil
 	}
 
-	// Restore original taints
-	if originalTaintsStr, ok := node.Annotations[ChaosBladeOriginalTaintsAnnotation]; ok {
-		var originalTaints []v1.Taint
-		if err := json.Unmarshal([]byte(originalTaintsStr), &originalTaints); err != nil {
-			return fmt.Errorf("unmarshal original taints failed: %v", err)
+	// Remove only the injected taint, preserving taints added by other controllers
+	if injectedStr, ok := node.Annotations[ChaosBladeInjectedTaintAnnotation]; ok {
+		var injected v1.Taint
+		if err := json.Unmarshal([]byte(injectedStr), &injected); err != nil {
+			return fmt.Errorf("unmarshal injected taint failed: %v", err)
 		}
-		node.Spec.Taints = originalTaints
+		node.Spec.Taints = removeTaint(node.Spec.Taints, injected)
 	} else {
-		// No original taints were backed up, meaning the node had no taints before injection
-		node.Spec.Taints = nil
+		// Fallback: no injected-taint annotation, use original snapshot
+		if originalTaintsStr, ok := node.Annotations[ChaosBladeOriginalTaintsAnnotation]; ok {
+			var originalTaints []v1.Taint
+			if err := json.Unmarshal([]byte(originalTaintsStr), &originalTaints); err != nil {
+				return fmt.Errorf("unmarshal original taints failed: %v", err)
+			}
+			node.Spec.Taints = originalTaints
+		} else {
+			node.Spec.Taints = nil
+		}
 	}
 
 	// Clean up annotations
@@ -347,6 +368,26 @@ func (d *PodTaintNodeActionExecutor) restoreNodeTaints(ctx context.Context, node
 	}
 
 	return d.client.Update(ctx, node)
+}
+
+// findTaintIndex returns the index of the first taint matching key+effect, or -1.
+func findTaintIndex(taints []v1.Taint, key string, effect v1.TaintEffect) int {
+	for i, t := range taints {
+		if t.Key == key && t.Effect == effect {
+			return i
+		}
+	}
+	return -1
+}
+
+// removeTaint removes the first taint matching key/value/effect from the list.
+func removeTaint(taints []v1.Taint, target v1.Taint) []v1.Taint {
+	for i, t := range taints {
+		if t.Key == target.Key && t.Value == target.Value && t.Effect == target.Effect {
+			return append(taints[:i], taints[i+1:]...)
+		}
+	}
+	return taints
 }
 
 // parseNodeNames splits a comma-separated nodes flag, trims whitespace, and rejects empty entries.
@@ -377,7 +418,10 @@ func (a *PodTaintNodeActionSpec) PreCreate(ctx context.Context, expModel *spec.E
 		return ctx, resp
 	}
 
-	nodeNames, _ := parseNodeNames(nodes)
+	nodeNames, err := parseNodeNames(nodes)
+	if err != nil {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterIllegal, err.Error())
+	}
 	taintEffect := expModel.ActionFlags["taint-effect"]
 	if taintEffect == "" {
 		taintEffect = DefaultTaintEffect
@@ -409,7 +453,10 @@ func (a *PodTaintNodeActionSpec) PreDestroy(ctx context.Context, expModel *spec.
 		return ctx, resp
 	}
 
-	nodeNames, _ := parseNodeNames(nodes)
+	nodeNames, err := parseNodeNames(nodes)
+	if err != nil {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterIllegal, err.Error())
+	}
 	containerObjectMetaList := model.ContainerMatchedList{}
 	for _, nodeName := range nodeNames {
 		containerObjectMetaList = append(containerObjectMetaList, model.ContainerObjectMeta{
