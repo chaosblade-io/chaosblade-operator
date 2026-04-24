@@ -1,0 +1,49 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Mount a non-existent PVC volume to a statefulset to simulate volume mount failure.
+# This will cause Pods to fail to start because the referenced PVC does not exist.
+#
+# Equivalent to:
+#   blade create k8s pod-pod failedmount --namespace default \
+#     --workload-type statefulset --workload-name redis-app \
+#     --volume-type pvc --kubeconfig ~/.kube/config
+#
+# Prerequisites:
+# - A statefulset named "redis-app" should exist in the target namespace
+# - The operator should have RBAC permissions to get/update statefulsets
+
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: pod-failedmount-pvc
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: failedmount
+    desc: "mount a non-existent pvc volume to statefulset"
+    matchers:
+    - name: namespace
+      value:
+      - "default"
+    - name: workload-type
+      value:
+      - "statefulset"
+    - name: workload-name
+      value:
+      - "redis-app"
+    - name: volume-type
+      value:
+      - "pvc"

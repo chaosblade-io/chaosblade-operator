@@ -284,6 +284,17 @@ blade create k8s pod-pod badresourcesize --namespace default --workload-type dae
 
 # Set memory resource limit for a statefulset
 blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name nginx-sts --mem 128m --kubeconfig ~/.kube/config`)
+			case *FailedMountActionSpec:
+				action.SetLongDesc("Mount a non-existent ConfigMap/Secret/PVC volume to the target workload (Deployment/DaemonSet/StatefulSet) to simulate volume mount failure. The injected volume configuration is tracked and removed when the experiment is destroyed.")
+				action.SetExample(
+					`# Mount a non-existent configmap volume to a deployment
+blade create k8s pod-pod failedmount --namespace default --workload-type deployment --workload-name nginx-app --volume-type configmap --kubeconfig ~/.kube/config
+
+# Mount a non-existent secret volume to init containers of a deployment
+blade create k8s pod-pod failedmount --namespace default --workload-type deployment --workload-name nginx-app --volume-type secret --with-initcontainer true --kubeconfig ~/.kube/config
+
+# Mount a non-existent pvc volume to a statefulset
+blade create k8s pod-pod failedmount --namespace default --workload-type statefulset --workload-name redis-app --volume-type pvc --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
@@ -328,6 +339,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewConfigMapDeleteActionSpec(client),
 				NewPodTaintNodeActionSpec(client),
 				NewBadResourceSizeActionSpec(client),
+				NewFailedMountActionSpec(client),
 			},
 		},
 	}

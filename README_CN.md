@@ -16,7 +16,7 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 网络：指定网卡、端口、IP 等包延迟、丢包、包阻塞、包重复、包乱序、包损坏等
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
-    * Pod：杀 Pod、通过 PVC 挂载失败使 Pod 卡在 ContainerCreating 状态、通过 finalizer 使 Pod 卡在 Terminating 状态、通过注入无法满足的亲和性规则使 Pod 调度失败、修改工作负载（Deployment/DaemonSet/StatefulSet）的 CPU/Memory 资源限制模拟资源配置异常
+    * Pod：杀 Pod、通过 PVC 挂载失败使 Pod 卡在 ContainerCreating 状态、通过 finalizer 使 Pod 卡在 Terminating 状态、通过注入无法满足的亲和性规则使 Pod 调度失败、修改工作负载（Deployment/DaemonSet/StatefulSet）的 CPU/Memory 资源限制模拟资源配置异常、挂载不存在的 ConfigMap/Secret/PVC 类型 Volume 到工作负载（Deployment/DaemonSet/StatefulSet）模拟卷挂载失败
 * Container：
     * CPU: 指定 CPU 使用率
     * 网络: 指定网卡、端口、IP 等包延迟、丢包、包阻塞、包重复、包乱序、包损坏等
