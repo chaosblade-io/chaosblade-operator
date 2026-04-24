@@ -1,0 +1,44 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Modify deployment CPU and memory resource limits to simulate bad resource sizing
+# Equivalent to:
+#   blade create k8s pod-pod badresourcesize --namespace default \
+#     --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: pod-bad-resource-size-cpu-mem
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: badresourcesize
+    desc: "modify deployment CPU and memory resource limits"
+    matchers:
+    - name: namespace
+      value:
+      - "default"
+    - name: workload-type
+      value:
+      - "deployment"
+    - name: workload-name
+      value:
+      - "nginx-app"
+    - name: cpu
+      value:
+      - "1m"
+    - name: mem
+      value:
+      - "128m"

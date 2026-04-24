@@ -360,6 +360,20 @@ blade create k8s node-file move --filepath /home/logs/nginx.log --target /tmp --
 # Move the file /home/logs/nginx.log to /temp/ and automatically create directories that don't exist
 blade create k8s node-file move --filepath /home/logs/nginx.log --target /temp --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
 `)
+			case *file.FileFdleakActionCommandSpec:
+				action.SetLongDesc("The file descriptor leak experiment scenario in the node, which causes disk space usage to increase")
+				action.SetExample(
+					`# Occupy about 50% of disk space with a leaked unlinked file in the node
+## using SSH channel
+blade create k8s node-file fdleak --percent 50 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
+## using DaemonSet
+blade create k8s node-file fdleak --percent 50 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30
+
+# Occupy about 80% of disk space in the /tmp directory
+## using SSH channel
+blade create k8s node-file fdleak --percent 80 --directory /tmp --channel ssh --ssh-host 192.168.1.100 --ssh-user root
+## using DaemonSet
+blade create k8s node-file fdleak --percent 80 --directory /tmp --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
 			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"

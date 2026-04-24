@@ -267,6 +267,23 @@ blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default
 
 # Delete a specific ConfigMap
 blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --configmap-name my-config --kubeconfig ~/.kube/config`)
+			case *BadResourceSizeActionSpec:
+				action.SetLongDesc("Modify the CPU/Memory resource limits of a workload (Deployment/DaemonSet/StatefulSet) to simulate incorrect resource sizing. The original resource configuration is backed up and restored when the experiment is destroyed.")
+				action.SetExample(
+					`# Set CPU resource limit for a deployment
+blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --kubeconfig ~/.kube/config
+
+# Set memory resource limit for a deployment
+blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --mem 128m --kubeconfig ~/.kube/config
+
+# Set both CPU and memory resource limits for a deployment
+blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config
+
+# Set CPU resource limit for a daemonset
+blade create k8s pod-pod badresourcesize --namespace default --workload-type daemonset --workload-name nginx-ds --cpu 1m --kubeconfig ~/.kube/config
+
+# Set memory resource limit for a statefulset
+blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name nginx-sts --mem 128m --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
@@ -310,6 +327,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewImagePullSecretsErrorActionSpec(client),
 				NewConfigMapDeleteActionSpec(client),
 				NewPodTaintNodeActionSpec(client),
+				NewBadResourceSizeActionSpec(client),
 			},
 		},
 	}
