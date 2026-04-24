@@ -383,6 +383,8 @@ func (d *BadResourceSizeActionExecutor) destroy(uid string, ctx context.Context,
 type containerResourcesBackup struct {
 	// ResourcesByName maps container name to its original ResourceRequirements.
 	ResourcesByName map[string]v1.ResourceRequirements `json:"resourcesByName"`
+	// InitResourcesByName maps init container name to its original ResourceRequirements.
+	InitResourcesByName map[string]v1.ResourceRequirements `json:"initResourcesByName,omitempty"`
 }
 
 // buildResourceLimits parses the cpu/mem flag values into a v1.ResourceList for Limits.
@@ -436,14 +438,19 @@ func normalizeMemoryValue(val string) string {
 }
 
 // backupAndInjectResources backs up original container resources (keyed by container name)
-// and sets new pod-level limits. It removes all existing container-level resource
-// requests/limits and sets pod-level limits on each container's resources.
+// for both regular and init containers, then sets new resource limits on each container.
 func backupAndInjectResources(podSpec *v1.PodSpec, annotations map[string]string, newLimits v1.ResourceList) error {
 	backup := containerResourcesBackup{
 		ResourcesByName: make(map[string]v1.ResourceRequirements, len(podSpec.Containers)),
 	}
 	for _, c := range podSpec.Containers {
 		backup.ResourcesByName[c.Name] = *c.Resources.DeepCopy()
+	}
+	if len(podSpec.InitContainers) > 0 {
+		backup.InitResourcesByName = make(map[string]v1.ResourceRequirements, len(podSpec.InitContainers))
+		for _, c := range podSpec.InitContainers {
+			backup.InitResourcesByName[c.Name] = *c.Resources.DeepCopy()
+		}
 	}
 
 	backupBytes, err := json.Marshal(backup)
@@ -454,6 +461,11 @@ func backupAndInjectResources(podSpec *v1.PodSpec, annotations map[string]string
 
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = v1.ResourceRequirements{
+			Limits: newLimits.DeepCopy(),
+		}
+	}
+	for i := range podSpec.InitContainers {
+		podSpec.InitContainers[i].Resources = v1.ResourceRequirements{
 			Limits: newLimits.DeepCopy(),
 		}
 	}
@@ -490,10 +502,27 @@ func restoreResources(podSpec *v1.PodSpec, annotations map[string]string) error 
 			logrus.Warnf("container %q not found in backup, leaving its resources unchanged", name)
 		}
 	}
-
 	for name := range backup.ResourcesByName {
 		if !restored[name] {
 			logrus.Warnf("backed-up container %q no longer exists in pod spec, skipping restore", name)
+		}
+	}
+
+	if len(backup.InitResourcesByName) > 0 {
+		restoredInit := make(map[string]bool, len(backup.InitResourcesByName))
+		for i := range podSpec.InitContainers {
+			name := podSpec.InitContainers[i].Name
+			if orig, found := backup.InitResourcesByName[name]; found {
+				podSpec.InitContainers[i].Resources = orig
+				restoredInit[name] = true
+			} else {
+				logrus.Warnf("init container %q not found in backup, leaving its resources unchanged", name)
+			}
+		}
+		for name := range backup.InitResourcesByName {
+			if !restoredInit[name] {
+				logrus.Warnf("backed-up init container %q no longer exists in pod spec, skipping restore", name)
+			}
 		}
 	}
 
