@@ -269,7 +269,13 @@ blade create k8s pod-pod badresourcesize --namespace default --workload-type dep
 blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --mem 128m --kubeconfig ~/.kube/config
 
 # Set both CPU and memory resource limits for a deployment
-blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod badresourcesize --namespace default --workload-type deployment --workload-name nginx-app --cpu 1m --mem 128m --kubeconfig ~/.kube/config
+
+# Set CPU resource limit for a daemonset
+blade create k8s pod-pod badresourcesize --namespace default --workload-type daemonset --workload-name nginx-ds --cpu 1m --kubeconfig ~/.kube/config
+
+# Set memory resource limit for a statefulset
+blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name nginx-sts --mem 128m --kubeconfig ~/.kube/config`)
 			default:
 				action.SetExample(strings.Replace(action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
