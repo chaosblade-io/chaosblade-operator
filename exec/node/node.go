@@ -274,6 +274,14 @@ blade create k8s node-disk burn --write --path /home --names izbp1a4jchbdwkwi5hk
 blade create k8s node-disk burn --read --write --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
 blade create k8s node-disk burn --read --write --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+			case *disk.UnmountStuckActionSpec:
+				action.SetLongDesc("Simulate volume unmount stuck by holding file handles in the node")
+				action.SetExample(
+					`# Simulate volume unmount stuck on /mnt/data in the node
+## using SSH channel
+blade create k8s node-disk unmount_stuck --path /mnt/data --channel ssh --ssh-host 192.168.1.100 --ssh-user root
+## using DaemonSet
+blade create k8s node-disk unmount_stuck --path /mnt/data --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
 			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
 				action.SetExample(
