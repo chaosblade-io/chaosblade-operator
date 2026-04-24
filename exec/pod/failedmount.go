@@ -228,6 +228,11 @@ func (d *FailedMountActionExecutor) create(uid string, ctx context.Context, expM
 		util.Errorf(uid, util.GetRunFuncName(), "volume-type is required")
 		return spec.ResponseFailWithFlags(spec.ParameterLess, "volume-type")
 	}
+	if volumeType != FailedMountVolumeTypeConfigMap && volumeType != FailedMountVolumeTypeSecret && volumeType != FailedMountVolumeTypePVC {
+		util.Errorf(uid, util.GetRunFuncName(), fmt.Sprintf("invalid volume-type: %s", volumeType))
+		return spec.ResponseFailWithFlags(spec.ParameterIllegal, "volume-type",
+			volumeType, "must be one of: configmap, secret, pvc")
+	}
 
 	status := v1alpha1.ResourceStatus{
 		Kind:       v1alpha1.PodKind,
