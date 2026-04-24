@@ -468,12 +468,22 @@ func injectFailedMountVolume(podSpec *v1.PodSpec, annotations map[string]string,
 }
 
 // removeInjectedVolume removes the injected volume and its mounts from the pod spec.
-func removeInjectedVolume(podSpec *v1.PodSpec, backup *volumeBackup) {
+// It also validates that the volume being removed matches the expected type from backup.
+func removeInjectedVolume(podSpec *v1.PodSpec, backup *volumeBackup) error {
+	found := false
 	newVolumes := make([]v1.Volume, 0, len(podSpec.Volumes))
 	for _, vol := range podSpec.Volumes {
-		if vol.Name != backup.VolumeName {
-			newVolumes = append(newVolumes, vol)
+		if vol.Name == backup.VolumeName {
+			found = true
+			if err := validateVolumeType(&vol, backup.VolumeType); err != nil {
+				return fmt.Errorf("sanity check failed for volume %q: %w", backup.VolumeName, err)
+			}
+			continue
 		}
+		newVolumes = append(newVolumes, vol)
+	}
+	if !found {
+		logrus.Warnf("injected volume %q not found in pod spec, it may have been removed externally", backup.VolumeName)
 	}
 	podSpec.Volumes = newVolumes
 
@@ -498,6 +508,28 @@ func removeInjectedVolume(podSpec *v1.PodSpec, backup *volumeBackup) {
 			podSpec.Containers[i].VolumeMounts = mounts
 		}
 	}
+	return nil
+}
+
+// validateVolumeType checks that the volume's actual source type matches the expected type from backup.
+func validateVolumeType(vol *v1.Volume, expectedType string) error {
+	switch expectedType {
+	case FailedMountVolumeTypeConfigMap:
+		if vol.ConfigMap == nil {
+			return fmt.Errorf("expected configmap volume but found different type")
+		}
+	case FailedMountVolumeTypeSecret:
+		if vol.Secret == nil {
+			return fmt.Errorf("expected secret volume but found different type")
+		}
+	case FailedMountVolumeTypePVC:
+		if vol.PersistentVolumeClaim == nil {
+			return fmt.Errorf("expected pvc volume but found different type")
+		}
+	default:
+		return fmt.Errorf("unknown volume type %q in backup annotation", expectedType)
+	}
+	return nil
 }
 
 // restoreVolumeFromAnnotation parses the backup annotation and removes the injected volume.
@@ -512,8 +544,7 @@ func restoreVolumeFromAnnotation(podSpec *v1.PodSpec, annotations map[string]str
 		return fmt.Errorf("unmarshal volume backup failed: %v", err)
 	}
 
-	removeInjectedVolume(podSpec, &backup)
-	return nil
+	return removeInjectedVolume(podSpec, &backup)
 }
 
 // --- Deployment ---
