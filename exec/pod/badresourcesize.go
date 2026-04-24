@@ -378,9 +378,11 @@ func (d *BadResourceSizeActionExecutor) destroy(uid string, ctx context.Context,
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
 }
 
-// containerResourcesBackup holds the original resource settings for all containers in a pod template.
+// containerResourcesBackup holds the original resource settings for all containers in a pod template,
+// keyed by container name for resilience against container additions/removals during the experiment.
 type containerResourcesBackup struct {
-	Resources []v1.ResourceRequirements `json:"resources"`
+	// ResourcesByName maps container name to its original ResourceRequirements.
+	ResourcesByName map[string]v1.ResourceRequirements `json:"resourcesByName"`
 }
 
 // buildResourceLimits parses the cpu/mem flag values into a v1.ResourceList for Limits.
@@ -433,15 +435,15 @@ func normalizeMemoryValue(val string) string {
 	return val
 }
 
-// backupAndInjectResources backs up original container resources and sets new pod-level limits.
-// It removes all existing container-level resource requests/limits and sets pod-level limits
-// on each container's resources.
+// backupAndInjectResources backs up original container resources (keyed by container name)
+// and sets new pod-level limits. It removes all existing container-level resource
+// requests/limits and sets pod-level limits on each container's resources.
 func backupAndInjectResources(podSpec *v1.PodSpec, annotations map[string]string, newLimits v1.ResourceList) error {
 	backup := containerResourcesBackup{
-		Resources: make([]v1.ResourceRequirements, len(podSpec.Containers)),
+		ResourcesByName: make(map[string]v1.ResourceRequirements, len(podSpec.Containers)),
 	}
-	for i, c := range podSpec.Containers {
-		backup.Resources[i] = *c.Resources.DeepCopy()
+	for _, c := range podSpec.Containers {
+		backup.ResourcesByName[c.Name] = *c.Resources.DeepCopy()
 	}
 
 	backupBytes, err := json.Marshal(backup)
@@ -460,6 +462,9 @@ func backupAndInjectResources(podSpec *v1.PodSpec, annotations map[string]string
 }
 
 // restoreResources restores original container resources from the backup annotation.
+// It uses best-effort matching by container name: containers that exist in both the
+// backup and the current spec are restored; new containers (not in backup) are left
+// untouched; removed containers (in backup but not in spec) are logged as warnings.
 func restoreResources(podSpec *v1.PodSpec, annotations map[string]string) error {
 	backupStr, ok := annotations[ChaosBladeOriginalResourcesAnnotation]
 	if !ok || backupStr == "" {
@@ -471,13 +476,25 @@ func restoreResources(podSpec *v1.PodSpec, annotations map[string]string) error 
 		return fmt.Errorf("unmarshal original resources failed: %v", err)
 	}
 
-	if len(backup.Resources) != len(podSpec.Containers) {
-		return fmt.Errorf("backup container count (%d) does not match current container count (%d)",
-			len(backup.Resources), len(podSpec.Containers))
+	if len(backup.ResourcesByName) == 0 {
+		return fmt.Errorf("backup contains no container resources")
 	}
 
+	restored := make(map[string]bool, len(backup.ResourcesByName))
 	for i := range podSpec.Containers {
-		podSpec.Containers[i].Resources = backup.Resources[i]
+		name := podSpec.Containers[i].Name
+		if orig, found := backup.ResourcesByName[name]; found {
+			podSpec.Containers[i].Resources = orig
+			restored[name] = true
+		} else {
+			logrus.Warnf("container %q not found in backup, leaving its resources unchanged", name)
+		}
+	}
+
+	for name := range backup.ResourcesByName {
+		if !restored[name] {
+			logrus.Warnf("backed-up container %q no longer exists in pod spec, skipping restore", name)
+		}
 	}
 
 	return nil
