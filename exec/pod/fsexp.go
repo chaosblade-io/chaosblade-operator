@@ -135,7 +135,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		if err != nil {
 			logrusField.Errorf("get pod %s err, %v", c.PodName, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.K8sExecFailed.Sprintf("get", err), spec.K8sExecFailed.Code))
+				spec.K8sExecFailed.Sprintf("get", err), spec.K8sExecFailed.Code,
+			))
 			continue
 		}
 		if !isPodReady(pod) {
@@ -147,7 +148,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 		if !ok && len(methods) != 0 {
 			logrusField.Error("method cannot be empty")
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.ParameterLess.Sprintf("method"), spec.ParameterLess.Code))
+				spec.ParameterLess.Sprintf("method"), spec.ParameterLess.Code,
+			))
 			continue
 		}
 
@@ -158,7 +160,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 			if err != nil {
 				logrusField.Error("delay must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(
-					spec.ParameterIllegal.Sprintf("delay", delayStr, err), spec.ParameterIllegal.Code))
+					spec.ParameterIllegal.Sprintf("delay", delayStr, err), spec.ParameterIllegal.Code,
+				))
 				continue
 			}
 		}
@@ -167,7 +170,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 			if percent, err = strconv.Atoi(percentStr); err != nil {
 				logrusField.Error("percent must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(
-					spec.ParameterIllegal.Sprintf("percent", percentStr, err), spec.ParameterIllegal.Code))
+					spec.ParameterIllegal.Sprintf("percent", percentStr, err), spec.ParameterIllegal.Code,
+				))
 				continue
 			}
 		}
@@ -177,7 +181,8 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 			if errno, err = strconv.Atoi(errnoStr); err != nil {
 				logrusField.Error("errno must be integer")
 				statuses = append(statuses, status.CreateFailResourceStatus(
-					spec.ParameterIllegal.Sprintf("errno", errnoStr, err), spec.ParameterIllegal.Code))
+					spec.ParameterIllegal.Sprintf("errno", errnoStr, err), spec.ParameterIllegal.Code,
+				))
 				continue
 			}
 		}
@@ -202,14 +207,16 @@ func (d *PodIOActionExecutor) create(ctx context.Context, expModel *spec.ExpMode
 			logrusField.WithField("pod", c.PodName).WithField("request", request).
 				Errorf("init chaosfs client failed: %v", err)
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.ChaosfsClientFailed.Sprintf(pod.Name, err), spec.ChaosfsClientFailed.Code))
+				spec.ChaosfsClientFailed.Sprintf(pod.Name, err), spec.ChaosfsClientFailed.Code,
+			))
 			continue
 		}
 		err = chaosfsClient.InjectFault(ctx, request)
 		if err != nil {
 			logrusField.Errorf("inject io exception in pod %s failed, request %v, err: %v", c.PodName, request, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.ChaosfsInjectFailed.Sprintf(pod.Name, request, err), spec.ChaosfsInjectFailed.Code))
+				spec.ChaosfsInjectFailed.Sprintf(pod.Name, request, err), spec.ChaosfsInjectFailed.Code,
+			))
 			continue
 		}
 		statuses = append(statuses, status.CreateSuccessResourceStatus())
@@ -255,14 +262,16 @@ func (d *PodIOActionExecutor) destroy(ctx context.Context, expModel *spec.ExpMod
 		if err != nil {
 			logrusField.Errorf("init chaosfs client failed in pod %v, err: %v", pod.Name, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.ChaosfsClientFailed.Sprintf(pod.Name, err), spec.ChaosfsClientFailed.Code))
+				spec.ChaosfsClientFailed.Sprintf(pod.Name, err), spec.ChaosfsClientFailed.Code,
+			))
 			continue
 		}
 		err = chaosfsClient.Revoke(ctx)
 		if err != nil {
 			logrusField.Errorf("recover io exception failed in pod  %v, err: %v", c.PodName, err)
 			statuses = append(statuses, status.CreateFailResourceStatus(
-				spec.ChaosfsRecoverFailed.Sprintf(pod.Name, err), spec.ChaosfsRecoverFailed.Code))
+				spec.ChaosfsRecoverFailed.Sprintf(pod.Name, err), spec.ChaosfsRecoverFailed.Code,
+			))
 			continue
 		}
 	}

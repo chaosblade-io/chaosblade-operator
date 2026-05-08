@@ -144,7 +144,8 @@ func (d *ConfigMapDeleteActionExecutor) create(ctx context.Context, expModel *sp
 		if !isPodReady(pod) {
 			logrusField.Infof("pod %s/%s is not ready, skip", c.Namespace, c.PodName)
 			status = status.CreateFailResourceStatus(
-				fmt.Sprintf("pod %s is not ready", c.PodName), spec.K8sExecFailed.Code)
+				fmt.Sprintf("pod %s is not ready", c.PodName), spec.K8sExecFailed.Code,
+			)
 			statuses = append(statuses, status)
 			continue
 		}
@@ -167,7 +168,8 @@ func (d *ConfigMapDeleteActionExecutor) create(ctx context.Context, expModel *sp
 			if err := d.client.Get(ctx, types.NamespacedName{Name: resolvedCMName, Namespace: c.Namespace}, originalCM); err != nil {
 				logrusField.Errorf("get configmap %s/%s failed: %v", c.Namespace, resolvedCMName, err)
 				status = status.CreateFailResourceStatus(
-					fmt.Sprintf("configmap %s not found in namespace %s", resolvedCMName, c.Namespace), spec.K8sExecFailed.Code)
+					fmt.Sprintf("configmap %s not found in namespace %s", resolvedCMName, c.Namespace), spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				continue
 			}
@@ -176,7 +178,8 @@ func (d *ConfigMapDeleteActionExecutor) create(ctx context.Context, expModel *sp
 			if err := d.createBackupConfigMap(ctx, experimentId, originalCM); err != nil {
 				logrusField.Errorf("create backup configmap for %s/%s failed: %v", c.Namespace, resolvedCMName, err)
 				status = status.CreateFailResourceStatus(
-					fmt.Sprintf("create backup configmap failed: %v", err), spec.K8sExecFailed.Code)
+					fmt.Sprintf("create backup configmap failed: %v", err), spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				continue
 			}
@@ -193,7 +196,8 @@ func (d *ConfigMapDeleteActionExecutor) create(ctx context.Context, expModel *sp
 					logrusField.Warningf("rollback: delete backup configmap %s failed: %v", backupName, rbErr)
 				}
 				status = status.CreateFailResourceStatus(
-					fmt.Sprintf("delete configmap %s failed: %v", resolvedCMName, err), spec.K8sExecFailed.Code)
+					fmt.Sprintf("delete configmap %s failed: %v", resolvedCMName, err), spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				continue
 			}
@@ -212,12 +216,14 @@ func (d *ConfigMapDeleteActionExecutor) create(ctx context.Context, expModel *sp
 				logrusField.Errorf("rollback: restore configmap from backup %s failed: %v, manual intervention required", backupName, restoreErr)
 				status = status.CreateFailResourceStatus(
 					fmt.Sprintf("configmap %s has been deleted but restore failed: %v, manual intervention required", resolvedCMName, restoreErr),
-					spec.K8sExecFailed.Code)
+					spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				continue
 			}
 			status = status.CreateFailResourceStatus(
-				fmt.Sprintf("delete pod %s failed: %v", c.PodName, err), spec.K8sExecFailed.Code)
+				fmt.Sprintf("delete pod %s failed: %v", c.PodName, err), spec.K8sExecFailed.Code,
+			)
 			statuses = append(statuses, status)
 			continue
 		}
@@ -321,7 +327,8 @@ func (d *ConfigMapDeleteActionExecutor) destroy(ctx context.Context, expModel *s
 			} else {
 				logrusField.Errorf("delete pod %s/%s failed: %v", c.Namespace, c.PodName, err)
 				status = status.CreateFailResourceStatus(
-					fmt.Sprintf("delete pod %s failed: %v", c.PodName, err), spec.K8sExecFailed.Code)
+					fmt.Sprintf("delete pod %s failed: %v", c.PodName, err), spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				allSuccess = false
 				continue

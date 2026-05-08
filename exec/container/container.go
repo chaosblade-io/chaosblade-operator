@@ -80,7 +80,8 @@ blade create k8s container-process kill --process nginx --names nginx-app --cont
 
 # Use blade CLI
 # Specifies the signal and local port to kill the process in the container
-blade create k8s container-process kill --local-port 8080 --signal 15 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-process kill --local-port 8080 --signal 15 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 
 			case *process.StopProcessActionCommandSpec:
 				action.SetLongDesc("The process scenario in container is the same as the basic resource process scenario")
@@ -90,7 +91,8 @@ blade create k8s container-process kill --local-port 8080 --signal 15 --names ng
 blade create k8s container-process stop --process nginx --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
 
 # Pause the Java process in the container
-blade create k8s container-process stop --process-cmd java --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-process stop --process-cmd java --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 
 			case *cpu.FullLoadActionCommand:
 				action.SetLongDesc("The CPU load experiment scenario in container is the same as the CPU scenario of basic resources")
@@ -109,7 +111,8 @@ blade create k8s container-cpu load --cpu-list 0,3 --names nginx-app --container
 blade create k8s container-cpu load --cpu-list 1-3 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
 
 # Specified percentage load in the container
-blade create k8s container-cpu load --cpu-percent 60 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-cpu load --cpu-percent 60 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 
 			case *disk.FillActionSpec:
 				action.SetLongDesc("The disk fill scenario experiment in the container")
@@ -123,7 +126,8 @@ blade create k8s container-disk fill --path /home --percent 80 --retain-handle -
 
 # Perform a fixed-size experimental scenario in the container
 blade c k8s container-disk fill --path /home --reserve 1024 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *disk.BurnActionSpec:
 				action.SetLongDesc("Disk read and write IO load experiment in the container")
 				action.SetExample(
@@ -134,7 +138,8 @@ blade create k8s container-disk burn --read --path /home --names nginx-app --con
 blade create k8s container-disk burn --write --path /home --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default8
 
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is /
-blade create k8s container-disk burn --read --write --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-disk burn --read --write --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 
 			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
@@ -152,7 +157,8 @@ blade create k8s container-mem load --mode ram --mem-percent 50 --include-buffer
 blade create k8s container-mem load --mode ram --mem-percent 50 --timeout 200 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
 
 # 200M memory is reserved
-blade create k8s container-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *file.FileAppendActionSpec:
 				action.SetLongDesc("The file append experiment scenario in container")
 				action.SetExample(
@@ -167,7 +173,8 @@ blade create k8s container-file append --filepath=/home/logs/nginx.log --content
 
 # mock interface timeout exception
 blade create k8s container-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileAddActionSpec:
 				action.SetLongDesc("The file add experiment scenario in container")
 				action.SetExample(
@@ -182,7 +189,8 @@ blade create k8s container-file add --filepath /temp/nginx.log --auto-create-dir
 
 # Create a directory named /nginx in the /temp directory and automatically create directories that don't exist
 blade create k8s container-file add --directory --filepath /temp/nginx --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 
 			case *file.FileChmodActionSpec:
 				action.SetLongDesc("The file permission modification scenario in container")
@@ -197,7 +205,8 @@ blade create k8s container-file delete --filepath /home/logs/nginx.log --names n
 
 # Force delete the file /home/logs/nginx.log unrecoverable
 blade create k8s container-file delete --filepath /home/logs/nginx.log --force --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileMoveActionSpec:
 				action.SetExample("The file move scenario in container")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
@@ -218,15 +227,18 @@ blade create k8s container-network delay --time 3000 --offset 1000 --interface e
 blade create k8s container-network delay --time 3000 --interface eth0 --remote-port 80 --destination-ip 14.215.177.39 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
 
 # Do a 5 second delay for the entire network card eth0, excluding ports 22 and 8000 to 8080
-blade create k8s container-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *network.DropActionSpec:
 				action.SetExample(
 					`# Experimental scenario of network shielding
-blade create k8s container-network drop --source-port 80 --network-traffic in --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-network drop --source-port 80 --network-traffic in --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *network.DnsActionSpec:
 				action.SetExample(
 					`# The domain name www.baidu.com is not accessible
-blade create k8s container-network dns --domain www.baidu.com --ip 10.0.0.0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s container-network dns --domain www.baidu.com --ip 10.0.0.0 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *tc.LossActionSpec:
 				action.SetExample(`# Access to native 8080 and 8081 ports lost 70% of packets
 blade create k8s container-network loss --percent 70 --interface eth0 --local-port 8080,8081 --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
@@ -267,17 +279,20 @@ blade create k8s container-script exit --exit-code 1 --exit-message this-is-erro
 # Remove container in pod
 blade create k8s container-container remove --names cart-redis-77 --container-names cart-redis --namespace default --kubeconfig ~/.kube/config`)
 			default:
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade c k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade create docker %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade create k8s container-%s %s --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,

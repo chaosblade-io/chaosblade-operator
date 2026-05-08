@@ -84,7 +84,8 @@ func (d *DownloadOptions) DeployToPod(experimentId, src, dest string) error {
 			"container":    d.Container,
 			"command":      command,
 			"result":       statusCode,
-		}).Infof("download to the target container")
+		},
+	).Infof("download to the target container")
 	code, err := strconv.Atoi(strings.TrimSpace(statusCode))
 	if err != nil {
 		return errors.New(statusCode)
@@ -124,7 +125,8 @@ func (d *DownloadOptions) uncompress(experimentId, file string) error {
 			"container":    d.Container,
 			"command":      command,
 			"result":       error,
-		}).Infof("uncompress in the target container")
+		},
+	).Infof("uncompress in the target container")
 	if error == nil {
 		return nil
 	}

@@ -168,7 +168,8 @@ func (d *ImagePullSecretsErrorActionExecutor) create(uid string, ctx context.Con
 			if len(targetSecretRefs) == 0 {
 				logrusField.Warningf("pod %s/%s does not have imagePullSecret %s", meta.Namespace, meta.PodName, secretNameFilter)
 				status = status.CreateFailResourceStatus(
-					fmt.Sprintf("pod does not have imagePullSecret %s", secretNameFilter), spec.K8sExecFailed.Code)
+					fmt.Sprintf("pod does not have imagePullSecret %s", secretNameFilter), spec.K8sExecFailed.Code,
+				)
 				statuses = append(statuses, status)
 				continue
 			}

@@ -83,14 +83,16 @@ func (e *ExpController) Create(ctx context.Context, expSpec v1alpha1.ExperimentS
 		errMsg := spec.ParameterInvalid.Sprintf(
 			strings.Join([]string{model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name}, "|"),
 			strings.Join([]string{containerIdsValue, containerNamesValue, containerIndexValue}, "|"),
-			"cannot find the containers")
+			"cannot find the containers",
+		)
 		logrusField.Errorln(errMsg)
 		response := spec.ResponseFailWithResult(
 			spec.ParameterInvalid,
 			v1alpha1.CreateFailExperimentStatus(errMsg, []v1alpha1.ResourceStatus{}),
 			strings.Join([]string{model.ContainerIdsFlag.Name, model.ContainerNamesFlag.Name, model.ContainerIndexFlag.Name}, "|"),
 			strings.Join([]string{containerIdsValue, containerNamesValue, containerIndexValue}, "|"),
-			"cannot find the containers")
+			"cannot find the containers",
+		)
 		return response
 	}
 	ctx = model.SetContainerObjectMetaListToContext(ctx, containerObjectMetaList)

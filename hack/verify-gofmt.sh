@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source "$(dirname "$0")/init.sh"
-go install mvdan.cc/gofumpt@latest
+go install mvdan.cc/gofumpt@v0.10.0
 
 # gofmt exits with non-zero exit code if it finds a problem unrelated to
 # formatting (e.g., a file does not parse correctly). Without "|| true" this

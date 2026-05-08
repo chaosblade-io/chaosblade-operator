@@ -412,7 +412,8 @@ func getNewContainerIdByPod(podName, podNamespace, containerName, experimentId s
 			logrus.Fields{
 				"experiment":    experimentId,
 				"containerName": containerName,
-			}).Warningf("can not find the pod by %s name in %s namespace, %v", podName, podNamespace, err)
+			},
+		).Warningf("can not find the pod by %s name in %s namespace, %v", podName, podNamespace, err)
 		return "", err
 	}
 	containerStatuses := pod.Status.ContainerStatuses
