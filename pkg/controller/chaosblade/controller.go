@@ -151,7 +151,8 @@ func periodicallyCleanUpBlade(ctx context.Context, cli client.Client, interval t
 		if item.Status.Phase == v1alpha1.ClusterPhaseDestroying && sub.Seconds() > interval.Seconds() {
 			logrus.Infof("periodically clean up blade %s, deletion time: %s", item.Name, item.DeletionTimestamp.String())
 			// patch blade
-			if err := cli.Patch(ctx,
+			if err := cli.Patch(
+				ctx,
 				&v1alpha1.ChaosBlade{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "chaosblade.io/v1alpha1",

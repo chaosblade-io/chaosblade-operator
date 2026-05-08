@@ -70,7 +70,8 @@ blade create k8s pod-disk fill --path /home --percent 80 --retain-handle --names
 
 # Perform a fixed-size experimental scenario in the pod
 blade c k8s pod-disk fill --path /home --reserve 1024 --names nginx-app --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *disk.BurnActionSpec:
 				action.SetLongDesc("Disk read and write IO load experiment in the pod")
 				action.SetExample(
@@ -81,7 +82,8 @@ blade create k8s pod-disk burn --read --path /home --names nginx-app --kubeconfi
 blade create k8s pod-disk burn --write --path /home --names nginx-app --kubeconfig ~/.kube/config --namespace default8
 
 # Read and write IO load scenarios are performed at the same time. Path is not specified. The default is /
-blade create k8s pod-disk burn --read --write --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s pod-disk burn --read --write --names nginx-app --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in the pod")
 				action.SetExample(
@@ -98,7 +100,8 @@ blade create k8s pod-mem load --mode ram --mem-percent 50 --include-buffer-cache
 blade create k8s pod-mem load --mode ram --mem-percent 50 --timeout 200 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
 # 200M memory is reserved
-blade create k8s pod-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s pod-mem load --mode ram --reserve 200 --rate 100 --names nginx-app --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *file.FileAppendActionSpec:
 				action.SetLongDesc("The file append experiment scenario in the pod")
 				action.SetExample(
@@ -113,7 +116,8 @@ blade create k8s pod-file append --filepath=/home/logs/nginx.log --content=SEVMT
 
 # mock interface timeout exception
 blade create k8s pod-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileAddActionSpec:
 				action.SetLongDesc("The file add experiment scenario in the pod")
 				action.SetExample(
@@ -128,7 +132,8 @@ blade create k8s pod-file add --filepath /temp/nginx.log --auto-create-dir --nam
 
 # Create a directory named /nginx in the /temp directory and automatically create directories that don't exist
 blade create k8s pod-file add --directory --filepath /temp/nginx --auto-create-dir --names nginx-app --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 
 			case *file.FileChmodActionSpec:
 				action.SetLongDesc("The file permission modification scenario in the pod")
@@ -143,7 +148,8 @@ blade create k8s pod-file delete --filepath /home/logs/nginx.log --names nginx-a
 
 # Force delete the file /home/logs/nginx.log unrecoverable
 blade create k8s pod-file delete --filepath /home/logs/nginx.log --force --names nginx-app --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileMoveActionSpec:
 				action.SetExample("The file move scenario in the pod")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
@@ -164,15 +170,18 @@ blade create k8s pod-network delay --time 3000 --offset 1000 --interface eth0 --
 blade create k8s pod-network delay --time 3000 --interface eth0 --remote-port 80 --destination-ip 14.215.177.39 --names nginx-app --kubeconfig ~/.kube/config --namespace default
 
 # Do a 5 second delay for the entire network card eth0, excluding ports 22 and 8000 to 8080
-blade create k8s pod-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s pod-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names nginx-app --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *network.DropActionSpec:
 				action.SetExample(
 					`# Experimental scenario of network shielding
-blade create k8s pod-network drop --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s pod-network drop --names nginx-app --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *network.DnsActionSpec:
 				action.SetExample(
 					`# The domain name www.baidu.com is not accessible
-blade create k8s pod-network dns --domain www.baidu.com --ip 10.0.0.0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`)
+blade create k8s pod-network dns --domain www.baidu.com --ip 10.0.0.0 --names nginx-app --kubeconfig ~/.kube/config --namespace default`,
+				)
 			case *tc.LossActionSpec:
 				action.SetExample(`# Access to native 8080 and 8081 ports lost 70% of packets
 blade create k8s pod-network loss --percent 70 --interface eth0 --local-port 8080,8081 --names nginx-app --kubeconfig ~/.kube/config --namespace default
@@ -231,7 +240,8 @@ blade create k8s pod-script exit --exit-code 1 --exit-message this-is-error-mess
 blade create k8s pod-pod containercreating --namespace default --kubeconfig ~/.kube/config
 
 # Create a pod stuck in ContainerCreating state with custom volume mount path
-blade create k8s pod-pod containercreating --namespace default --volume-mount-path /data --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod containercreating --namespace default --volume-mount-path /data --kubeconfig ~/.kube/config`,
+				)
 			case *PodSchedulingFailureActionSpec:
 				action.SetLongDesc("Make pod scheduling fail by injecting unreachable affinity rules to the target workload (Deployment/DaemonSet/StatefulSet). The scheduler will not find any node matching the rules, causing the Pod to remain in Pending state.")
 				action.SetExample(
@@ -239,7 +249,8 @@ blade create k8s pod-pod containercreating --namespace default --volume-mount-pa
 blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --kubeconfig ~/.kube/config
 
 # Inject scheduling failure using node-selector
-blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --affinity-type node-selector --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod schedulingfailure --namespace default --workload-type deployment --workload-name nginx-deployment --affinity-type node-selector --kubeconfig ~/.kube/config`,
+				)
 			case *ImagePullSecretsErrorActionSpec:
 				action.SetLongDesc("Simulate image pull authentication failure by corrupting the credentials in the Secret referenced by the Pod's imagePullSecrets. The original Secret is backed up and restored when the experiment is destroyed.")
 				action.SetExample(
@@ -250,7 +261,8 @@ blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace de
 blade create k8s pod-pod imagepullsecretserror --labels app=nginx --namespace default --kubeconfig ~/.kube/config
 
 # Corrupt only a specific imagePullSecret
-blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace default --secret-name my-registry-secret --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace default --secret-name my-registry-secret --kubeconfig ~/.kube/config`,
+				)
 			case *PodTaintNodeActionSpec:
 				action.SetLongDesc("Make pod scheduling fail by adding unreachable taint to nodes. The scheduler will not schedule Pods without matching tolerations to the tainted nodes, causing the Pods to remain in Pending state.")
 				action.SetExample(
@@ -258,7 +270,8 @@ blade create k8s pod-pod imagepullsecretserror --names my-app-pod --namespace de
 blade create k8s pod-pod taintnode --nodes node1,node2 --kubeconfig ~/.kube/config
 
 # Add taint with NoExecute effect (will evict running pods)
-blade create k8s pod-pod taintnode --nodes node1 --taint-effect NoExecute --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod taintnode --nodes node1 --taint-effect NoExecute --kubeconfig ~/.kube/config`,
+				)
 			case *ConfigMapDeleteActionSpec:
 				action.SetLongDesc("Delete a ConfigMap that a Pod depends on, then restart the Pod to simulate startup failure caused by missing ConfigMap. The original ConfigMap is backed up and restored when the experiment is destroyed.")
 				action.SetExample(
@@ -266,7 +279,8 @@ blade create k8s pod-pod taintnode --nodes node1 --taint-effect NoExecute --kube
 blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --kubeconfig ~/.kube/config
 
 # Delete a specific ConfigMap
-blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --configmap-name my-config --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod configmapdelete --labels "app=test" --namespace default --configmap-name my-config --kubeconfig ~/.kube/config`,
+				)
 			case *BadResourceSizeActionSpec:
 				action.SetLongDesc("Modify the CPU/Memory resource limits of a workload (Deployment/DaemonSet/StatefulSet) to simulate incorrect resource sizing. The original resource configuration is backed up and restored when the experiment is destroyed.")
 				action.SetExample(
@@ -283,7 +297,8 @@ blade create k8s pod-pod badresourcesize --namespace default --workload-type dep
 blade create k8s pod-pod badresourcesize --namespace default --workload-type daemonset --workload-name nginx-ds --cpu 1m --kubeconfig ~/.kube/config
 
 # Set memory resource limit for a statefulset
-blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name nginx-sts --mem 128m --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod badresourcesize --namespace default --workload-type statefulset --workload-name nginx-sts --mem 128m --kubeconfig ~/.kube/config`,
+				)
 			case *FailedMountActionSpec:
 				action.SetLongDesc("Mount a non-existent ConfigMap/Secret/PVC volume to the target workload (Deployment/DaemonSet/StatefulSet) to simulate volume mount failure. The injected volume configuration is tracked and removed when the experiment is destroyed.")
 				action.SetExample(
@@ -294,14 +309,17 @@ blade create k8s pod-pod failedmount --namespace default --workload-type deploym
 blade create k8s pod-pod failedmount --namespace default --workload-type deployment --workload-name nginx-app --volume-type secret --with-initcontainer true --kubeconfig ~/.kube/config
 
 # Mount a non-existent pvc volume to a statefulset
-blade create k8s pod-pod failedmount --namespace default --workload-type statefulset --workload-name redis-app --volume-type pvc --kubeconfig ~/.kube/config`)
+blade create k8s pod-pod failedmount --namespace default --workload-type statefulset --workload-name redis-app --volume-type pvc --kubeconfig ~/.kube/config`,
+				)
 			default:
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade create k8s pod-%s %s --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,
 				))
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade c k8s pod-%s %s --names nginx-app --kubeconfig ~/.kube/config --namespace default", expModelSpec.Name(), action.Name()),
 					-1,

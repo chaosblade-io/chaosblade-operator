@@ -100,7 +100,8 @@ func (c *Client) Exec(options *ExecOptions) interface{} {
 				Stdout:    true,
 				Stderr:    true,
 				TTY:       options.TTY,
-			}, scheme.ParameterCodec)
+			}, scheme.ParameterCodec,
+		)
 	output := bytes.NewBuffer([]byte{})
 	options.Out = output
 	errput := bytes.NewBuffer([]byte{})

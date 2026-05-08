@@ -103,8 +103,8 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 			if volumeMount.MountPropagation == nil {
 				return fmt.Errorf("target volume mount propagation must be HostToContainer or Bidirectional")
 			}
-			if *(volumeMount.MountPropagation) != corev1.MountPropagationHostToContainer &&
-				*(volumeMount.MountPropagation) != corev1.MountPropagationBidirectional {
+			if *volumeMount.MountPropagation != corev1.MountPropagationHostToContainer &&
+				*volumeMount.MountPropagation != corev1.MountPropagationBidirectional {
 				return fmt.Errorf("target volume mount propagation is not support")
 			}
 			targetVolumeMount = volumeMount

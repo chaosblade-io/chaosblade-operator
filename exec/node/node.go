@@ -90,7 +90,8 @@ blade create k8s node-cpu load --cpu-list 1-3 --names izbp1a4jchbdwkwi5hk7ekz --
 ## using SSH channel
 blade create k8s node-cpu load --cpu-percent 60 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-cpu load --cpu-percent 60 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-cpu load --cpu-percent 60 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *tc.DelayActionSpec:
 				action.SetLongDesc(` The network delay experiment scenario for k8s node.
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
@@ -113,7 +114,8 @@ blade create k8s node-network delay --time 3000 --interface eth0 --remote-port 8
 ## using SSH channel
 blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 22,8000-8080 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *network.DropActionSpec:
 				action.SetLongDesc(`!!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
 !!! Please use caution, add a timeout parameter for automatic destroy, or use the SSH channel.`)
@@ -122,7 +124,8 @@ blade create k8s node-network delay --time 5000 --interface eth0 --exclude-port 
 ## using SSH channel
 blade create k8s node-network drop --source-port 80 --network-traffic in --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-network drop --source-port 80 --network-traffic in --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-network drop --source-port 80 --network-traffic in --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *network.DnsActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
@@ -132,7 +135,8 @@ blade create k8s node-network drop --source-port 80 --network-traffic in --names
 ## using SSH channel
 blade create k8s node-network dns --domain www.baidu.com --ip 10.0.0.0 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-network dns --domain www.baidu.com --ip 10.0.0.0 --channel ssh --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-network dns --domain www.baidu.com --ip 10.0.0.0 --channel ssh --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *tc.LossActionSpec:
 				action.SetLongDesc(`
 !!! Using DaemonSet may result in failure to use the kubernetes API for destroy experiment.
@@ -216,7 +220,8 @@ blade create k8s node-process kill --process nginx --names izbp1a4jchbdwkwi5hk7e
 ## using SSH channel
 blade create k8s node-process kill --local-port 8080 --signal 15 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-process kill --local-port 8080 --signal 15 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-process kill --local-port 8080 --signal 15 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 
 			case *process.StopProcessActionCommandSpec:
 				action.SetLongDesc("The process scenario in container is the same as the basic resource process scenario")
@@ -232,7 +237,8 @@ blade create k8s node-process stop --process nginx --names izbp1a4jchbdwkwi5hk7e
 ## using SSH channel
 blade create k8s node-process stop --process-cmd java --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-process stop --process-cmd java --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-process stop --process-cmd java --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *disk.FillActionSpec:
 				action.SetLongDesc("The disk fill scenario experiment in the node")
 				action.SetExample(
@@ -253,7 +259,8 @@ blade create k8s node-disk fill --path /home --percent 80 --retain-handle --name
 ## using SSH channel
 blade c k8s node-disk fill --path /home --reserve 1024 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade c k8s node-disk fill --path /home --reserve 1024 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade c k8s node-disk fill --path /home --reserve 1024 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *disk.BurnActionSpec:
 				action.SetLongDesc("Disk read and write IO load experiment in the node")
 				action.SetExample(
@@ -273,7 +280,8 @@ blade create k8s node-disk burn --write --path /home --names izbp1a4jchbdwkwi5hk
 ## using SSH channel
 blade create k8s node-disk burn --read --write --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-disk burn --read --write --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-disk burn --read --write --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *disk.UnmountStuckActionSpec:
 				action.SetLongDesc("Simulate volume unmount stuck by holding file handles in the node")
 				action.SetExample(
@@ -281,7 +289,8 @@ blade create k8s node-disk burn --read --write --names izbp1a4jchbdwkwi5hk7ekz -
 ## using SSH channel
 blade create k8s node-disk unmount_stuck --path /mnt/data --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-disk unmount_stuck --path /mnt/data --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-disk unmount_stuck --path /mnt/data --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *mem.MemLoadActionCommand:
 				action.SetLongDesc("The memory fill experiment scenario in container")
 				action.SetExample(
@@ -313,7 +322,8 @@ blade create k8s node-mem load --mode ram --mem-percent 50 --timeout 200 --names
 ## using SSH channel
 blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-mem load --mode ram --reserve 200 --rate 100 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *file.FileAppendActionSpec:
 				action.SetLongDesc("The file append experiment scenario in container")
 				action.SetExample(
@@ -327,7 +337,8 @@ blade create k8s node-file append --filepath=/home/logs/nginx.log --content=SEVM
 
 # mock interface timeout exception
 blade create k8s node-file append --filepath=/home/logs/nginx.log --content="@{DATE:+%Y-%m-%d %H:%M:%S} ERROR invoke getUser timeout [@{RANDOM:100-200}]ms abc  mock exception" --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileAddActionSpec:
 				action.SetLongDesc("The file add experiment scenario in container")
 				action.SetExample(
@@ -342,7 +353,8 @@ blade create k8s node-file add --filepath /temp/nginx.log --auto-create-dir --na
 
 # Create a directory named /nginx in the /temp directory and automatically create directories that don't exist
 blade create k8s node-file add --directory --filepath /temp/nginx --auto-create-dir --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileChmodActionSpec:
 				action.SetLongDesc("The file permission modification scenario in container")
 				action.SetExample(`# Modify /home/logs/nginx.log file permissions to 777
@@ -356,7 +368,8 @@ blade create k8s node-file delete --filepath /home/logs/nginx.log --names nginx-
 
 # Force delete the file /home/logs/nginx.log unrecoverable
 blade create k8s node-file delete --filepath /home/logs/nginx.log --force --names nginx-app --container-ids f1de335b4eeaf --kubeconfig ~/.kube/config --namespace default
-`)
+`,
+				)
 			case *file.FileMoveActionSpec:
 				action.SetExample("The file move scenario in container")
 				action.SetExample(`# Move the file /home/logs/nginx.log to /tmp
@@ -381,7 +394,8 @@ blade create k8s node-file fdleak --percent 50 --names izbp1a4jchbdwkwi5hk7ekz -
 ## using SSH channel
 blade create k8s node-file fdleak --percent 80 --directory /tmp --channel ssh --ssh-host 192.168.1.100 --ssh-user root
 ## using DaemonSet
-blade create k8s node-file fdleak --percent 80 --directory /tmp --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
+blade create k8s node-file fdleak --percent 80 --directory /tmp --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`,
+				)
 			case *script.ScriptDelayActionCommand:
 				action.SetExample(`
 # Add commands to the script "start0() { sleep 10.000000 ...}"
@@ -397,12 +411,14 @@ blade create k8s node-script exit --exit-code 1 --exit-message this-is-error-mes
 ## using DaemonSet
 blade create k8s node-script exit --exit-code 1 --exit-message this-is-error-message --file test.sh --function-name start0 --names izbp1a4jchbdwkwi5hk7ekz --kubeconfig ~/.kube/config --timeout 30`)
 			default:
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade create %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade create k8s node-%s %s --names nginx-app --channel ssh --ssh-host 192.168.1.100 --ssh-user root", expModelSpec.Name(), action.Name()),
 					-1,
 				))
-				action.SetExample(strings.Replace(action.Example(),
+				action.SetExample(strings.Replace(
+					action.Example(),
 					fmt.Sprintf("blade c %s %s", expModelSpec.Name(), action.Name()),
 					fmt.Sprintf("blade c k8s node-%s %s --names nginx-app --channel ssh --ssh-host 192.168.1.100 --ssh-user root", expModelSpec.Name(), action.Name()),
 					-1,

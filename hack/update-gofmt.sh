@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source "$(dirname "$0")/init.sh"
-go install mvdan.cc/gofumpt@latest
+go install mvdan.cc/gofumpt@v0.10.0
 
 # Serially process each file to avoid concurrent write issues
 for f in $(git_find); do

@@ -164,7 +164,8 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		logrusField.Errorf("get service %s err, %v", serviceName, err)
 		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 		return spec.ReturnResultIgnoreCode(
-			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}),
+		)
 	}
 
 	if existing, ok := svc.Annotations[ServiceAnnotation]; ok && existing != "" {
@@ -173,7 +174,8 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		logrusField.Warningf("%v", err)
 		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 		return spec.ReturnResultIgnoreCode(
-			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}),
+		)
 	}
 
 	if svc.Annotations == nil {
@@ -197,7 +199,8 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 			logrusField.Errorf("modify service %s err, %v", serviceName, err)
 			status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 			return spec.ReturnResultIgnoreCode(
-				v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+				v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}),
+			)
 		}
 	}
 
@@ -216,7 +219,8 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		logrusField.Errorf("marshal modify history for service %s err, %v", serviceName, err)
 		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 		return spec.ReturnResultIgnoreCode(
-			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}),
+		)
 	}
 	svc.Annotations[ServiceAnnotation] = fmt.Sprintf("modify-%s", uid)
 	svc.Annotations[ServiceModifyHistoryAnnotation] = string(historyBytes)
@@ -225,7 +229,8 @@ func (d *ModifyServiceActionExecutor) create(uid string, ctx context.Context, ex
 		logrusField.Errorf("update service %s err, %v", serviceName, err)
 		status = status.CreateFailResourceStatus(err.Error(), spec.K8sExecFailed.Code)
 		return spec.ReturnResultIgnoreCode(
-			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}))
+			v1alpha1.CreateFailExperimentStatus(err.Error(), []v1alpha1.ResourceStatus{status}),
+		)
 	}
 
 	status = status.CreateSuccessResourceStatus()
