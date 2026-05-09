@@ -1,0 +1,51 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Make pod stuck in ContainerCreating state by cloud disk PVC creation failure.
+# This simulates the scenario where a StorageClass triggers cloud disk provisioning
+# but the provisioner fails (zone mismatch, disk type not supported, quota exceeded).
+#
+# Equivalent to:
+#   blade create k8s pod-pod containercreating-disk --namespace default \
+#     --storage-class alicloud-disk-ssd --kubeconfig ~/.kube/config
+#
+# Prerequisites:
+# - The specified StorageClass must exist in the cluster
+# - The operator should have RBAC permissions to create/delete pods and PVCs
+
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: pod-containercreating-disk
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: containercreating-disk
+    desc: "Make pod stuck in ContainerCreating state by cloud disk PVC creation failure"
+    matchers:
+    - name: namespace
+      value:
+      - "default"
+    - name: storage-class
+      value:
+      - "alicloud-disk-ssd"
+    # Optional: PVC storage capacity, default: 20Gi
+    # - name: pv-capacity
+    #   value:
+    #   - "50Gi"
+    # Optional: volume mount path in the container, default: /mnt/data
+    # - name: volume-mount-path
+    #   value:
+    #   - "/mnt/data"

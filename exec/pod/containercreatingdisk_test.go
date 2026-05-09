@@ -231,3 +231,79 @@ func TestPreDestroy_Success(t *testing.T) {
 		t.Errorf("expected namespace 'default', got '%s'", list[0].Namespace)
 	}
 }
+
+func TestPreDestroy_NamespaceEmpty(t *testing.T) {
+	actionSpec := NewPodContainerCreatingDiskActionSpec(nil).(*PodContainerCreatingDiskActionSpec)
+
+	expModel := &spec.ExpModel{
+		ActionFlags: map[string]string{
+			model.ResourceNamespaceFlag.Name: "",
+			"storage-class":                  "alicloud-disk-ssd",
+		},
+	}
+
+	ctx := context.Background()
+	ctx = model.SetExperimentIdToContext(ctx, "test-exp-006")
+
+	_, resp := actionSpec.PreDestroy(ctx, expModel, nil, v1alpha1.ExperimentStatus{})
+	if resp == nil {
+		t.Fatal("expected error response for empty namespace")
+	}
+	if resp.Success {
+		t.Error("expected PreDestroy to fail for empty namespace")
+	}
+}
+
+func TestPreCreate_PVCapacityInvalid(t *testing.T) {
+	actionSpec := NewPodContainerCreatingDiskActionSpec(nil).(*PodContainerCreatingDiskActionSpec)
+
+	expModel := &spec.ExpModel{
+		ActionFlags: map[string]string{
+			model.ResourceNamespaceFlag.Name: "default",
+			"storage-class":                  "alicloud-disk-ssd",
+			"pv-capacity":                    "invalid-capacity",
+		},
+	}
+
+	ctx := context.Background()
+	ctx = model.SetExperimentIdToContext(ctx, "test-exp-007")
+
+	_, resp := actionSpec.PreCreate(ctx, expModel, nil)
+	if resp == nil {
+		t.Fatal("expected error response for invalid pv-capacity")
+	}
+	if resp.Success {
+		t.Error("expected PreCreate to fail for invalid pv-capacity")
+	}
+}
+
+func TestPreCreate_PVCapacityValid(t *testing.T) {
+	actionSpec := NewPodContainerCreatingDiskActionSpec(nil).(*PodContainerCreatingDiskActionSpec)
+
+	expModel := &spec.ExpModel{
+		ActionFlags: map[string]string{
+			model.ResourceNamespaceFlag.Name: "default",
+			"storage-class":                  "alicloud-disk-ssd",
+			"pv-capacity":                    "50Gi",
+		},
+	}
+
+	ctx := context.Background()
+	ctx = model.SetExperimentIdToContext(ctx, "test-exp-008")
+
+	newCtx, resp := actionSpec.PreCreate(ctx, expModel, nil)
+	if resp != nil {
+		t.Fatalf("expected no error, got response: %+v", resp)
+	}
+
+	list, err := model.GetContainerObjectMetaListFromContext(newCtx)
+	if err != nil {
+		t.Fatalf("failed to get containerObjectMetaList: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 container meta, got %d", len(list))
+	}
+	if list[0].Namespace != "default" {
+		t.Errorf("expected namespace 'default', got '%s'", list[0].Namespace)
+	}
+}

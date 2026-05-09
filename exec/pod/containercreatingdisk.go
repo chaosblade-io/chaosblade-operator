@@ -51,8 +51,9 @@ func NewPodContainerCreatingDiskActionSpec(client *channel.Client) spec.ExpActio
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
-					Name: "storage-class",
-					Desc: "StorageClass name for PVC creation",
+					Name:     "storage-class",
+					Desc:     "StorageClass name for PVC creation",
+					Required: true,
 				},
 				&spec.ExpFlag{
 					Name: "pv-capacity",
@@ -408,6 +409,14 @@ func (a *PodContainerCreatingDiskActionSpec) PreCreate(ctx context.Context, expM
 		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, "storage-class")
 	}
 
+	// Validate pv-capacity format if specified
+	pvCapacity := expModel.ActionFlags["pv-capacity"]
+	if pvCapacity != "" {
+		if _, err := resource.ParseQuantity(pvCapacity); err != nil {
+			return ctx, spec.ResponseFailWithFlags(spec.ParameterIllegal, "pv-capacity", pvCapacity, err.Error())
+		}
+	}
+
 	containerObjectMetaList := model.ContainerMatchedList{
 		model.ContainerObjectMeta{
 			Namespace: namespace,
@@ -424,6 +433,13 @@ func (a *PodContainerCreatingDiskActionSpec) PreCreate(ctx context.Context, expM
 func (a *PodContainerCreatingDiskActionSpec) PreDestroy(ctx context.Context, expModel *spec.ExpModel, client *channel.Client, oldExpStatus v1alpha1.ExperimentStatus) (context.Context, *spec.Response) {
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	namespace := expModel.ActionFlags[model.ResourceNamespaceFlag.Name]
+
+	if namespace == "" {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterLess, model.ResourceNamespaceFlag.Name)
+	}
+	if strings.Contains(namespace, ",") {
+		return ctx, spec.ResponseFailWithFlags(spec.ParameterInvalidNSNotOne, model.ResourceNamespaceFlag.Name)
+	}
 
 	containerObjectMetaList := model.ContainerMatchedList{
 		model.ContainerObjectMeta{
