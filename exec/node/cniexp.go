@@ -19,6 +19,7 @@ package node
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -260,9 +261,11 @@ func (e *CniFaultExecutor) create(uid string, ctx context.Context, expModel *spe
 			status = status.CreateSuccessResourceStatus()
 		} else {
 			status = status.CreateFailResourceStatus(resp.Err, spec.K8sExecFailed.Code)
-			success = false
 		}
 		updateLock.Lock()
+		if !resp.Success {
+			success = false
+		}
 		statuses = append(statuses, status)
 		updateLock.Unlock()
 	}
@@ -344,9 +347,11 @@ func (e *CniFaultExecutor) destroy(uid string, ctx context.Context, expModel *sp
 			status.Success = true
 		} else {
 			status = status.CreateFailResourceStatus(resp.Err, spec.K8sExecFailed.Code)
-			success = false
 		}
 		updateLock.Lock()
+		if !resp.Success {
+			success = false
+		}
 		statuses = append(statuses, status)
 		updateLock.Unlock()
 	}
@@ -362,6 +367,17 @@ func (e *CniFaultExecutor) destroy(uid string, ctx context.Context, expModel *sp
 
 func generateCniCreateScript(cniBinPath string, cniCommand string, errorMsg string) string {
 	backupPath := cniBinPath + ".chaosblade.bak"
+
+	// Build the CNI error JSON template using encoding/json for proper escaping.
+	// Use a placeholder for cniVersion which is determined at runtime from stdin.
+	type cniError struct {
+		CniVersion string `json:"cniVersion"`
+		Code       int    `json:"code"`
+		Msg        string `json:"msg"`
+	}
+	errJSON, _ := json.Marshal(cniError{CniVersion: "@@CNI_VER@@", Code: 100, Msg: errorMsg})
+	b64ErrJSON := base64.StdEncoding.EncodeToString(errJSON)
+
 	// The wrapper script: fail for targeted CNI_COMMAND, passthrough for all others
 	// Per CNI spec: error result MUST be written to stdout (not stderr), and exit non-zero
 	// We read stdin to extract cniVersion from network config for spec compliance
@@ -370,11 +386,12 @@ if [ "$CNI_COMMAND" = "%s" ]; then
   cni_input=$(cat)
   cni_ver=$(echo "$cni_input" | grep -o '"cniVersion" *: *"[^"]*"' | head -1 | grep -o '[0-9][0-9.]*')
   [ -z "$cni_ver" ] && cni_ver="0.3.1"
-  echo "{\"cniVersion\":\"$cni_ver\",\"code\":100,\"msg\":\"%s\"}"
+  printf '%%s' '%s' | base64 -d | sed "s/@@CNI_VER@@/$cni_ver/"
+  echo
   exit 1
 fi
 exec %s "$@"
-`, cniCommand, errorMsg, backupPath)
+`, cniCommand, b64ErrJSON, backupPath)
 
 	// Use base64 encoding to safely transport the wrapper content through shell
 	// This avoids all complex single-quote escaping issues
@@ -410,8 +427,8 @@ echo '{"code":200,"success":true}'
 }
 
 func generateCniDiscoverScript() string {
-	return `# Find kubelet PID
-KUBELET_PID=$(pgrep -x kubelet 2>/dev/null)
+	return `# Find kubelet PID (take first match in case of multiple)
+KUBELET_PID=$(pgrep -x kubelet 2>/dev/null | head -1)
 if [ -z "$KUBELET_PID" ]; then
   for p in /proc/[0-9]*/comm; do
     if [ -f "$p" ] && grep -qx kubelet "$p" 2>/dev/null; then
@@ -432,12 +449,18 @@ if [ -z "$CMDLINE" ]; then
   exit 0
 fi
 
-# Extract --cni-bin-dir (default /opt/cni/bin)
+# Extract --cni-bin-dir (supports both --flag=value and --flag value forms)
 CNI_BIN_DIR=$(echo "$CMDLINE" | grep -o '\-\-cni-bin-dir=[^ ]*' | head -1 | cut -d= -f2)
+if [ -z "$CNI_BIN_DIR" ]; then
+  CNI_BIN_DIR=$(echo "$CMDLINE" | sed -n 's/.*--cni-bin-dir  *\([^ ]*\).*/\1/p')
+fi
 [ -z "$CNI_BIN_DIR" ] && CNI_BIN_DIR="/opt/cni/bin"
 
-# Extract --cni-conf-dir (default /etc/cni/net.d)
+# Extract --cni-conf-dir (supports both --flag=value and --flag value forms)
 CNI_CONF_DIR=$(echo "$CMDLINE" | grep -o '\-\-cni-conf-dir=[^ ]*' | head -1 | cut -d= -f2)
+if [ -z "$CNI_CONF_DIR" ]; then
+  CNI_CONF_DIR=$(echo "$CMDLINE" | sed -n 's/.*--cni-conf-dir  *\([^ ]*\).*/\1/p')
+fi
 [ -z "$CNI_CONF_DIR" ] && CNI_CONF_DIR="/etc/cni/net.d"
 
 # Find first conflist or conf file (alphabetically, same as kubelet)
