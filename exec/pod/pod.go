@@ -311,6 +311,18 @@ blade create k8s pod-pod failedmount --namespace default --workload-type deploym
 # Mount a non-existent pvc volume to a statefulset
 blade create k8s pod-pod failedmount --namespace default --workload-type statefulset --workload-name redis-app --volume-type pvc --kubeconfig ~/.kube/config`,
 				)
+			case *PodDnsFailureActionSpec:
+				action.SetLongDesc("Resolve the target pod's DNS configuration, then inject a complete DNS unavailability fault by overriding the owning workload's PodSpec to use an unreachable nameserver. The original DNSPolicy/DNSConfig is backed up to workload annotations and restored when the experiment is destroyed. The pod is deleted after injection so the controller recreates it with the faulty DNS configuration.")
+				action.SetExample(
+					`# Make all DNS queries from a pod fail by injecting an unreachable nameserver to its workload
+blade create k8s pod-pod dnsfailure --names nginx-app-xxx --namespace default --kubeconfig ~/.kube/config
+
+# Same as above but require that the pod is currently configured to use 10.96.0.10 as a nameserver
+blade create k8s pod-pod dnsfailure --names nginx-app-xxx --namespace default --nameserver 10.96.0.10 --kubeconfig ~/.kube/config
+
+# Inject DNS failure for pods selected by labels
+blade create k8s pod-pod dnsfailure --labels app=nginx --namespace default --kubeconfig ~/.kube/config`,
+				)
 			default:
 				action.SetExample(strings.Replace(
 					action.Example(),
@@ -359,6 +371,7 @@ func NewSelfExpModelCommandSpec(client *channel.Client) spec.ExpModelCommandSpec
 				NewPodTaintNodeActionSpec(client),
 				NewBadResourceSizeActionSpec(client),
 				NewFailedMountActionSpec(client),
+				NewPodDnsFailureActionSpec(client),
 			},
 		},
 	}

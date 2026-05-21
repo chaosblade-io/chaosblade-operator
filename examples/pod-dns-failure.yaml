@@ -1,0 +1,56 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Inject a complete DNS unavailability fault to a specific Pod.
+#
+# Behavior:
+# - The action locates the target Pod by name and namespace.
+# - When the optional `nameserver` flag is set, it validates that the Pod's
+#   DNS configuration references that nameserver IP.
+# - It walks the Pod's owner references to find the top-level workload
+#   (Deployment / DaemonSet / StatefulSet), backs up the workload PodSpec's
+#   DNSPolicy and DNSConfig as JSON-encoded annotations, then overrides the
+#   PodSpec to use DNSPolicy=None and a non-routable nameserver (127.0.0.255).
+# - The Pod is deleted so the owning controller recreates it with the faulty
+#   DNS configuration. From the Pod's point of view, all DNS queries fail.
+# - On destroy, the workload's original DNS configuration is restored.
+#
+# Prerequisites:
+# - The operator must have RBAC permissions to get/update the Pod's
+#   Deployment/DaemonSet/StatefulSet and to delete the Pod itself.
+# - The Pod must be controlled by a Deployment, DaemonSet or StatefulSet.
+
+apiVersion: chaosblade.io/v1alpha1
+kind: ChaosBlade
+metadata:
+  name: pod-dns-failure
+spec:
+  experiments:
+  - scope: pod
+    target: pod
+    action: dnsfailure
+    desc: "Make a Pod's DNS resolution completely unavailable"
+    matchers:
+    - name: namespace
+      value:
+      - "default"
+    - name: names
+      value:
+      - "nginx-app-xxx"
+    # Optional: nameserver IP that the Pod must currently use. When set, the
+    # action verifies the Pod's DNS config contains this IP before injecting
+    # the fault.
+    # - name: nameserver
+    #   value:
+    #   - "10.96.0.10"

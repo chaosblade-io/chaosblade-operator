@@ -17,6 +17,7 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * 磁盘：指定目录磁盘填充、磁盘 IO 读写负载等
     * 内存：指定内存使用率
     * Pod：杀 Pod、通过 PVC 挂载失败使 Pod 卡在 ContainerCreating 状态、通过云盘 PVC 创建失败使 Pod 卡在 ContainerCreating 状态、通过 finalizer 使 Pod 卡在 Terminating 状态、通过注入无法满足的亲和性规则使 Pod 调度失败、修改工作负载（Deployment/DaemonSet/StatefulSet）的 CPU/Memory 资源限制模拟资源配置异常、挂载不存在的 ConfigMap/Secret/PVC 类型 Volume 到工作负载（Deployment/DaemonSet/StatefulSet）模拟卷挂载失败
+    * DNS：根据指定的 Pod 名称（以及可选的 nameserver IP）查找 Pod 的 DNS 配置，并通过覆盖其所属工作负载（Deployment/DaemonSet/StatefulSet）的 PodSpec，注入不可达的 nameserver，使该 Pod 的 DNS 解析完全不可用，实验销毁时自动恢复原始 DNS 配置
 * Container：
     * CPU: 指定 CPU 使用率
     * 网络: 指定网卡、端口、IP 等包延迟、丢包、包阻塞、包重复、包乱序、包损坏等
@@ -26,6 +27,8 @@ Chaosblade Operator 是混沌工程实验工具 ChaosBlade 下的一款面向云
     * Container: 杀 Container
 * Service：
     * Service: 创建、修改Service
+* Cluster：
+    * DNS：根据 K8s 集群 DNS Service 地址（默认 kube-dns / CoreDNS）反推出 DNS Server 工作负载，并通过将其副本数缩容至 0 注入完全不可用故障，实验销毁时自动恢复原始副本数
 
 ## 本地构建&安装
 
