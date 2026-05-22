@@ -40,10 +40,20 @@ import (
 )
 
 const (
-	// DnsFailureNameserverFlag is the optional flag specifying the nameserver IP
-	// to be validated against the pod's DNS configuration. When provided, the
-	// action requires the pod's resolved nameservers to contain this IP before
-	// proceeding with the injection.
+	// DnsFailureNameserverFlag is the optional flag that toggles a best-effort
+	// precondition check against the pod's PodSpec.DNSConfig.
+	//
+	// The check is strict only when the pod has DNSPolicy=None with an
+	// explicit DNSConfig.Nameservers list — that is the only configuration
+	// where the PodSpec fully determines the pod's effective resolvers. In
+	// every other configuration (DNSConfig is nil, or DNSPolicy is one of
+	// ClusterFirst/ClusterFirstWithHostNet/Default) the pod inherits cluster
+	// or kubelet DNS at runtime, which is not visible from the PodSpec, so the
+	// flag is accepted as a hint and the experiment proceeds.
+	//
+	// The action intentionally does NOT exec into the pod to read
+	// /etc/resolv.conf. For runtime-precise validation, inspect resolv.conf
+	// inside the target pod manually before running the experiment.
 	DnsFailureNameserverFlag = "nameserver"
 
 	// ChaosBladePodDnsFailureAction is the marker annotation value for the pod
@@ -88,8 +98,11 @@ func NewPodDnsFailureActionSpec(client *channel.Client) spec.ExpActionCommandSpe
 			ActionMatchers: []spec.ExpFlagSpec{},
 			ActionFlags: []spec.ExpFlagSpec{
 				&spec.ExpFlag{
-					Name:     DnsFailureNameserverFlag,
-					Desc:     "Nameserver IP to be validated against the pod's DNS configuration. When set, the pod must reference this nameserver, otherwise the injection fails. Optional",
+					Name: DnsFailureNameserverFlag,
+					Desc: "Best-effort precondition: nameserver IP to check against the pod's PodSpec.DNSConfig. " +
+						"Strict only when the pod has DNSPolicy=None with explicit DNSConfig.Nameservers (then the " +
+						"list MUST contain this IP); otherwise accepted as a hint because the pod's runtime " +
+						"/etc/resolv.conf cannot be read from the spec. Optional",
 					Required: false,
 				},
 			},
@@ -97,7 +110,10 @@ func NewPodDnsFailureActionSpec(client *channel.Client) spec.ExpActionCommandSpe
 			ActionExample: `# Make all DNS queries from a pod fail by injecting an unreachable nameserver to its workload
 blade create k8s pod-pod dnsfailure --names nginx-app-xxx --namespace default --kubeconfig ~/.kube/config
 
-# Same as above but require that the pod is currently configured to use 10.96.0.10 as a nameserver
+# Best-effort precondition: the action will refuse to inject when the pod has DNSPolicy=None and the
+# given IP is not listed in DNSConfig.Nameservers. For pods using ClusterFirst (the common case) the
+# flag is accepted as a hint because the cluster DNS IP is not visible from the PodSpec — verify by
+# running 'kubectl exec <pod> -- cat /etc/resolv.conf' if runtime accuracy is required.
 blade create k8s pod-pod dnsfailure --names nginx-app-xxx --namespace default --nameserver 10.96.0.10 --kubeconfig ~/.kube/config
 
 # Inject DNS failure for pods selected by labels
@@ -122,11 +138,16 @@ func (*PodDnsFailureActionSpec) ShortDesc() string {
 }
 
 func (*PodDnsFailureActionSpec) LongDesc() string {
-	return "Resolve the target pod's DNS configuration (DNSPolicy + DNSConfig and the runtime resolv.conf), " +
-		"then inject a complete DNS unavailability fault by overriding the owning workload's PodSpec to use " +
-		"an unreachable nameserver. The original DNSPolicy/DNSConfig is backed up to workload annotations and " +
-		"restored when the experiment is destroyed. The pod is deleted after injection so the controller " +
-		"recreates it with the faulty DNS configuration."
+	return "Inject a complete DNS unavailability fault to a pod by overriding the owning workload's " +
+		"PodSpec.DNSPolicy/DNSConfig to use an unreachable nameserver (" + UnreachableDnsNameserver + "). " +
+		"The original DNSPolicy/DNSConfig is backed up to workload annotations and restored when the " +
+		"experiment is destroyed. The pod is deleted after injection so the controller recreates it with " +
+		"the faulty DNS configuration. " +
+		"The optional --" + DnsFailureNameserverFlag + " flag performs a best-effort precondition check " +
+		"against PodSpec.DNSConfig only; it does not exec into the pod to read /etc/resolv.conf and " +
+		"therefore only rejects pods whose spec is authoritative (DNSPolicy=None with explicit " +
+		"DNSConfig.Nameservers). For ClusterFirst / ClusterFirstWithHostNet / Default pods the flag is " +
+		"accepted as a hint."
 }
 
 type PodDnsFailureActionExecutor struct {
@@ -181,7 +202,14 @@ func (d *PodDnsFailureActionExecutor) create(uid string, ctx context.Context, ex
 
 		if requiredNameserver != "" {
 			if !podUsesNameserver(pod, requiredNameserver) {
-				errMsg := fmt.Sprintf("pod %s/%s does not reference nameserver %s in its DNS config",
+				// The only path that returns false is "DNSPolicy=None with an
+				// explicit DNSConfig.Nameservers list that does not include
+				// the requested IP" — spell that out so operators understand
+				// the precondition is strict by design here, not just a
+				// general nameserver mismatch.
+				errMsg := fmt.Sprintf(
+					"pod %s/%s has DNSPolicy=None and DNSConfig.Nameservers does not contain %s; "+
+						"refusing to inject because the PodSpec is authoritative in this configuration",
 					meta.Namespace, meta.PodName, requiredNameserver)
 				logrusField.Warning(errMsg)
 				status = status.CreateFailResourceStatus(errMsg, spec.K8sExecFailed.Code)
@@ -388,7 +416,11 @@ func (d *PodDnsFailureActionExecutor) restoreWorkloadDnsFailure(ctx context.Cont
 				}
 				return err
 			}
-			if !endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId) {
+			mutated, err := endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId)
+			if err != nil {
+				return err
+			}
+			if !mutated {
 				return nil
 			}
 			return d.client.Update(ctx, latest)
@@ -400,7 +432,11 @@ func (d *PodDnsFailureActionExecutor) restoreWorkloadDnsFailure(ctx context.Cont
 				}
 				return err
 			}
-			if !endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId) {
+			mutated, err := endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId)
+			if err != nil {
+				return err
+			}
+			if !mutated {
 				return nil
 			}
 			return d.client.Update(ctx, latest)
@@ -412,7 +448,11 @@ func (d *PodDnsFailureActionExecutor) restoreWorkloadDnsFailure(ctx context.Cont
 				}
 				return err
 			}
-			if !endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId) {
+			mutated, err := endPodDnsFailure(latest.Annotations, &latest.Spec.Template.Spec, experimentId)
+			if err != nil {
+				return err
+			}
+			if !mutated {
 				return nil
 			}
 			return d.client.Update(ctx, latest)
@@ -533,39 +573,90 @@ func beginPodDnsFailure(annotations map[string]string, podSpec *v1.PodSpec, expe
 	return nil
 }
 
-// endPodDnsFailure restores the workload's DNS configuration. It returns true
-// when an actual mutation was performed (so the caller should issue an Update).
-func endPodDnsFailure(annotations map[string]string, podSpec *v1.PodSpec, experimentId string) bool {
+// endPodDnsFailure restores the workload's DNS configuration from the values
+// previously stored in annotations.
+//
+// Return values:
+//
+//   - (true,  nil): the podSpec was restored and the chaosblade annotations
+//     were cleared. The caller MUST issue an Update.
+//
+//   - (false, nil): this restore is a deliberate no-op — either annotations
+//     are nil, or the workload is owned by a different experiment, or it
+//     does not carry the pod-DNS-failure action marker. The caller MUST NOT
+//     issue an Update.
+//
+//   - (false, err): the backed-up DNSPolicy/DNSConfig is missing or could
+//     not be decoded. NEITHER the podSpec NOR the annotations are mutated,
+//     so the operator can either retry the destroy after repairing the
+//     annotation value or manually finish the cleanup. The previous
+//     behaviour of swallowing decode errors and still deleting the
+//     chaosblade annotations would leave the workload permanently stranded
+//     with the injected unreachable nameserver and no metadata to identify
+//     it for later restore — that mode is explicitly removed.
+//
+// To keep partial failure from stranding the workload, the function decodes
+// EVERY backup before mutating anything. If any decode fails the workload is
+// left exactly as it was found.
+func endPodDnsFailure(annotations map[string]string, podSpec *v1.PodSpec, experimentId string) (bool, error) {
 	if annotations == nil {
-		return false
+		return false, nil
 	}
 	if annotations[ChaosBladeExperimentAnnotation] != experimentId {
-		return false
+		return false, nil
+	}
+	if annotations[ChaosBladePodDnsFailureAnnotation] != ChaosBladePodDnsFailureAction {
+		// Same experiment id, but the action marker is missing — either we
+		// did not inject this workload or another phase already removed the
+		// marker. Skip rather than risk mutating an unrelated workload.
+		return false, nil
 	}
 
-	if raw, ok := annotations[ChaosBladeOriginalDnsPolicyAnnotation]; ok {
-		var original v1.DNSPolicy
-		if err := json.Unmarshal([]byte(raw), &original); err == nil {
-			podSpec.DNSPolicy = original
-		}
+	// Phase 1 — validate ALL backups WITHOUT touching anything.
+	rawPolicy, hasPolicy := annotations[ChaosBladeOriginalDnsPolicyAnnotation]
+	if !hasPolicy {
+		return false, fmt.Errorf("backed-up %s annotation is missing; refusing to restore "+
+			"because clearing the ownership annotations would strand the workload — "+
+			"repair the annotation and retry the destroy",
+			ChaosBladeOriginalDnsPolicyAnnotation)
+	}
+	var restorePolicy v1.DNSPolicy
+	if err := json.Unmarshal([]byte(rawPolicy), &restorePolicy); err != nil {
+		return false, fmt.Errorf("decode backed-up %s annotation %q failed: %v; "+
+			"annotations are left in place so the restore can be retried after the value is repaired",
+			ChaosBladeOriginalDnsPolicyAnnotation, rawPolicy, err)
 	}
 
-	if raw, ok := annotations[ChaosBladeOriginalDnsConfigAnnotation]; ok {
-		if raw == "" {
-			podSpec.DNSConfig = nil
-		} else {
-			var original v1.PodDNSConfig
-			if err := json.Unmarshal([]byte(raw), &original); err == nil {
-				podSpec.DNSConfig = &original
-			}
-		}
+	rawConfig, hasConfig := annotations[ChaosBladeOriginalDnsConfigAnnotation]
+	if !hasConfig {
+		return false, fmt.Errorf("backed-up %s annotation is missing; refusing to restore "+
+			"because clearing the ownership annotations would strand the workload — "+
+			"repair the annotation and retry the destroy",
+			ChaosBladeOriginalDnsConfigAnnotation)
 	}
+	var restoreConfig *v1.PodDNSConfig
+	if rawConfig != "" {
+		var cfg v1.PodDNSConfig
+		if err := json.Unmarshal([]byte(rawConfig), &cfg); err != nil {
+			return false, fmt.Errorf("decode backed-up %s annotation %q failed: %v; "+
+				"annotations are left in place so the restore can be retried after the value is repaired",
+				ChaosBladeOriginalDnsConfigAnnotation, rawConfig, err)
+		}
+		restoreConfig = &cfg
+	}
+	// restoreConfig stays nil when rawConfig == "" (sentinel meaning the
+	// original DNSConfig was nil — i.e. the pod inherited cluster DNS).
+
+	// Phase 2 — all backups decoded successfully. Restore podSpec and clear
+	// annotations atomically.
+	podSpec.DNSPolicy = restorePolicy
+	podSpec.DNSConfig = restoreConfig
 
 	delete(annotations, ChaosBladeOriginalDnsPolicyAnnotation)
 	delete(annotations, ChaosBladeOriginalDnsConfigAnnotation)
 	delete(annotations, ChaosBladePodDnsFailureAnnotation)
 	delete(annotations, ChaosBladeExperimentAnnotation)
-	return true
+	return true, nil
 }
 
 // resolveTopLevelWorkload walks owner references upwards starting from a Pod
@@ -598,10 +689,22 @@ func resolveTopLevelWorkload(ctx context.Context, client *channel.Client, pod *v
 	}
 }
 
-// podUsesNameserver returns true when the pod's effective DNS configuration
-// contains the given nameserver IP. The check is best-effort: if DNSConfig is
-// not explicitly set, the pod inherits cluster DNS at runtime, so we cannot
-// validate from the spec alone and we treat the precondition as satisfied.
+// podUsesNameserver implements the best-effort precondition behind the
+// --nameserver flag. It returns true when the pod's PodSpec is consistent with
+// the given nameserver IP, and false only when the spec explicitly contradicts
+// it.
+//
+// The check is strict in exactly one configuration: DNSPolicy=None combined
+// with a DNSConfig.Nameservers list that does not contain the requested IP.
+// That is the only configuration in which the PodSpec fully determines the
+// pod's effective resolvers, so a mismatch can be detected from the spec
+// alone. In every other configuration (DNSConfig is nil, or DNSPolicy is
+// ClusterFirst/ClusterFirstWithHostNet/Default) the pod inherits cluster or
+// kubelet DNS at runtime, which is not visible from the PodSpec; the flag is
+// then accepted as a hint and the experiment proceeds.
+//
+// Callers that need runtime-precise validation should inspect
+// /etc/resolv.conf inside the target pod before invoking the action.
 func podUsesNameserver(pod *v1.Pod, nameserver string) bool {
 	if pod.Spec.DNSConfig != nil {
 		for _, ns := range pod.Spec.DNSConfig.Nameservers {
@@ -609,13 +712,16 @@ func podUsesNameserver(pod *v1.Pod, nameserver string) bool {
 				return true
 			}
 		}
-		// HostNetwork pods with explicit DNSConfig require the nameserver to be listed.
+		// DNSPolicy=None means PodSpec.DNSConfig.Nameservers IS the complete
+		// resolver list at runtime. If the requested IP is not in it, the
+		// precondition truly cannot be satisfied — reject strictly.
 		if pod.Spec.DNSPolicy == v1.DNSNone {
 			return false
 		}
 	}
-	// When DNSConfig is empty the pod uses ClusterFirst / ClusterFirstWithHostNet
-	// or Default, which means the cluster DNS service is in use. Without runtime
-	// access to /etc/resolv.conf we accept the nameserver flag as a hint.
+	// Either DNSConfig is unset, or DNSConfig is set with extra nameservers
+	// alongside the cluster-inherited ones (DNSPolicy=ClusterFirst*). The
+	// cluster DNS IP is not encoded in the PodSpec, so we cannot prove or
+	// disprove the precondition; accept as a hint.
 	return true
 }

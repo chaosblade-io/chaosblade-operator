@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -41,8 +43,16 @@ import (
 const (
 	// DnsServiceFlag is the flag name for the cluster DNS service.
 	DnsServiceFlag = "dns-service"
-	// DnsServiceNamespaceFlag is the flag name for the cluster DNS service's namespace.
+	// DnsServiceNamespaceFlag is the flag name for the cluster DNS service /
+	// deployment namespace. The DNS Service and the Deployment backing it are
+	// assumed to live in the same namespace.
 	DnsServiceNamespaceFlag = "dns-service-namespace"
+	// DnsDeploymentFlag explicitly names the Deployment backing the DNS Service.
+	// When provided, the reverse-resolution from the Service selector is
+	// skipped and the named Deployment is used directly. This is the supported
+	// way to disambiguate when multiple Deployments match the DNS Service's
+	// selector (for example, CoreDNS coexisting with node-local-dns).
+	DnsDeploymentFlag = "dns-deployment"
 
 	// DefaultDnsServiceName is the default cluster DNS service name (CoreDNS / kube-dns).
 	DefaultDnsServiceName = "kube-dns"
@@ -86,8 +96,16 @@ func NewClusterDnsFailureActionSpec(client *channel.Client) spec.ExpActionComman
 				},
 				&spec.ExpFlag{
 					Name:    DnsServiceNamespaceFlag,
-					Desc:    "The namespace of the cluster DNS service. Default: kube-system",
+					Desc:    "The namespace of the cluster DNS service / deployment. Default: kube-system",
 					Default: DefaultDnsServiceNamespace,
+				},
+				&spec.ExpFlag{
+					Name: DnsDeploymentFlag,
+					Desc: "Explicitly name the Deployment backing the DNS service. When set, " +
+						"reverse-resolution from the Service selector is skipped. Use this to " +
+						"disambiguate when multiple Deployments match the DNS Service selector " +
+						"(e.g. CoreDNS coexisting with node-local-dns).",
+					Required: false,
 				},
 			},
 			ActionExecutor: &ClusterDnsFailureActionExecutor{client: client},
@@ -96,6 +114,9 @@ blade create k8s cluster-dns dnsfailure --kubeconfig ~/.kube/config
 
 # Specify a custom DNS service name and namespace
 blade create k8s cluster-dns dnsfailure --dns-service coredns --dns-service-namespace kube-system --kubeconfig ~/.kube/config
+
+# Skip reverse-resolution and target the DNS Deployment by name (use this when multiple Deployments share the Service selector)
+blade create k8s cluster-dns dnsfailure --dns-deployment coredns --dns-service-namespace kube-system --kubeconfig ~/.kube/config
 `,
 			ActionCategories: []string{model.CategorySystemContainer},
 		},
@@ -120,7 +141,9 @@ func (*ClusterDnsFailureActionSpec) LongDesc() string {
 		"The action resolves the underlying DNS workload (Deployment) from the " +
 		"DNS service's selector, backs up its replica count, and scales it to 0 " +
 		"so that no DNS query can be answered cluster-wide. When the experiment " +
-		"is destroyed, the original replica count is restored."
+		"is destroyed, the original replica count is restored. If multiple " +
+		"Deployments match the DNS Service selector, the action refuses to guess " +
+		"and asks the user to disambiguate with --" + DnsDeploymentFlag + "."
 }
 
 type ClusterDnsFailureActionExecutor struct {
@@ -144,14 +167,14 @@ func (d *ClusterDnsFailureActionExecutor) create(uid string, ctx context.Context
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 
-	dnsService, dnsNamespace := resolveDnsServiceFlags(expModel)
+	dnsService, dnsNamespace, explicitDeployment := resolveDnsFlags(expModel)
 
 	status := v1alpha1.ResourceStatus{
 		Kind:       ClusterDnsKind,
-		Identifier: fmt.Sprintf("%s/%s", dnsNamespace, dnsService),
+		Identifier: initialDnsIdentifier(dnsNamespace, dnsService, explicitDeployment),
 	}
 
-	deployment, err := d.findDnsDeployment(ctx, dnsNamespace, dnsService)
+	deployment, err := d.resolveTargetDnsDeployment(ctx, dnsNamespace, dnsService, explicitDeployment)
 	if err != nil {
 		util.Errorf(uid, util.GetRunFuncName(), err.Error())
 		logrusField.Warningf("locate cluster DNS deployment failed: %v", err)
@@ -161,7 +184,7 @@ func (d *ClusterDnsFailureActionExecutor) create(uid string, ctx context.Context
 		)
 	}
 
-	status.Identifier = fmt.Sprintf("%s/%s/%s", dnsNamespace, dnsService, deployment.Name)
+	status.Identifier = resolvedDnsIdentifier(dnsNamespace, dnsService, explicitDeployment, deployment.Name)
 
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		latest := &appsv1.Deployment{}
@@ -186,14 +209,14 @@ func (d *ClusterDnsFailureActionExecutor) destroy(uid string, ctx context.Contex
 	experimentId := model.GetExperimentIdFromContext(ctx)
 	logrusField := logrus.WithField("experiment", experimentId)
 
-	dnsService, dnsNamespace := resolveDnsServiceFlags(expModel)
+	dnsService, dnsNamespace, explicitDeployment := resolveDnsFlags(expModel)
 
 	status := v1alpha1.ResourceStatus{
 		Kind:       ClusterDnsKind,
-		Identifier: fmt.Sprintf("%s/%s", dnsNamespace, dnsService),
+		Identifier: initialDnsIdentifier(dnsNamespace, dnsService, explicitDeployment),
 	}
 
-	deployment, err := d.findDnsDeployment(ctx, dnsNamespace, dnsService)
+	deployment, err := d.resolveTargetDnsDeployment(ctx, dnsNamespace, dnsService, explicitDeployment)
 	if err != nil {
 		util.Errorf(uid, util.GetRunFuncName(), err.Error())
 		logrusField.Warningf("locate cluster DNS deployment for restore failed: %v", err)
@@ -203,7 +226,7 @@ func (d *ClusterDnsFailureActionExecutor) destroy(uid string, ctx context.Contex
 		)
 	}
 
-	status.Identifier = fmt.Sprintf("%s/%s/%s", dnsNamespace, dnsService, deployment.Name)
+	status.Identifier = resolvedDnsIdentifier(dnsNamespace, dnsService, explicitDeployment, deployment.Name)
 
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		latest := &appsv1.Deployment{}
@@ -225,23 +248,46 @@ func (d *ClusterDnsFailureActionExecutor) destroy(uid string, ctx context.Contex
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateDestroyedExperimentStatus([]v1alpha1.ResourceStatus{status}))
 }
 
-// findDnsDeployment locates the Deployment that backs the given DNS service.
+// resolveTargetDnsDeployment locates the Deployment that the action will scale.
+// When explicitDeployment is non-empty, it is looked up directly by name and
+// reverse-resolution from the DNS Service is skipped. Otherwise the function
+// delegates to findDnsDeployment which inspects the Service's selector.
+func (d *ClusterDnsFailureActionExecutor) resolveTargetDnsDeployment(ctx context.Context, namespace, serviceName, explicitDeployment string) (*appsv1.Deployment, error) {
+	if explicitDeployment != "" {
+		dep := &appsv1.Deployment{}
+		if err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: explicitDeployment}, dep); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("DNS deployment %s/%s not found", namespace, explicitDeployment)
+			}
+			return nil, fmt.Errorf("get DNS deployment %s/%s failed: %v", namespace, explicitDeployment, err)
+		}
+		return dep, nil
+	}
+	return d.findDnsDeployment(ctx, namespace, serviceName)
+}
+
+// findDnsDeployment locates the Deployment that backs the given DNS service by
+// reverse-resolving the Service selector.
 //
-// It first reads the Service to discover its selector, then lists Deployments in
-// the same namespace and returns the first one whose pod template labels match
-// the Service selector. This works for the standard CoreDNS / kube-dns layout
-// where a Service of type ClusterIP fronts a Deployment.
+// It reads the Service to discover its selector, then lists Deployments in the
+// same namespace and collects every one whose pod template labels match the
+// Service selector. To avoid scaling the wrong workload (which would silently
+// take cluster DNS offline), the function returns an error when zero or more
+// than one Deployment match — in the ambiguous case the error lists every
+// candidate so the operator can disambiguate via --dns-deployment.
 func (d *ClusterDnsFailureActionExecutor) findDnsDeployment(ctx context.Context, namespace, serviceName string) (*appsv1.Deployment, error) {
 	svc := &v1.Service{}
 	if err := d.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: serviceName}, svc); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("DNS service %s/%s not found", namespace, serviceName)
+			return nil, fmt.Errorf("DNS service %s/%s not found (use --%s to name the workload directly)",
+				namespace, serviceName, DnsDeploymentFlag)
 		}
 		return nil, fmt.Errorf("get DNS service %s/%s failed: %v", namespace, serviceName, err)
 	}
 
 	if len(svc.Spec.Selector) == 0 {
-		return nil, fmt.Errorf("DNS service %s/%s has no selector, cannot reverse-resolve workload", namespace, serviceName)
+		return nil, fmt.Errorf("DNS service %s/%s has no selector, cannot reverse-resolve workload "+
+			"(use --%s to name it explicitly)", namespace, serviceName, DnsDeploymentFlag)
 	}
 
 	selector := pkglabels.SelectorFromSet(svc.Spec.Selector)
@@ -250,14 +296,31 @@ func (d *ClusterDnsFailureActionExecutor) findDnsDeployment(ctx context.Context,
 		return nil, fmt.Errorf("list deployments in namespace %s failed: %v", namespace, err)
 	}
 
+	matches := make([]*appsv1.Deployment, 0)
 	for i := range deployments.Items {
 		dep := &deployments.Items[i]
 		if selector.Matches(pkglabels.Set(dep.Spec.Template.Labels)) {
-			return dep, nil
+			matches = append(matches, dep)
 		}
 	}
-	return nil, fmt.Errorf("no Deployment in namespace %s matches DNS service %s selector %v",
-		namespace, serviceName, svc.Spec.Selector)
+
+	switch len(matches) {
+	case 1:
+		return matches[0], nil
+	case 0:
+		return nil, fmt.Errorf("no Deployment in namespace %s matches DNS service %s selector %v "+
+			"(use --%s to name the workload directly)",
+			namespace, serviceName, svc.Spec.Selector, DnsDeploymentFlag)
+	default:
+		names := make([]string, 0, len(matches))
+		for _, m := range matches {
+			names = append(names, m.Name)
+		}
+		sort.Strings(names)
+		return nil, fmt.Errorf("DNS service %s/%s selector %v matches %d Deployments [%s]; "+
+			"refusing to choose to avoid scaling down an unintended workload — pass --%s to disambiguate",
+			namespace, serviceName, svc.Spec.Selector, len(matches), strings.Join(names, ", "), DnsDeploymentFlag)
+	}
 }
 
 // injectClusterDnsFailure backs up the deployment's replica count and scales it to 0.
@@ -343,4 +406,35 @@ func resolveDnsServiceFlags(expModel *spec.ExpModel) (string, string) {
 		dnsNamespace = DefaultDnsServiceNamespace
 	}
 	return dnsService, dnsNamespace
+}
+
+// resolveDnsFlags returns the DNS Service name, namespace, and the optional
+// explicit Deployment name. An explicit Deployment, when provided, bypasses
+// the reverse-resolution from the Service selector.
+func resolveDnsFlags(expModel *spec.ExpModel) (service, namespace, deployment string) {
+	service, namespace = resolveDnsServiceFlags(expModel)
+	deployment = strings.TrimSpace(expModel.ActionFlags[DnsDeploymentFlag])
+	return service, namespace, deployment
+}
+
+// initialDnsIdentifier returns the ChaosBlade resource identifier used before
+// resolution succeeds. It reflects which input the user provided (service name
+// vs. explicit deployment name) so failure statuses point at the right input.
+func initialDnsIdentifier(namespace, serviceName, explicitDeployment string) string {
+	target := serviceName
+	if explicitDeployment != "" {
+		target = explicitDeployment
+	}
+	return fmt.Sprintf("%s/%s", namespace, target)
+}
+
+// resolvedDnsIdentifier returns the ChaosBlade resource identifier used after
+// the Deployment has been located. When the user provided --dns-deployment we
+// emit only the namespace/deployment pair to avoid implying a Service was
+// consulted; otherwise the Service name remains for traceability.
+func resolvedDnsIdentifier(namespace, serviceName, explicitDeployment, resolvedDeployment string) string {
+	if explicitDeployment != "" {
+		return fmt.Sprintf("%s/%s", namespace, resolvedDeployment)
+	}
+	return fmt.Sprintf("%s/%s/%s", namespace, serviceName, resolvedDeployment)
 }
