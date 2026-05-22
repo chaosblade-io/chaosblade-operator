@@ -210,7 +210,8 @@ func (d *PodDnsFailureActionExecutor) create(uid string, ctx context.Context, ex
 				errMsg := fmt.Sprintf(
 					"pod %s/%s has DNSPolicy=None and DNSConfig.Nameservers does not contain %s; "+
 						"refusing to inject because the PodSpec is authoritative in this configuration",
-					meta.Namespace, meta.PodName, requiredNameserver)
+					meta.Namespace, meta.PodName, requiredNameserver,
+				)
 				logrusField.Warning(errMsg)
 				status = status.CreateFailResourceStatus(errMsg, spec.K8sExecFailed.Code)
 				statuses = append(statuses, status)

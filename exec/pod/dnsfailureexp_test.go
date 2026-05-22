@@ -863,14 +863,16 @@ func TestRestoreWorkloadDnsFailure_MissingWorkloadIsNoOp(t *testing.T) {
 	executor := &PodDnsFailureActionExecutor{client: c}
 
 	if err := executor.restoreWorkloadDnsFailure(
-		context.Background(), "default", "Deployment", "ghost", "exp-1"); err != nil {
+		context.Background(), "default", "Deployment", "ghost", "exp-1",
+	); err != nil {
 		t.Errorf("restore of missing workload should be a no-op, got: %v", err)
 	}
 }
 
 func TestRestoreWorkloadDnsFailure_ForeignExperimentIsNoOp(t *testing.T) {
 	const ns = "default"
-	dep := newDeployment("nginx", ns,
+	dep := newDeployment(
+		"nginx", ns,
 		v1.PodSpec{
 			DNSPolicy: v1.DNSNone,
 			DNSConfig: &v1.PodDNSConfig{Nameservers: []string{UnreachableDnsNameserver}},
@@ -933,7 +935,8 @@ func TestRestoreNamespaceWorkloads(t *testing.T) {
 	// Carries our experiment annotation but is owned by another chaosblade
 	// *action* (e.g. taint, badresource). The DNS failure restore must not
 	// touch workloads it did not inject.
-	depWrongAction := newDeployment("nginx-wrong-action", ns, v1.PodSpec{DNSPolicy: v1.DNSClusterFirst},
+	depWrongAction := newDeployment(
+		"nginx-wrong-action", ns, v1.PodSpec{DNSPolicy: v1.DNSClusterFirst},
 		map[string]string{
 			ChaosBladeExperimentAnnotation: expId,
 			// Note: no ChaosBladePodDnsFailureAnnotation marker.
@@ -996,7 +999,8 @@ func TestRestoreNamespaceWorkloads_RespectsAlreadyProcessed(t *testing.T) {
 	const ns = "default"
 	const expId = "exp-1"
 
-	dep := newDeployment("nginx", ns,
+	dep := newDeployment(
+		"nginx", ns,
 		v1.PodSpec{
 			DNSPolicy: v1.DNSNone,
 			DNSConfig: &v1.PodDNSConfig{Nameservers: []string{UnreachableDnsNameserver}},
