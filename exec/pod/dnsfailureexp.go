@@ -62,7 +62,8 @@ const (
 
 	// UnreachableDnsNameserver is the placeholder nameserver injected to the
 	// workload's PodSpec to make all DNS queries originating from the pod fail.
-	// 127.0.0.255 is in the loopback /8 and is guaranteed not to listen on UDP/53.
+	// 127.0.0.255 is in the loopback /8 and is very unlikely to have a DNS
+	// server listening on UDP/53.
 	UnreachableDnsNameserver = "127.0.0.255"
 )
 
