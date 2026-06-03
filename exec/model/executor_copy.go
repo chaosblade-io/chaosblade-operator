@@ -73,7 +73,9 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 	}
 	logrusField.Infof("experiment identifiers: %v", experimentIdentifiers)
 
-	statuses := experimentStatus.ResStatuses
+	// Pre-size the result slice so each worker writes to its own index. This
+	// preserves the index-to-identifier mapping regardless of completion order.
+	statuses := make([]v1alpha1.ResourceStatus, len(experimentIdentifiers))
 	success := true
 	_, isDestroy := spec.IsDestroy(ctx)
 	updateResultLock := &sync.Mutex{}
@@ -106,7 +108,6 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 					logrusField.Warningln(msg)
 					rsStatus.CreateSuccessResourceStatus()
 					rsStatus.Error = msg
-					success = true
 				} else {
 					// if get pod error, the execution is considered failure
 					msg := fmt.Sprintf("get pod: %s in %s error",
@@ -120,9 +121,10 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 			logrusField.Infof("execute identifier: %+v", identifier)
 			execSuccess, rsStatus = execCommands(isDestroy, rsStatus, identifier, e.Client)
 		}
-		updateResultLock.Lock()
-		statuses = append(statuses, rsStatus)
+		// Distinct-index writes are race-free; no lock needed for the slice.
+		statuses[i] = rsStatus
 		// If false occurs once, the result is fails
+		updateResultLock.Lock()
 		success = success && execSuccess
 		updateResultLock.Unlock()
 	}
@@ -141,7 +143,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 		}
 	}
 	experimentStatus.Success = success
-	experimentStatus.ResStatuses = append(experimentStatus.ResStatuses, statuses...)
+	experimentStatus.ResStatuses = statuses
 
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e.Client)
 	return spec.ReturnResultIgnoreCode(experimentStatus)

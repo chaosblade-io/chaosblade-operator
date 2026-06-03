@@ -43,6 +43,12 @@ import (
 )
 
 func checkExperimentStatus(ctx context.Context, expModel *spec.ExpModel, statuses []v1alpha1.ResourceStatus, identifiers []ExperimentIdentifierInPod, client *channel.Client) {
+	if len(statuses) != len(identifiers) {
+		logrus.WithField("experiment", GetExperimentIdFromContext(ctx)).
+			Errorf("checkExperimentStatus: statuses/identifiers length mismatch (%d vs %d), aborting status check",
+				len(statuses), len(identifiers))
+		return
+	}
 	tt := expModel.ActionFlags["timeout"]
 	if _, ok := spec.IsDestroy(ctx); !ok && tt != "" && len(statuses) > 0 {
 		experimentId := GetExperimentIdFromContext(ctx)
