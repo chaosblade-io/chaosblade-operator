@@ -135,7 +135,7 @@ func (e *CommonExecutor) Exec(uid string, ctx context.Context, expModel *spec.Ex
 			experimentStatus.Error = "see resStatus for the error details"
 		}
 	}
-	experimentStatus.Success = success
+	experimentStatus.Success = finalSuccess
 	experimentStatus.ResStatuses = statuses
 
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e.Client)

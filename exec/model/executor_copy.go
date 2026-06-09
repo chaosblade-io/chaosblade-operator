@@ -149,7 +149,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 			experimentStatus.Error = "see resStatus for the error details"
 		}
 	}
-	experimentStatus.Success = success
+	experimentStatus.Success = finalSuccess
 	experimentStatus.ResStatuses = statuses
 
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e.Client)
