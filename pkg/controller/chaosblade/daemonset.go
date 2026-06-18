@@ -122,7 +122,10 @@ func createPodSpec() corev1.PodSpec {
 		DNSPolicy:                     corev1.DNSClusterFirstWithHostNet,
 		HostNetwork:                   true,
 		HostPID:                       true,
-		Tolerations:                   []corev1.Toleration{{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists}},
+		Tolerations: []corev1.Toleration{
+			{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists},
+			{Effect: corev1.TaintEffectNoExecute, Operator: corev1.TolerationOpExists},
+		},
 		TerminationGracePeriodSeconds: &periodSeconds,
 		SchedulerName:                 corev1.DefaultSchedulerName,
 		RestartPolicy:                 corev1.RestartPolicyAlways,
