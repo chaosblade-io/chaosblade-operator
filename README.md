@@ -18,6 +18,7 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Disk: specify the directory disk occupation, disk IO read and write load, etc.
     * Memory: specify memory usage
     * Pod: kill pod, make pod stuck in ContainerCreating state by PVC mount failure, make pod stuck in ContainerCreating state by cloud disk PVC creation failure, make pod stuck in Terminating state by finalizer, make pod scheduling fail by injecting unreachable affinity rules, modify workload (Deployment/DaemonSet/StatefulSet) CPU/Memory resource limits to simulate bad resource sizing, mount non-existent ConfigMap/Secret/PVC volume to workload (Deployment/DaemonSet/StatefulSet) to simulate volume mount failure
+    * DNS: locate the pod's DNS configuration by pod name (and an optional nameserver IP), then make the pod's DNS resolution completely unavailable by overriding its owning workload (Deployment/DaemonSet/StatefulSet) PodSpec with an unreachable nameserver. The original DNS settings are restored when the experiment is destroyed.
     * IO: specify the file system io exception. Supports 31 file operations and 11 exception scenarios, such as "Too many open files", "Device or resource busy" and so on.
 * Container:
     * CPU: specify CPU usage
@@ -28,6 +29,8 @@ The current experimental scenarios involve resources including Node, Pod, and Co
     * Container: remove container
 * Service:
     * Service: create, modify service
+* Cluster:
+    * DNS: reverse-resolve the cluster DNS server workload from the DNS Service address (kube-dns / CoreDNS by default) and inject a complete unavailability fault by scaling the workload to 0 replicas. The original replica count is restored when the experiment is destroyed.
 
 ## Local Build & Installation
 

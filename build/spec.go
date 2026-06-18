@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/chaosblade-io/chaosblade-operator/exec/cluster"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/exec/node"
 	"github.com/chaosblade-io/chaosblade-operator/exec/pod"
@@ -63,6 +64,11 @@ func getModels() *spec.Models {
 	serviceResourceModelSpec := service.NewResourceModelSpec(nil)
 	for _, modelSpec := range serviceResourceModelSpec.ExpModels() {
 		model := util.ConvertSpecToModels(modelSpec, spec.ExpPrepareModel{}, serviceResourceModelSpec.Scope())
+		models = append(models, model)
+	}
+	clusterResourceModelSpec := cluster.NewResourceModelSpec(nil)
+	for _, modelSpec := range clusterResourceModelSpec.ExpModels() {
+		model := util.ConvertSpecToModels(modelSpec, spec.ExpPrepareModel{}, clusterResourceModelSpec.Scope())
 		models = append(models, model)
 	}
 	return util.MergeModels(models...)

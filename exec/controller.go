@@ -24,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/chaosblade-io/chaosblade-operator/channel"
+	"github.com/chaosblade-io/chaosblade-operator/exec/cluster"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/exec/node"
@@ -53,6 +54,7 @@ func NewDispatcherExecutor(client *channel.Client) *ResourceDispatchedController
 			pod.NewExpController(client),
 			container.NewExpController(client),
 			service.NewExpController(client),
+			cluster.NewExpController(client),
 		)
 	})
 	return executor
