@@ -73,7 +73,7 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 	}
 	logrusField.Infof("experiment identifiers: %v", experimentIdentifiers)
 
-	statuses := experimentStatus.ResStatuses
+	statuses := make([]v1alpha1.ResourceStatus, len(experimentIdentifiers))
 	success := true
 	_, isDestroy := spec.IsDestroy(ctx)
 	updateResultLock := &sync.Mutex{}
@@ -106,7 +106,6 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 					logrusField.Warningln(msg)
 					rsStatus.CreateSuccessResourceStatus()
 					rsStatus.Error = msg
-					success = true
 				} else {
 					// if get pod error, the execution is considered failure
 					msg := fmt.Sprintf("get pod: %s in %s error",
@@ -120,28 +119,38 @@ func (e *ExecCommandInPodExecutor) Exec(uid string, ctx context.Context, expMode
 			logrusField.Infof("execute identifier: %+v", identifier)
 			execSuccess, rsStatus = execCommands(isDestroy, rsStatus, identifier, e.Client)
 		}
-		updateResultLock.Lock()
-		statuses = append(statuses, rsStatus)
+		// Use direct index assignment to preserve order correspondence with experimentIdentifiers.
+		// No lock needed for slice write since each goroutine writes to its own index.
+		statuses[i] = rsStatus
 		// If false occurs once, the result is fails
-		success = success && execSuccess
-		updateResultLock.Unlock()
+		if !execSuccess {
+			updateResultLock.Lock()
+			success = false
+			updateResultLock.Unlock()
+		}
 	}
 
 	ParallelizeExec(len(experimentIdentifiers), execCommandInPod)
 
-	logrusField.Infof("success: %t, statuses: %+v", success, statuses)
-	if success {
+	// Read success under lock for defensive synchronization,
+	// although wg.Wait() in ParallelizeExec already provides happens-before.
+	updateResultLock.Lock()
+	finalSuccess := success
+	updateResultLock.Unlock()
+
+	logrusField.Infof("success: %t, statuses: %+v", finalSuccess, statuses)
+	if finalSuccess {
 		experimentStatus.State = v1alpha1.SuccessState
 	} else {
 		experimentStatus.State = v1alpha1.ErrorState
-		if len(statuses) == 0 {
+		if len(experimentIdentifiers) == 0 {
 			experimentStatus.Error = "the resources not found"
 		} else {
 			experimentStatus.Error = "see resStatus for the error details"
 		}
 	}
-	experimentStatus.Success = success
-	experimentStatus.ResStatuses = append(experimentStatus.ResStatuses, statuses...)
+	experimentStatus.Success = finalSuccess
+	experimentStatus.ResStatuses = statuses
 
 	checkExperimentStatus(ctx, expModel, statuses, experimentIdentifiers, e.Client)
 	return spec.ReturnResultIgnoreCode(experimentStatus)
