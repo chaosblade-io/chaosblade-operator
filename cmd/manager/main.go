@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -146,7 +147,13 @@ func addWebhook(m manager.Manager) error {
 		return err
 	}
 	logrus.Infof("registering %s to the webhook server", "mutating-pods")
-	server.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.Mutator{}})
+	// controller-runtime v0.15+ removed DecoderInjector; build the decoder
+	// from the manager's scheme and inject it explicitly to avoid a nil
+	// dereference inside Mutator.Handle.
+	decoder := admission.NewDecoder(m.GetScheme())
+	server.Register("/mutating-pods", &webhook.Admission{
+		Handler: mutator.NewMutator(m.GetClient(), decoder),
+	})
 	return nil
 }
 
