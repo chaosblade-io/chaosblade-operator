@@ -58,7 +58,7 @@ helm install chaosblade chaosblade-operator-arm64-${version}.tgz --namespace cha
 ```
 
 ## 安装&卸载
-支持的 Kubernetes 最小版本是 v1.12，chaosblade operator 可通过 kubectl 或者 helm 进行安装，安装方式如下：
+支持的 Kubernetes 最小版本是 v1.22，chaosblade operator 可通过 kubectl 或者 helm 进行安装，安装方式如下：
 注意：以下的 `VERSION` 请使用最新的版本号替代
 ### Helm v2
 * 在 [Release](https://github.com/chaosblade-io/chaosblade-operator/releases) 地址下载最新的 `chaosblade-operator-VERSION-v2.tgz` 包
