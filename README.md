@@ -64,7 +64,7 @@ helm install chaosblade chaosblade-operator-arm64-${version}.tgz --namespace cha
 ```
 
 ## Install and uninstall
-The lowest version of kubernetes supported is 1.12. Chaosblade operator can be installed through kubectl or helm, the installation method is as follows:
+The lowest version of kubernetes supported is 1.22. Chaosblade operator can be installed through kubectl or helm, the installation method is as follows:
 
 Note: For the following `VERSION`, please use the latest version number instead
 

@@ -117,11 +117,11 @@ func createPodSpec() corev1.PodSpec {
 	pathType := corev1.HostPathFileOrCreate
 	periodSeconds := int64(30)
 	return corev1.PodSpec{
-		Containers:                    []corev1.Container{createContainer()},
-		Affinity:                      createAffinity(),
-		DNSPolicy:                     corev1.DNSClusterFirstWithHostNet,
-		HostNetwork:                   true,
-		HostPID:                       true,
+		Containers:  []corev1.Container{createContainer()},
+		Affinity:    createAffinity(),
+		DNSPolicy:   corev1.DNSClusterFirstWithHostNet,
+		HostNetwork: true,
+		HostPID:     true,
 		Tolerations: []corev1.Toleration{
 			{Effect: corev1.TaintEffectNoSchedule, Operator: corev1.TolerationOpExists},
 			{Effect: corev1.TaintEffectNoExecute, Operator: corev1.TolerationOpExists},

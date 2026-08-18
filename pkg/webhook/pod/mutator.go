@@ -49,7 +49,19 @@ type Mutator struct {
 	decoder admission.Decoder
 }
 
+// NewMutator constructs a Mutator with required dependencies.
+// In controller-runtime v0.15+ the DecoderInjector interface was removed,
+// so the decoder must be injected explicitly at registration time;
+// otherwise v.decoder will be nil and Handle() will panic.
+func NewMutator(c client.Client, d admission.Decoder) *Mutator {
+	return &Mutator{client: c, decoder: d}
+}
+
 func (v *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
+	if v.decoder == nil {
+		return admission.Errored(http.StatusInternalServerError,
+			fmt.Errorf("admission decoder is not initialized; use NewMutator to construct the handler"))
+	}
 	pod := &corev1.Pod{}
 	err := v.decoder.Decode(req, pod)
 	if err != nil {
@@ -173,13 +185,15 @@ func (v *Mutator) mutatePodsFn(pod *corev1.Pod) error {
 	return nil
 }
 
-// InjectClient injects the client.
+// InjectClient is kept for backward compatibility but is NOT called by
+// controller-runtime v0.15+ anymore. Prefer NewMutator for fresh wiring.
 func (v *Mutator) InjectClient(c client.Client) error {
 	v.client = c
 	return nil
 }
 
-// InjectDecoder injects the decoder.
+// InjectDecoder is kept for backward compatibility but is NOT called by
+// controller-runtime v0.15+ anymore. Prefer NewMutator for fresh wiring.
 func (v *Mutator) InjectDecoder(d admission.Decoder) error {
 	v.decoder = d
 	return nil

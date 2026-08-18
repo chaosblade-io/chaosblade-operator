@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -47,8 +48,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/chaosblade-io/chaosblade-operator/channel"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/controller"
 	operator "github.com/chaosblade-io/chaosblade-operator/pkg/runtime"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
@@ -146,7 +150,13 @@ func addWebhook(m manager.Manager) error {
 		return err
 	}
 	logrus.Infof("registering %s to the webhook server", "mutating-pods")
-	server.Register("/mutating-pods", &webhook.Admission{Handler: &mutator.Mutator{}})
+	// controller-runtime v0.15+ removed DecoderInjector; build the decoder
+	// from the manager's scheme and inject it explicitly to avoid a nil
+	// dereference inside Mutator.Handle.
+	decoder := admission.NewDecoder(m.GetScheme())
+	server.Register("/mutating-pods", &webhook.Admission{
+		Handler: mutator.NewMutator(m.GetClient(), decoder),
+	})
 	return nil
 }
 
@@ -162,28 +172,27 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 		return nil, err
 	}
 	logrus.Infof("Get watch namespace is %s", watchNamespace)
+	// Restrict only the ChaosBlade CR watch to watchNamespace. Other types
+	// (Pods/Nodes/etc.) must remain cluster-scoped because the operator
+	// reads pods in arbitrary namespaces (e.g. the chaosblade-tool DaemonSet
+	// namespace, or user-targeted pod namespaces). Using DefaultNamespaces
+	// would reject those reads with "unknown namespace for the cache".
+	bladeNamespaces := map[string]cache.Config{}
 	if strings.Contains(watchNamespace, ",") {
-		defaultNsps := make(map[string]cache.Config)
 		for _, nsp := range strings.Split(watchNamespace, ",") {
-			defaultNsps[nsp] = cache.Config{}
+			bladeNamespaces[nsp] = cache.Config{}
 		}
-		return manager.New(cfg, manager.Options{
-			Cache: cache.Options{
-				Scheme:            scheme,
-				DefaultNamespaces: defaultNsps,
-			},
-			Scheme: scheme,
-			MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
-				return apiutil.NewDynamicRESTMapper(c, httpClient)
-			},
-			NewClient: channel.NewClientFunc(),
-		})
+	} else if watchNamespace != "" {
+		bladeNamespaces[watchNamespace] = cache.Config{}
+	}
+	cacheOpts := cache.Options{Scheme: scheme}
+	if len(bladeNamespaces) > 0 {
+		cacheOpts.ByObject = map[ctrlclient.Object]cache.ByObject{
+			&v1alpha1.ChaosBlade{}: {Namespaces: bladeNamespaces},
+		}
 	}
 	return manager.New(cfg, manager.Options{
-		Cache: cache.Options{
-			Scheme:            scheme,
-			DefaultNamespaces: map[string]cache.Config{watchNamespace: {}},
-		},
+		Cache:  cacheOpts,
 		Scheme: scheme,
 		MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 			return apiutil.NewDynamicRESTMapper(c, httpClient)
