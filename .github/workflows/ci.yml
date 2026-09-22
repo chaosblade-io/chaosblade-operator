@@ -59,6 +59,9 @@ jobs:
         id: test
         run: |
           make test
+      # e2e-test is a separate module, so `make test` above does not cover it.
+      - name: Build e2e test module
+        run: make -C e2e-test e2e-build
 
   build-matrix:
     name: Build on ${{ matrix.os }} (${{ matrix.goos }}/${{ matrix.goarch }})
