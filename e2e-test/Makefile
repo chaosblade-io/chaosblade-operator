@@ -39,16 +39,22 @@ e2e-build:
 	go vet ./...
 
 # e2e-run runs the e2e tests against the cluster of the local kubeconfig.
+# --ginkgo.fail-on-empty: ginkgo otherwise exits 0 when the filters select no
+# spec, so a LABEL_FILTER that matches nothing inside PKG would pass silently.
+# LABEL_FILTER must therefore match a spec inside PKG. A PKG that does not
+# exist already fails on its own (go test reports "[setup failed]"); the one
+# remaining blind spot is a PKG that exists but contains no Ginkgo specs, where
+# go test prints "[no test files]" and exits 0.
 # Examples:
 #   make e2e-run                                  # all suites
 #   make e2e-run PKG=./e2e/pod/...                # only the pod scope suite
 #   make e2e-run PKG=./e2e/pod/... LABEL_FILTER=pod-delete
 e2e-run:
-	go test $(PKG) -v -timeout 30m -args $(GINKGO_ARGS) --ginkgo.label-filter="$(LABEL_FILTER)"
+	go test $(PKG) -v -timeout 30m -args $(GINKGO_ARGS) --ginkgo.label-filter="$(LABEL_FILTER)" --ginkgo.fail-on-empty
 
 # e2e-all is a shortcut for running every scope suite.
 e2e-all:
-	go test ./e2e/... -v -timeout 30m -args $(GINKGO_ARGS)
+	go test ./e2e/... -v -timeout 30m -args $(GINKGO_ARGS) --ginkgo.fail-on-empty
 
 # e2e-cleanup removes leftovers of interrupted runs. Every selector matches
 # only resources this framework labeled, so unrelated workloads are never
