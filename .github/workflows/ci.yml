@@ -161,3 +161,18 @@ jobs:
             target/chaosblade-*/bin/
             target/chaosblade-*/yaml/
           retention-days: 7
+
+  ci-gate:
+    name: CI Gate
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require tests to pass
+        run: |
+          result="${{ needs.test.result }}"
+          echo "test job result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::test job did not succeed (result=$result)"
+            exit 1
+          fi
