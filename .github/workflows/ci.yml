@@ -167,17 +167,27 @@ jobs:
     needs: [test, build-matrix]
     if: always()
     runs-on: ubuntu-latest
+    env:
+      TEST_RESULT: ${{ needs.test.result }}
+      BUILD_RESULT: ${{ needs.build-matrix.result }}
     steps:
       - name: Require tests and builds to pass
         run: |
-          test_result="${{ needs.test.result }}"
-          build_result="${{ needs.build-matrix.result }}"
-          echo "test=$test_result build-matrix=$build_result"
-          if [ "$test_result" != "success" ]; then
-            echo "::error::test job did not succeed (result=$test_result)"
-            exit 1
-          fi
-          if [ "$build_result" != "success" ]; then
-            echo "::error::build-matrix job did not succeed (result=$build_result)"
-            exit 1
-          fi
+          echo "test=$TEST_RESULT build-matrix=$BUILD_RESULT"
+          fail=0
+          for entry in "test:$TEST_RESULT" "build-matrix:$BUILD_RESULT"; do
+            job="${entry%%:*}"
+            result="${entry#*:}"
+            if [ "$result" = "success" ]; then
+              continue
+            fi
+            fail=1
+            if [ "$result" = "cancelled" ]; then
+              echo "::error::$job was cancelled"
+            elif [ "$result" = "skipped" ]; then
+              echo "::error::$job was skipped (no path filters exist; expected to always run)"
+            else
+              echo "::error::$job did not succeed (result=$result)"
+            fi
+          done
+          exit $fail
