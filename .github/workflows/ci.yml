@@ -168,11 +168,16 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require tests to pass
+      - name: Require tests and builds to pass
         run: |
-          result="${{ needs.test.result }}"
-          echo "test job result: $result"
-          if [ "$result" != "success" ]; then
-            echo "::error::test job did not succeed (result=$result)"
+          test_result="${{ needs.test.result }}"
+          build_result="${{ needs.build-matrix.result }}"
+          echo "test=$test_result build-matrix=$build_result"
+          if [ "$test_result" != "success" ]; then
+            echo "::error::test job did not succeed (result=$test_result)"
+            exit 1
+          fi
+          if [ "$build_result" != "success" ]; then
+            echo "::error::build-matrix job did not succeed (result=$build_result)"
             exit 1
           fi
