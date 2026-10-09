@@ -18,7 +18,7 @@ go 1.25.0
 
 require (
 	github.com/chaosblade-io/chaosblade-exec-cri v1.8.1
-	github.com/chaosblade-io/chaosblade-exec-os v1.8.1-0.20260422111537-3efa2ec759a6
+	github.com/chaosblade-io/chaosblade-exec-os v1.8.1
 	github.com/chaosblade-io/chaosblade-spec-go v1.8.0
 	github.com/ethercflow/hookfs v0.3.0
 	github.com/hanwen/go-fuse v1.0.0
