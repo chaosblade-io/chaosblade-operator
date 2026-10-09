@@ -1,0 +1,245 @@
+# Copyright 2025 The ChaosBlade Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'examples/**'
+  pull_request:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'examples/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: chaosblade-io/chaosblade-operator
+  GO_VERSION: "1.25"
+  K8S_VERSION: v1.29.4
+  OPERATOR_NAMESPACE: chaosblade
+  E2E_NAMESPACE: chaosblade-e2e
+
+jobs:
+  # Builds the operator image from this revision so the tests exercise the
+  # change under review, not the published release. The image is handed to the
+  # matrix jobs as an artifact and built only once.
+  build-operator-image:
+    name: Build operator image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the Makefile derives version info from git history
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # A revision-specific tag keeps the locally built image distinguishable
+      # from the published ${REGISTRY}/${IMAGE_NAME}:1.8.0 it would otherwise
+      # collide with inside the cluster.
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=e2e-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      # driver: docker is required. The action's default docker-container
+      # driver keeps the result in the build cache only (buildx warns and
+      # still exits 0), which would make the `docker save` below fail with
+      # "No such image". release.yml does not hit this because it builds and
+      # pushes through podman instead.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
+
+      # Expressions are passed through env rather than interpolated into the
+      # shell command, so a value can never be parsed as shell syntax.
+      - name: Build operator image
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        run: make build_linux_amd64_image CONTAINER_RUNTIME=docker BLADE_VERSION="$IMAGE_TAG"
+
+      - name: Save image to tar
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
+        run: docker save "$IMAGE" -o operator.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-image
+          path: operator.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  e2e:
+    name: E2E (${{ matrix.focus }})
+    runs-on: ubuntu-latest
+    needs: build-operator-image
+    # Budget arithmetic, worst case: cluster setup <=10 min (checkout, setup-go,
+    # minikube start, image load, helm install + operator rollout <=3 min) +
+    # DaemonSet probe <=2 min + inner `go test -timeout 30m` = <=42 min < 45.
+    # The margin is what lets a hung test trip the Go timeout first and still
+    # print its goroutine dump instead of being killed by the job limit, so any
+    # new step here must keep the total under 45 min.
+    timeout-minutes: 45
+    strategy:
+      # Run every focus so one failure does not hide the state of the others.
+      fail-fast: false
+      matrix:
+        # One entry per focus; phase 2 appends pod-cpu / pod-network /
+        # node-cpu / lifecycle here without changing the job structure.
+        include:
+          - focus: pod-delete
+            pkg: ./e2e/pod/...
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@v0.0.21
+        with:
+          kubernetes-version: ${{ env.K8S_VERSION }}
+          driver: docker
+          cpus: 2
+          memory: 4096m
+
+      - name: Download operator image
+        uses: actions/download-artifact@v4
+        with:
+          name: operator-image
+
+      - name: Load operator image into minikube
+        run: minikube image load operator.tar
+
+      # The chart self-signs the webhook cert (templates/secret.yaml), and the
+      # webhook uses failurePolicy: Ignore so it cannot block test workloads
+      # while it warms up. repository/version are both passed explicitly to
+      # avoid depending on chart defaults matching the image built above.
+      - name: Install operator
+        env:
+          IMAGE_TAG: ${{ needs.build-operator-image.outputs.image_tag }}
+          IMAGE_REPO: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          OPERATOR_NS: ${{ env.OPERATOR_NAMESPACE }}
+        run: |
+          helm install chaosblade deploy/helm/chaosblade-operator \
+            --namespace "$OPERATOR_NS" --create-namespace \
+            --set operator.repository="$IMAGE_REPO" \
+            --set operator.version="$IMAGE_TAG"
+          kubectl rollout status deployment/chaosblade-operator \
+            -n "$OPERATOR_NS" --timeout=180s
+
+      # pod-delete reaches its target through the Kubernetes API only
+      # (exec/pod/delete.go calls client.Delete), so the tool DaemonSet is not
+      # on its execution path: blocking on it here would add a failure mode
+      # without removing a flake. The phase 2 focuses (pod cpu/network, node
+      # scope) do execute through the tool, so readiness is recorded
+      # non-blockingly for now and this step must become a blocking
+      # `kubectl rollout status daemonset/chaosblade-tool` once they land.
+      # The wait is capped at 120s to stay inside the job timeout budget; the
+      # diagnostics step captures the DaemonSet state regardless.
+      - name: Record chaosblade-tool DaemonSet readiness
+        env:
+          OPERATOR_NS: ${{ env.OPERATOR_NAMESPACE }}
+        run: |
+          kubectl rollout status daemonset/chaosblade-tool -n "$OPERATOR_NS" --timeout=120s || \
+            echo "::warning::chaosblade-tool DaemonSet not Ready within 120s (not required by pod-delete)"
+          kubectl get daemonset -n "$OPERATOR_NS" -o wide
+
+      # Created up front so the suite adopts the namespace instead of owning
+      # it: an adopted namespace is never deleted by AfterSuite, which keeps
+      # the target pods and events around for the diagnostics step. Each
+      # matrix job gets its own minikube, so a fixed name cannot collide.
+      - name: Create e2e target namespace
+        env:
+          E2E_NS: ${{ env.E2E_NAMESPACE }}
+        run: kubectl create namespace "$E2E_NS"
+
+      - name: Run e2e tests
+        env:
+          PKG: ${{ matrix.pkg }}
+          FOCUS: ${{ matrix.focus }}
+          E2E_NS: ${{ env.E2E_NAMESPACE }}
+        run: make -C e2e-test e2e-run PKG="$PKG" LABEL_FILTER="$FOCUS" NAMESPACE="$E2E_NS"
+
+      - name: Collect diagnostics
+        if: failure() || cancelled()
+        env:
+          OPERATOR_NS: ${{ env.OPERATOR_NAMESPACE }}
+          E2E_NS: ${{ env.E2E_NAMESPACE }}
+        run: |
+          mkdir -p e2e-diagnostics
+          kubectl logs -n "$OPERATOR_NS" deploy/chaosblade-operator --tail=-1 \
+            > e2e-diagnostics/operator.log 2>&1 || true
+          kubectl get chaosblade -o yaml > e2e-diagnostics/chaosblades.yaml 2>&1 || true
+          kubectl get pods -A -o wide > e2e-diagnostics/pods.txt 2>&1 || true
+          kubectl describe pods -n "$OPERATOR_NS" \
+            > e2e-diagnostics/operator-pods.txt 2>&1 || true
+          kubectl describe daemonset -n "$OPERATOR_NS" \
+            > e2e-diagnostics/daemonset.txt 2>&1 || true
+          kubectl get pods -n "$E2E_NS" -o wide > e2e-diagnostics/target-pods.txt 2>&1 || true
+          kubectl describe pods -n "$E2E_NS" \
+            > e2e-diagnostics/target-pods-describe.txt 2>&1 || true
+          kubectl get events -n "$E2E_NS" --sort-by=.lastTimestamp \
+            > e2e-diagnostics/target-events.txt 2>&1 || true
+          kubectl get events -A --sort-by=.lastTimestamp > e2e-diagnostics/events.txt 2>&1 || true
+          minikube logs --tail 3000 > e2e-diagnostics/minikube.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-diagnostics-${{ matrix.focus }}
+          path: e2e-diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [ build-operator-image, e2e ]
+    if: always()
+    steps:
+      - name: Report results
+        env:
+          BUILD_RESULT: ${{ needs.build-operator-image.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          echo "build-operator-image: $BUILD_RESULT"
+          echo "e2e:                  $E2E_RESULT"
+          if [ "$BUILD_RESULT" != "success" ] || [ "$E2E_RESULT" != "success" ]; then
+            echo "E2E workflow did not pass; see the e2e-diagnostics-* artifacts."
+            exit 1
+          fi
