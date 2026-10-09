@@ -154,7 +154,7 @@ jobs:
           ls -la target/*.tgz
 
       - name: Setup OSSUTIL environment
-        uses: yizhoumo/setup-ossutil@121c208740cd4b110f3adac409be66c17f5f948b # v1.1.3
+        uses: yizhoumo/setup-ossutil@80f4dc3682862e71bd1ccc10acc2328f8d00a11a # v2.0.0
         env:
           BINARY_TAG: ${{ steps.version.outputs.version }}
         with:
