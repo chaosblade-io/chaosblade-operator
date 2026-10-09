@@ -35,14 +35,18 @@ env:
   IMAGE_NAME: chaosblade-io/chaosblade-operator
   GO_VERSION: '1.25'
 
+# Least-privilege default; jobs elevate only what they need.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   build-and-push-images:
     name: Build and Push Images
     runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      # Push operator images to ghcr.io.
+      packages: write
     strategy:
       matrix:
         include:
@@ -64,7 +68,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Extract version from tag
         id: version
@@ -79,16 +83,16 @@ jobs:
           echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.GHCR_USER }}
@@ -125,7 +129,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Get version from previous job
         id: version
@@ -133,7 +137,7 @@ jobs:
           echo "version=${{ needs.build-and-push-images.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Install Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3
         with:
           version: v3.9.3
 
@@ -150,7 +154,7 @@ jobs:
           ls -la target/*.tgz
 
       - name: Setup OSSUTIL environment
-        uses: yizhoumo/setup-ossutil@v1.1.3
+        uses: yizhoumo/setup-ossutil@121c208740cd4b110f3adac409be66c17f5f948b # v1.1.3
         env:
           BINARY_TAG: ${{ steps.version.outputs.version }}
         with:
@@ -169,7 +173,7 @@ jobs:
           echo "Helm packages uploaded successfully"
 
       - name: Upload Helm packages as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: helm-packages
           path: |
@@ -181,10 +185,13 @@ jobs:
     name: Create GitHub Release
     needs: [build-and-push-images, package-and-upload-helm]
     runs-on: ubuntu-latest
+    permissions:
+      # Create the GitHub Release.
+      contents: write
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Get version from previous job
         id: version
@@ -192,7 +199,7 @@ jobs:
           echo "version=${{ needs.build-and-push-images.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Download Helm packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: helm-packages
 
@@ -204,7 +211,7 @@ jobs:
           find . -name "*.tgz" -type f
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}

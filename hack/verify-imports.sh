@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source "$(dirname "$0")/init.sh"
-go install golang.org/x/tools/cmd/goimports@latest
+go install golang.org/x/tools/cmd/goimports@v0.51.0
 
 diff=$(git_find | xargs goimports -l -local github.com/chaosblade-io/chaosblade-operator 2>&1) || true
 if [[ -n "${diff}" ]]; then
