@@ -38,7 +38,8 @@ make e2e-run NAMESPACE=my-ns                  # 复用已有 namespace
 - 默认（`NAMESPACE` 为空）：每次运行创建唯一的 `chaosblade-e2e-<suffix>` namespace，
   套件结束时自动删除；两次并行运行互不干扰。
 - 显式指定 `NAMESPACE`：复用该 namespace，**套件绝不删除它**（避免误删他人资源，
-  包括 `NAMESPACE=default` 这类误用）。残留资源用 `make e2e-cleanup` 按 label 清理。
+  包括 `NAMESPACE=default` 这类误用）。该 namespace **必须已存在**，不存在时套件
+  直接报错而不会代为创建；残留资源用 `make e2e-cleanup` 按 label 清理。
 - 框架创建的 CR、被测 Pod、namespace 都带 `chaosblade-e2e=true` label；`e2e-cleanup`
   只按该 label 删除（Pod 跨 namespace 删，以覆盖复用已有 namespace 的场景）。
 
@@ -55,10 +56,13 @@ taint 的共享集群、并避免节点压力驱逐导致用例闪断。调度�
 
 ### 断言口径
 
-用例断言同时落在物理量（目标 Pod 被删除）与 CR 状态（`Status.Phase=Running`、
-`ExpStatuses[].Success=true`、`ResStatuses` 非空）上；删除 CR 后验证 finalizer 释放
-（CR 对象消失）。注意 CRD 是 Cluster 作用域，CR 本身不带 namespace，被测 Pod 的
-归属通过实验 matcher `namespace` 表达。
+用例断言同时落在物理量（目标 Pod 被删除，且同 namespace 的对照组 Pod 保持原 UID、
+未被删除）与 CR 状态（`Status.Phase=Running`；`pod/pod/delete` 实验的 `ResStatuses`
+恰好一条、指向目标 Pod 并报告成功；删除前 CR 带 `finalizer.chaosblade.io`）上；
+删除 CR 后验证对象消失——删除前的 finalizer 断言与删除后对象消失合起来才证明释放流程
+真正执行过（仅等对象消失无法区分「finalizer 被正常释放」与「从未挂上 finalizer」）。
+注意 CRD 是 Cluster 作用域，CR 本身不带 namespace，被测 Pod 的归属通过实验 matcher
+`namespace` 表达。
 
 ## CI
 

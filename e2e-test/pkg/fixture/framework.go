@@ -59,6 +59,14 @@ const (
 	//   make e2e-run IMAGE=ghcr.io/chaosblade-io/chaosblade-tool-arm64:1.8.0
 	DefaultImage = "ghcr.io/chaosblade-io/chaosblade-tool:1.8.0"
 
+	// ChaosBladeFinalizer is the finalizer the operator attaches to every
+	// ChaosBlade CR so the destroy flow runs before the object can be
+	// deleted. The specs assert it before cleanup: a CR without one would
+	// disappear immediately on deletion and the release flow would go
+	// untested. Keep in sync with chaosbladeFinalizer in
+	// pkg/controller/chaosblade/controller.go.
+	ChaosBladeFinalizer = "finalizer.chaosblade.io"
+
 	// TestLabel marks every resource this framework creates, so leftovers of
 	// an interrupted run can be removed by `make e2e-cleanup`.
 	// Keep in sync with TEST_LABEL in the Makefile.
@@ -81,7 +89,8 @@ func RegisterFlags(fs *flag.FlagSet) {
 		fs = flag.CommandLine
 	}
 	fs.StringVar(&namespaceFlag, "namespace", "",
-		"namespace for e2e target workloads; empty creates a unique chaosblade-e2e-<suffix> namespace per run")
+		"namespace for e2e target workloads; empty creates a unique chaosblade-e2e-<suffix> namespace per run; "+
+			"an explicit namespace must already exist and is never deleted")
 	fs.StringVar(&imageFlag, "image", DefaultImage,
 		"image used by e2e target workloads")
 }
@@ -101,6 +110,12 @@ type Framework struct {
 	// deletes a namespace it did not create, so pointing the suite at an
 	// existing namespace (even "default") cannot destroy unrelated workloads.
 	ownsNamespace bool
+
+	// explicitNamespace records whether Namespace came from the -namespace
+	// flag. Such a namespace must already exist: the suite only adopts it and
+	// never creates or deletes it, keeping "an explicit NAMESPACE is never
+	// deleted" true for every input.
+	explicitNamespace bool
 }
 
 // NewFramework builds the client from the local kubeconfig, resolved from the
@@ -125,10 +140,11 @@ func NewFramework() (*Framework, error) {
 		return nil, err
 	}
 	namespace := namespaceFlag
-	if namespace == "" {
+	explicit := namespace != ""
+	if !explicit {
 		namespace = namespacePrefix + "-" + RandomSuffix()
 	}
-	return &Framework{Client: c, Namespace: namespace}, nil
+	return &Framework{Client: c, Namespace: namespace, explicitNamespace: explicit}, nil
 }
 
 // Preflight fails fast when the cluster cannot run these tests, instead of
@@ -157,10 +173,22 @@ func (f *Framework) OwnsNamespace() bool {
 	return f.ownsNamespace
 }
 
-// EnsureNamespace creates the namespace for this run's target workloads and
-// records ownership. An already existing namespace is adopted for the run but
-// is never deleted afterwards.
+// EnsureNamespace prepares the namespace for this run's target workloads. A
+// namespace requested explicitly via the -namespace flag must already exist
+// and is only adopted; an automatically generated one is created and owned by
+// this run. Only an owned namespace is deleted afterwards.
 func (f *Framework) EnsureNamespace(ctx context.Context) error {
+	if f.explicitNamespace {
+		err := f.Client.Get(ctx, client.ObjectKey{Name: f.Namespace}, &corev1.Namespace{})
+		if err == nil {
+			return nil
+		}
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("namespace %s was requested explicitly but does not exist; create it first, "+
+				"or leave NAMESPACE unset to let the suite create and clean up its own", f.Namespace)
+		}
+		return fmt.Errorf("read namespace %s: %w", f.Namespace, err)
+	}
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   f.Namespace,
@@ -283,6 +311,16 @@ func (f *Framework) WaitForPodDeleted(ctx context.Context, name string) error {
 		return fmt.Errorf("pod %s/%s still present after %s: %s", f.Namespace, name, podDeletedTimeout, lastState)
 	}
 	return err
+}
+
+// GetPod fetches the pod by name, e.g. to capture a control pod's UID before
+// an experiment and verify afterwards that it was left untouched.
+func (f *Framework) GetPod(ctx context.Context, name string) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	if err := f.Client.Get(ctx, f.podKey(name), pod); err != nil {
+		return nil, fmt.Errorf("get pod %s/%s: %w", f.Namespace, name, err)
+	}
+	return pod, nil
 }
 
 // CreateChaosBlade creates a ChaosBlade CR. The CRD is cluster-scoped, so the

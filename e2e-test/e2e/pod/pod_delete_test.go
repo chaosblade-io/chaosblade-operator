@@ -23,23 +23,30 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/chaosblade-io/chaosblade-operator/e2e-test/pkg/fixture"
+	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
 
 var _ = Describe("[E2E] [Pod Scope] Pod Delete", Label("pod-delete"), func() {
 	var (
-		podName string
-		crName  string
+		podName        string
+		controlPodName string
+		crName         string
 	)
 
 	BeforeEach(func() {
 		podName = "e2e-pod-" + fixture.RandomSuffix()
+		controlPodName = "e2e-control-pod-" + fixture.RandomSuffix()
 		crName = "e2e-delete-pod-" + fixture.RandomSuffix()
 	})
 
 	It("should delete the target pod and report success, then release the CR", func(ctx SpecContext) {
-		By("creating the target pod")
+		By("creating the target pod and a control pod in the same namespace")
 		Expect(framework.CreatePod(ctx, podName, map[string]string{fixture.TestLabel: "true"})).To(Succeed())
+		Expect(framework.CreatePod(ctx, controlPodName, map[string]string{fixture.TestLabel: "true"})).To(Succeed())
 		Expect(framework.WaitForPodRunning(ctx, podName)).To(Succeed())
+		Expect(framework.WaitForPodRunning(ctx, controlPodName)).To(Succeed())
+		controlBefore, err := framework.GetPod(ctx, controlPodName)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("creating the ChaosBlade CR")
 		cb := fixture.NewChaosBladeBuilder(crName).
@@ -55,10 +62,36 @@ var _ = Describe("[E2E] [Pod Scope] Pod Delete", Label("pod-delete"), func() {
 		By("asserting the physical effect: the target pod is deleted")
 		Expect(framework.WaitForPodDeleted(ctx, podName)).To(Succeed())
 
-		By("asserting the CR status: phase Running and experiment Success")
+		// The control pod guards the selection boundary: without it the suite
+		// would also pass if a regression ignored the names matcher and deleted
+		// every pod in the namespace.
+		By("asserting the selection boundary: the control pod keeps its UID and stays undeleted")
+		controlAfter, err := framework.GetPod(ctx, controlPodName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(controlAfter.UID).To(Equal(controlBefore.UID))
+		Expect(controlAfter.DeletionTimestamp).To(BeNil())
+
+		By("asserting the CR status: phase Running and experiment identity")
 		got, err := framework.WaitForChaosBladeSuccess(ctx, crName)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(got.Status.ExpStatuses[0].ResStatuses).NotTo(BeEmpty())
+		expStatus := got.Status.ExpStatuses[0]
+		Expect(expStatus.Scope).To(Equal("pod"))
+		Expect(expStatus.Target).To(Equal("pod"))
+		Expect(expStatus.Action).To(Equal("delete"))
+
+		By("asserting the resource statuses point at the target pod and report success")
+		Expect(expStatus.ResStatuses).To(HaveLen(1))
+		resStatus := expStatus.ResStatuses[0]
+		Expect(resStatus.Success).To(BeTrue())
+		Expect(resStatus.State).To(Equal(v1alpha1.SuccessState))
+		Expect(resStatus.Error).To(BeEmpty())
+		Expect(resStatus.Identifier).To(HaveSuffix("/" + podName))
+
+		// The finalizer must be attached before cleanup: waiting for NotFound
+		// alone would also pass without one, because a CR without a finalizer
+		// disappears immediately on deletion and the release flow would never
+		// be exercised.
+		Expect(got.Finalizers).To(ContainElement(fixture.ChaosBladeFinalizer))
 	}, NodeTimeout(8*time.Minute))
 
 	AfterEach(func(ctx SpecContext) {

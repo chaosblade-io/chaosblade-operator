@@ -45,8 +45,9 @@ make e2e-run NAMESPACE=my-ns                  # reuse an existing namespace
 - Default (`NAMESPACE` empty): every run creates a unique `chaosblade-e2e-<suffix>` namespace
   and deletes it when the suite finishes, so two concurrent runs cannot interfere.
 - Explicit `NAMESPACE`: that namespace is reused and **never deleted by the suite**, so it
-  cannot destroy other people's resources (including a mistaken `NAMESPACE=default`). Remove
-  leftovers with `make e2e-cleanup`, which selects by label.
+  cannot destroy other people's resources (including a mistaken `NAMESPACE=default`). It must
+  already exist: the suite fails fast instead of creating it. Remove leftovers with
+  `make e2e-cleanup`, which selects by label.
 - CRs, target pods and namespaces created by the framework all carry the `chaosblade-e2e=true`
   label, and `e2e-cleanup` deletes by that label only (pods across all namespaces, to cover the
   reused-namespace case).
@@ -66,11 +67,15 @@ scheduling or image pulling fails, the timeout error carries the root cause (ima
 
 ### What the specs assert
 
-Assertions land on both the physical effect (the target pod is deleted) and the CR status
-(`Status.Phase=Running`, `ExpStatuses[].Success=true`, non-empty `ResStatuses`); after the CR is
-deleted the specs verify that the finalizer released it (the CR object disappears). Note that the
-CRD is cluster-scoped, so the CR itself carries no namespace — the target pod's namespace is
-expressed through the experiment's `namespace` matcher.
+Assertions land on both the physical effect (the target pod is deleted, while a control pod in
+the same namespace keeps its UID and stays undeleted) and the CR status (`Status.Phase=Running`,
+a successful `pod/pod/delete` experiment with exactly one `ResStatuses` entry that points at
+the target pod and reports success, and the `finalizer.chaosblade.io` finalizer asserted before
+cleanup); after the CR is deleted the specs verify that the object disappears — together these
+prove the finalizer release flow ran, while the disappearance alone cannot distinguish a
+released finalizer from one never attached. Note that the CRD is cluster-scoped, so the CR
+itself carries no namespace — the target pod's namespace is expressed through the experiment's
+`namespace` matcher.
 
 ## CI
 
