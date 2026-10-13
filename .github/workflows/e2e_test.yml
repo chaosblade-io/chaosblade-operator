@@ -128,17 +128,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # TEMP DEBUG (to be removed with the fix): the e2e job fails with
-      # "go: updates to go.mod needed" only on CI, not locally. Print the
-      # environment and what tidy actually wants to change.
-      - name: Debug module state
-        run: |
-          cd e2e-test
-          go version
-          go env GOFLAGS GOPROXY GOTOOLCHAIN GOMODCACHE
-          ls -l go.mod go.sum
-          go mod tidy -diff || true
-
       - name: Start minikube
         uses: medyagh/setup-minikube@v0.0.21
         with:
