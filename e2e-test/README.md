@@ -97,7 +97,8 @@ documentation-only changes (`**.md`, `docs/`, `examples/`) are skipped. Three jo
    condition is `failure() || cancelled()`). **Recompute this arithmetic when adding steps.**
    On failure or cancellation it uploads the `e2e-diagnostics-<focus>` artifact (operator logs,
    `chaosblade` CR yaml, pods/describe/events for the operator and target namespaces, DaemonSet
-   describe, minikube logs).
+   describe, minikube logs; under `spec/` it also ships the CR snapshots failed specs save
+   themselves before their AfterEach deletes the CR).
 3. **summary**: aggregates the upstream results and fails unless all of them succeeded.
 
 CI **pre-creates** the target namespace so the suite takes the "adopt" path

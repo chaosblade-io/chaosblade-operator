@@ -25,6 +25,8 @@ import (
 	"flag"
 	"fmt"
 	"math/rand/v2"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,6 +40,7 @@ import (
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/chaosblade-io/chaosblade-operator/pkg/apis/chaosblade/v1alpha1"
 )
@@ -74,6 +77,11 @@ const (
 
 	namespacePrefix   = TestLabel
 	chaosBladeCRDName = "chaosblades.chaosblade.io"
+
+	// diagnosticsDir is where specs save resources before cleanup deletes
+	// them, so the CI diagnostics step can still upload the failure evidence.
+	// Keep in sync with the copy step in .github/workflows/e2e_test.yml.
+	diagnosticsDir = "e2e-diagnostics"
 )
 
 var (
@@ -346,6 +354,34 @@ func (f *Framework) GetChaosBlade(ctx context.Context, name string) (*v1alpha1.C
 		return nil, err
 	}
 	return cb, nil
+}
+
+// SaveChaosBladeDiagnostics dumps the ChaosBlade CR as YAML under
+// diagnosticsDir and returns the file path. Specs call it from their failure
+// path before cleanup deletes the CR, so the CI diagnostics step can still
+// upload the full state of a failed experiment.
+func (f *Framework) SaveChaosBladeDiagnostics(ctx context.Context, name string) (string, error) {
+	cb, err := f.GetChaosBlade(ctx, name)
+	if err != nil {
+		return "", fmt.Errorf("get chaosblade %s: %w", name, err)
+	}
+	// A typed Get leaves TypeMeta empty; fill it so the dump is self-contained.
+	cb.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		Kind:       "ChaosBlade",
+	}
+	data, err := yaml.Marshal(cb)
+	if err != nil {
+		return "", fmt.Errorf("marshal chaosblade %s: %w", name, err)
+	}
+	if err := os.MkdirAll(diagnosticsDir, 0o755); err != nil {
+		return "", fmt.Errorf("create diagnostics directory %s: %w", diagnosticsDir, err)
+	}
+	file := filepath.Join(diagnosticsDir, "chaosblade-"+name+".yaml")
+	if err := os.WriteFile(file, data, 0o644); err != nil {
+		return "", fmt.Errorf("write %s: %w", file, err)
+	}
+	return file, nil
 }
 
 // WaitForChaosBladeSuccess waits until the CR reports success: Phase Running

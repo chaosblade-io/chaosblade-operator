@@ -216,6 +216,11 @@ jobs:
             > e2e-diagnostics/target-events.txt 2>&1 || true
           kubectl get events -A --sort-by=.lastTimestamp > e2e-diagnostics/events.txt 2>&1 || true
           minikube logs --tail 3000 > e2e-diagnostics/minikube.log 2>&1 || true
+          # Failed specs save their CR state before AfterEach deletes it; fold
+          # those files into this artifact when present.
+          if [ -d e2e-test/e2e-diagnostics ]; then
+            cp -r e2e-test/e2e-diagnostics e2e-diagnostics/spec
+          fi
 
       - name: Upload diagnostics
         if: failure() || cancelled()

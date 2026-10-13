@@ -80,7 +80,8 @@ taint 的共享集群、并避免节点压力驱逐导致用例闪断。调度�
    打印 goroutine dump，而不是被 job 级硬杀（硬杀时 `if: failure()` 也不执行，诊断会丢，
    故诊断步骤条件是 `failure() || cancelled()`）。**新增步骤必须重新核算这个算式。**
    失败或取消时上传 `e2e-diagnostics-<focus>` artifact（operator 日志、`chaosblade` CR yaml、
-   operator 与目标 namespace 的 pods/describe/events、DaemonSet describe、minikube 日志）。
+   operator 与目标 namespace 的 pods/describe/events、DaemonSet describe、minikube 日志；
+   其中 `spec/` 子目录为失败用例在 AfterEach 删除 CR 之前自行保存的状态快照）。
 3. **summary**：汇总上游 result，非全 success 则失败。
 
 CI 里**预建**目标 namespace，使套件走「借用」路径（`OwnsNamespace()=false`），

@@ -95,6 +95,17 @@ var _ = Describe("[E2E] [Pod Scope] Pod Delete", Label("pod-delete"), func() {
 	}, NodeTimeout(8*time.Minute))
 
 	AfterEach(func(ctx SpecContext) {
+		// Save the CR before deleting it: the CI diagnostics step runs after
+		// the suite finished, so once cleanup succeeds the failed CR's state
+		// is gone. Saving is best effort and must not mask the spec failure.
+		if CurrentSpecReport().Failed() {
+			if saved, err := framework.SaveChaosBladeDiagnostics(ctx, crName); err != nil {
+				GinkgoWriter.Printf("failed to save chaosblade diagnostics: %v\n", err)
+			} else {
+				GinkgoWriter.Printf("chaosblade diagnostics saved to %s\n", saved)
+			}
+		}
+
 		By("deleting the ChaosBlade CR and waiting for the finalizer to release it")
 		Expect(framework.DeleteChaosBlade(ctx, crName)).To(Succeed())
 		Expect(framework.WaitForChaosBladeGone(ctx, crName)).To(Succeed())
