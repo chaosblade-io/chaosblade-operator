@@ -91,7 +91,7 @@ jobs:
         run: docker save "$IMAGE" -o operator.tar
 
       - name: Upload image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: operator-image
           path: operator.tar
@@ -224,7 +224,7 @@ jobs:
 
       - name: Upload diagnostics
         if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-diagnostics-${{ matrix.focus }}
           path: e2e-diagnostics/
