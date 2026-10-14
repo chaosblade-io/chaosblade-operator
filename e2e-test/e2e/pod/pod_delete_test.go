@@ -17,6 +17,7 @@
 package pod_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,6 +46,10 @@ var _ = Describe("[E2E] [Pod Scope] Pod Delete", Label("pod-delete"), func() {
 		Expect(framework.CreatePod(ctx, controlPodName, map[string]string{fixture.TestLabel: "true"})).To(Succeed())
 		Expect(framework.WaitForPodRunning(ctx, podName)).To(Succeed())
 		Expect(framework.WaitForPodRunning(ctx, controlPodName)).To(Succeed())
+		targetBefore, err := framework.GetPod(ctx, podName)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(targetBefore.Spec.NodeName).NotTo(BeEmpty())
+		expectedIdentifier := fmt.Sprintf("%s/%s/%s", targetBefore.Namespace, targetBefore.Spec.NodeName, targetBefore.Name)
 		controlBefore, err := framework.GetPod(ctx, controlPodName)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -85,7 +90,8 @@ var _ = Describe("[E2E] [Pod Scope] Pod Delete", Label("pod-delete"), func() {
 		Expect(resStatus.Success).To(BeTrue())
 		Expect(resStatus.State).To(Equal(v1alpha1.SuccessState))
 		Expect(resStatus.Error).To(BeEmpty())
-		Expect(resStatus.Identifier).To(HaveSuffix("/" + podName))
+		Expect(resStatus.Kind).To(Equal(v1alpha1.PodKind))
+		Expect(resStatus.Identifier).To(Equal(expectedIdentifier))
 
 		// The finalizer must be attached before cleanup: waiting for NotFound
 		// alone would also pass without one, because a CR without a finalizer

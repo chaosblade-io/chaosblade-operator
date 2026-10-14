@@ -40,6 +40,13 @@ make e2e-run IMAGE=busybox:1.36               # pick an image when the cluster c
 make e2e-run NAMESPACE=my-ns                  # reuse an existing namespace
 ```
 
+Failed specs save CR snapshots before cleanup. Both `e2e-run` and `e2e-all` pass
+an absolute diagnostics path, so snapshots from every suite land in
+`e2e-test/e2e-diagnostics/`, where CI collects them. Override it with
+`DIAGNOSTICS_DIR=/absolute/path`. When invoking `go test` directly, pass
+`-args -diagnostics-dir=/absolute/path`; otherwise the default `e2e-diagnostics/`
+is relative to each test package's directory.
+
 ### Namespace semantics
 
 - Default (`NAMESPACE` empty): every run creates a unique `chaosblade-e2e-<suffix>` namespace
@@ -69,8 +76,9 @@ scheduling or image pulling fails, the timeout error carries the root cause (ima
 
 Assertions land on both the physical effect (the target pod is deleted, while a control pod in
 the same namespace keeps its UID and stays undeleted) and the CR status (`Status.Phase=Running`,
-a successful `pod/pod/delete` experiment with exactly one `ResStatuses` entry that points at
-the target pod and reports success, and the `finalizer.chaosblade.io` finalizer asserted before
+a successful `pod/pod/delete` experiment with exactly one successful `ResStatuses` entry whose
+kind is `pod` and whose full `namespace/node/pod` identifier matches the target captured before
+deletion, and the `finalizer.chaosblade.io` finalizer asserted before
 cleanup); after the CR is deleted the specs verify that the object disappears — together these
 prove the finalizer release flow ran, while the disappearance alone cannot distinguish a
 released finalizer from one never attached. Note that the CRD is cluster-scoped, so the CR

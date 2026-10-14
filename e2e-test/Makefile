@@ -27,10 +27,13 @@ PKG ?= ./e2e/...
 LABEL_FILTER ?=
 # Keep in sync with fixture.TestLabel in pkg/fixture/framework.go.
 TEST_LABEL ?= chaosblade-e2e
+# go test runs each suite from its package directory. Use one absolute path
+# so all suites save snapshots where the CI diagnostics step collects them.
+DIAGNOSTICS_DIR ?= $(CURDIR)/e2e-diagnostics
 
-# GINKGO_ARGS carries the optional flags so that empty values fall back to the
-# fixture defaults instead of overriding them with "".
-GINKGO_ARGS = $(if $(NAMESPACE),-namespace=$(NAMESPACE)) $(if $(IMAGE),-image=$(IMAGE))
+# Empty namespace/image values fall back to the fixture defaults instead of
+# overriding them with "".
+GINKGO_ARGS = $(if $(NAMESPACE),-namespace=$(NAMESPACE)) $(if $(IMAGE),-image=$(IMAGE)) -diagnostics-dir="$(DIAGNOSTICS_DIR)"
 
 .PHONY: e2e-build e2e-run e2e-all e2e-cleanup install-operator help
 
@@ -73,7 +76,7 @@ install-operator:
 help:
 	@echo "Targets:"
 	@echo "  e2e-build        vet/compile the e2e module"
-	@echo "  e2e-run          run e2e suites (vars: PKG, LABEL_FILTER, NAMESPACE, IMAGE)"
+	@echo "  e2e-run          run e2e suites (vars: PKG, LABEL_FILTER, NAMESPACE, IMAGE, DIAGNOSTICS_DIR)"
 	@echo "  e2e-all          run all scope suites"
 	@echo "  e2e-cleanup      delete CRs, pods and namespaces labeled $(TEST_LABEL)=true"
 	@echo "  install-operator helm install the operator from ../deploy/helm"
