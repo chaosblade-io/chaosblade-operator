@@ -78,15 +78,15 @@ const (
 	namespacePrefix   = TestLabel
 	chaosBladeCRDName = "chaosblades.chaosblade.io"
 
-	// diagnosticsDir is where specs save resources before cleanup deletes
-	// them, so the CI diagnostics step can still upload the failure evidence.
-	// Keep in sync with the copy step in .github/workflows/e2e_test.yml.
-	diagnosticsDir = "e2e-diagnostics"
+	// defaultDiagnosticsDir is relative to the test process's working directory.
+	// The Makefile passes an absolute path shared by all suite packages and CI.
+	defaultDiagnosticsDir = "e2e-diagnostics"
 )
 
 var (
-	namespaceFlag string
-	imageFlag     string
+	namespaceFlag      string
+	imageFlag          string
+	diagnosticsDirFlag = defaultDiagnosticsDir
 )
 
 // RegisterFlags registers the shared e2e flags on the given flag set. It must
@@ -101,6 +101,8 @@ func RegisterFlags(fs *flag.FlagSet) {
 			"an explicit namespace must already exist and is never deleted")
 	fs.StringVar(&imageFlag, "image", DefaultImage,
 		"image used by e2e target workloads")
+	fs.StringVar(&diagnosticsDirFlag, "diagnostics-dir", defaultDiagnosticsDir,
+		"directory for failed CR snapshots; use an absolute path to share it across suite packages")
 }
 
 // RandomSuffix returns a random suffix used to build unique resource names.
@@ -356,10 +358,10 @@ func (f *Framework) GetChaosBlade(ctx context.Context, name string) (*v1alpha1.C
 	return cb, nil
 }
 
-// SaveChaosBladeDiagnostics dumps the ChaosBlade CR as YAML under
-// diagnosticsDir and returns the file path. Specs call it from their failure
-// path before cleanup deletes the CR, so the CI diagnostics step can still
-// upload the full state of a failed experiment.
+// SaveChaosBladeDiagnostics dumps the ChaosBlade CR as YAML under the
+// configured diagnostics directory and returns the file path. Specs call it
+// from their failure path before cleanup deletes the CR, so the CI diagnostics
+// step can still upload the full state of a failed experiment.
 func (f *Framework) SaveChaosBladeDiagnostics(ctx context.Context, name string) (string, error) {
 	cb, err := f.GetChaosBlade(ctx, name)
 	if err != nil {
@@ -374,10 +376,10 @@ func (f *Framework) SaveChaosBladeDiagnostics(ctx context.Context, name string) 
 	if err != nil {
 		return "", fmt.Errorf("marshal chaosblade %s: %w", name, err)
 	}
-	if err := os.MkdirAll(diagnosticsDir, 0o755); err != nil {
-		return "", fmt.Errorf("create diagnostics directory %s: %w", diagnosticsDir, err)
+	if err := os.MkdirAll(diagnosticsDirFlag, 0o755); err != nil {
+		return "", fmt.Errorf("create diagnostics directory %s: %w", diagnosticsDirFlag, err)
 	}
-	file := filepath.Join(diagnosticsDir, "chaosblade-"+name+".yaml")
+	file := filepath.Join(diagnosticsDirFlag, "chaosblade-"+name+".yaml")
 	if err := os.WriteFile(file, data, 0o644); err != nil {
 		return "", fmt.Errorf("write %s: %w", file, err)
 	}

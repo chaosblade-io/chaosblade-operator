@@ -33,6 +33,12 @@ make e2e-run IMAGE=busybox:1.36               # 集群可访问公共 registry �
 make e2e-run NAMESPACE=my-ns                  # 复用已有 namespace
 ```
 
+失败用例会在清理前保存 CR 快照。`e2e-run` 与 `e2e-all` 都传入绝对诊断路径，
+各套件的快照统一写到 CI 收集的 `e2e-test/e2e-diagnostics/` 目录。
+可用 `DIAGNOSTICS_DIR=/absolute/path` 覆盖。直接执行 `go test` 时，
+请传入 `-args -diagnostics-dir=/absolute/path`；否则默认的 `e2e-diagnostics/`
+相对于各测试包的目录。
+
 ### 命名空间语义
 
 - 默认（`NAMESPACE` 为空）：每次运行创建唯一的 `chaosblade-e2e-<suffix>` namespace，
@@ -58,7 +64,8 @@ taint 的共享集群、并避免节点压力驱逐导致用例闪断。调度�
 
 用例断言同时落在物理量（目标 Pod 被删除，且同 namespace 的对照组 Pod 保持原 UID、
 未被删除）与 CR 状态（`Status.Phase=Running`；`pod/pod/delete` 实验的 `ResStatuses`
-恰好一条、指向目标 Pod 并报告成功；删除前 CR 带 `finalizer.chaosblade.io`）上；
+恰好一条且报告成功、kind 为 `pod`、完整 `namespace/node/pod` 标识与删除前记录的
+目标一致；删除前 CR 带 `finalizer.chaosblade.io`）上；
 删除 CR 后验证对象消失——删除前的 finalizer 断言与删除后对象消失合起来才证明释放流程
 真正执行过（仅等对象消失无法区分「finalizer 被正常释放」与「从未挂上 finalizer」）。
 注意 CRD 是 Cluster 作用域，CR 本身不带 namespace，被测 Pod 的归属通过实验 matcher
