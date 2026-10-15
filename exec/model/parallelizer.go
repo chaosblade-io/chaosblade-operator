@@ -18,14 +18,13 @@ package model
 
 import "sync"
 
-const (
-	maxWorkers = 64 // magic number
-)
+// MaxWorkers can be configured via environment variable or flag
+var MaxWorkers int
 
 type DoWorkFunc func(workID int)
 
 func ParallelizeExec(workCount int, doWork DoWorkFunc) {
-	workers := maxWorkers
+	workers := MaxWorkers
 	toExec := make(chan int, workCount)
 
 	for i := 0; i < workCount; i++ {
