@@ -78,6 +78,7 @@ func (b *BaseExperimentController) Exec(ctx context.Context, expModel *spec.ExpM
 			v1alpha1.CreateFailExperimentStatus(errMsg, []v1alpha1.ResourceStatus{}), handler)
 	}
 	expModel.ActionPrograms = actionSpec.Programs()
+	expModel.ActionProcessHang = actionSpec.ProcessHang()
 	// invoke action executor
 	response := actionSpec.Executor().Exec(experimentId, ctx, expModel)
 	return response
