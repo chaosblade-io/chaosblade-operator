@@ -24,7 +24,7 @@ require (
 	github.com/hanwen/go-fuse v1.0.0
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.10
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v12.0.0+incompatible
