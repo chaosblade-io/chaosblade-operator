@@ -17,14 +17,13 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"net/http"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/sirupsen/logrus"
@@ -41,6 +40,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -59,6 +59,14 @@ import (
 	webhookcfg "github.com/chaosblade-io/chaosblade-operator/pkg/webhook"
 	mutator "github.com/chaosblade-io/chaosblade-operator/pkg/webhook/pod"
 	"github.com/chaosblade-io/chaosblade-operator/version"
+)
+
+const leaderElectionID = "chaosblade-operator-lock"
+
+var (
+	leaderElectionLeaseDuration = 30 * time.Second
+	leaderElectionRenewDeadline = 20 * time.Second
+	leaderElectionRetryPeriod   = 5 * time.Second
 )
 
 func printVersion() {
@@ -82,6 +90,12 @@ func main() {
 
 	// 添加版本标志
 	showVersion := pflag.Bool("version", false, "显示版本信息")
+	pflag.DurationVar(&leaderElectionLeaseDuration, "leader-election-lease-duration",
+		leaderElectionLeaseDuration, "leader election lease duration")
+	pflag.DurationVar(&leaderElectionRenewDeadline, "leader-election-renew-deadline",
+		leaderElectionRenewDeadline, "leader election renew deadline")
+	pflag.DurationVar(&leaderElectionRetryPeriod, "leader-election-retry-period",
+		leaderElectionRetryPeriod, "leader election retry period")
 	pflag.Parse()
 
 	// 如果只是查看版本，则显示后退出
@@ -96,10 +110,6 @@ func main() {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		logrus.Fatalf("Get apiserver config error, %v", err)
-	}
-	err = leader.Become(context.Background(), "chaosblade-operator-lock")
-	if err != nil {
-		logrus.Fatalf("Become leader error, %v", err)
 	}
 	cfg.QPS = operator.QPS
 	mgr, err := createManager(cfg)
@@ -171,6 +181,10 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 	if err != nil {
 		return nil, err
 	}
+	operatorNamespace, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return nil, err
+	}
 	logrus.Infof("Get watch namespace is %s", watchNamespace)
 	// Restrict only the ChaosBlade CR watch to watchNamespace. Other types
 	// (Pods/Nodes/etc.) must remain cluster-scoped because the operator
@@ -191,12 +205,24 @@ func createManager(cfg *rest.Config) (manager.Manager, error) {
 			&v1alpha1.ChaosBlade{}: {Namespaces: bladeNamespaces},
 		}
 	}
-	return manager.New(cfg, manager.Options{
+	options := manager.Options{
 		Cache:  cacheOpts,
 		Scheme: scheme,
 		MapperProvider: func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error) {
 			return apiutil.NewDynamicRESTMapper(c, httpClient)
 		},
 		NewClient: channel.NewClientFunc(),
-	})
+	}
+	configureLeaderElection(&options, operatorNamespace)
+	return manager.New(cfg, options)
+}
+
+func configureLeaderElection(options *manager.Options, namespace string) {
+	options.LeaderElection = true
+	options.LeaderElectionID = leaderElectionID
+	options.LeaderElectionNamespace = namespace
+	options.LeaderElectionResourceLock = resourcelock.LeasesResourceLock
+	options.LeaseDuration = &leaderElectionLeaseDuration
+	options.RenewDeadline = &leaderElectionRenewDeadline
+	options.RetryPeriod = &leaderElectionRetryPeriod
 }
