@@ -37,6 +37,8 @@ func TestGetResourceCount(t *testing.T) {
 		{name: "evict-percent=100", args: args{10, map[string]string{"evict-count": "", "evict-percent": "100"}}, want: 10, wantErr: false},
 		{name: "evict-count=5,evict-percent==10", args: args{10, map[string]string{"evict-count": "5", "evict-percent": "10"}}, want: 1, wantErr: false},
 		{name: "evict-count=20", args: args{10, map[string]string{"evict-count": "20", "evict-percent": ""}}, want: 10, wantErr: false},
+		{name: "evict-count=-1", args: args{10, map[string]string{"evict-count": "-1", "evict-percent": ""}}, want: 0, wantErr: true},
+		{name: "evict-percent=-10", args: args{10, map[string]string{"evict-count": "", "evict-percent": "-10"}}, want: 0, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
