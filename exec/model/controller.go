@@ -112,7 +112,7 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, *spec.Re
 		if err != nil {
 			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourceCountFlag.Name, countValue, err)
 		}
-		if count == 0 {
+		if count <= 0 {
 			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourceCountFlag.Name, countValue,
 				"it must be a positive integer")
 		}
@@ -123,7 +123,7 @@ func GetResourceCount(resourceCount int, flags map[string]string) (int, *spec.Re
 		if err != nil {
 			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourcePercentFlag.Name, percentValue, err)
 		}
-		if percent == 0 {
+		if percent <= 0 {
 			return 0, spec.ResponseFailWithFlags(spec.ParameterIllegal, ResourcePercentFlag.Name, percentValue,
 				"it must be a positive integer")
 		}
