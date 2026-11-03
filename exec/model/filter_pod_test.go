@@ -47,3 +47,27 @@ func Test_randomSelected(t *testing.T) {
 		t.Errorf("randomPodSelected() is invalid")
 	}
 }
+
+func Test_filterByOtherFlags_negativeCount(t *testing.T) {
+	pods := []v1.Pod{
+		{ObjectMeta: v12.ObjectMeta{Name: "1"}},
+		{ObjectMeta: v12.ObjectMeta{Name: "2"}},
+	}
+	tests := []struct {
+		name  string
+		flags map[string]string
+	}{
+		{name: "evict-count=-1", flags: map[string]string{"evict-count": "-1"}},
+		{name: "evict-percent=-50", flags: map[string]string{"evict-percent": "-50"}},
+		{name: "evict-count=-1,evict-group=app", flags: map[string]string{"evict-count": "-1", "evict-group": "app"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &BaseExperimentController{}
+			got, resp := b.filterByOtherFlags(pods, tt.flags)
+			if resp.Success {
+				t.Errorf("filterByOtherFlags() succeeded with %d pods, want a failed response", len(got))
+			}
+		})
+	}
+}
