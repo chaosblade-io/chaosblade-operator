@@ -231,35 +231,48 @@ func (d *PodTerminatingActionExecutor) destroy(uid string, ctx context.Context, 
 	return spec.ReturnResultIgnoreCode(v1alpha1.CreateFailExperimentStatus("see resStatuses for details", statuses))
 }
 
-// addFinalizer adds the chaosblade pod-terminating finalizer to the pod
+// addFinalizer adds the chaosblade pod-terminating finalizer to the pod.
+//
+// The finalizer is added with a strategic merge patch rather than by writing
+// the whole pod back: a running pod is immutable outside a small whitelist of
+// spec fields, so a full-object Update is rejected as soon as any other field
+// differs from the live object, even though only metadata was meant to change.
 func (d *PodTerminatingActionExecutor) addFinalizer(ctx context.Context, pod *v1.Pod) error {
-	finalizers := pod.GetFinalizers()
-	for _, f := range finalizers {
+	for _, f := range pod.GetFinalizers() {
 		if f == PodTerminatingFinalizer {
 			// Finalizer already exists
 			return nil
 		}
 	}
-	pod.SetFinalizers(append(finalizers, PodTerminatingFinalizer))
-	return d.client.Update(ctx, pod)
+	data, err := buildFinalizerAddPatch(PodTerminatingFinalizer)
+	if err != nil {
+		return err
+	}
+	// The patch response is decoded back into pod, so the rollback path of the
+	// create flow still sees the finalizer it has to undo.
+	return strategicPatchPod(ctx, d.client, pod, data)
 }
 
-// removeFinalizer removes the chaosblade pod-terminating finalizer from the pod
+// removeFinalizer removes the chaosblade pod-terminating finalizer from the pod.
+//
+// Removal has to go through the `$deleteFromPrimitiveList/finalizers`
+// directive. `finalizers` is a list of primitives merged as a union, so
+// submitting the desired list on its own removes nothing.
 func (d *PodTerminatingActionExecutor) removeFinalizer(ctx context.Context, pod *v1.Pod) error {
-	finalizers := pod.GetFinalizers()
-	newFinalizers := make([]string, 0, len(finalizers))
 	found := false
-	for _, f := range finalizers {
+	for _, f := range pod.GetFinalizers() {
 		if f == PodTerminatingFinalizer {
 			found = true
-			continue
+			break
 		}
-		newFinalizers = append(newFinalizers, f)
 	}
 	if !found {
 		// Finalizer not found, nothing to remove
 		return nil
 	}
-	pod.SetFinalizers(newFinalizers)
-	return d.client.Update(ctx, pod)
+	data, err := buildFinalizerRemovePatch(PodTerminatingFinalizer)
+	if err != nil {
+		return err
+	}
+	return strategicPatchPod(ctx, d.client, pod, data)
 }

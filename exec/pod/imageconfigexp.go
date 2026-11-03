@@ -204,23 +204,20 @@ func (d *ImageConfigActionExecutor) destroy(ctx context.Context, expModel *spec.
 // If imageName is provided, the image name portion is replaced.
 // If imageTag is provided, the image tag portion is replaced.
 func (d *ImageConfigActionExecutor) modifyPodImage(ctx context.Context, pod *v1.Pod, imageName, imageTag string) error {
-	modified := false
-	for i, container := range pod.Spec.Containers {
+	changes := make([]containerImageChange, 0, len(pod.Spec.Containers))
+	for _, container := range pod.Spec.Containers {
 		key := fmt.Sprintf("%s-%s", "chaosblade.io/imageconfig", container.Name)
-		if pod.Annotations == nil {
-			pod.Annotations = make(map[string]string)
-		}
 		if isImageConfigAnnotationExist(pod.Annotations, key) {
 			continue
 		}
-		pod.Annotations[key] = container.Image
-		pod.Spec.Containers[i].Image = buildNewImage(container.Image, imageName, imageTag)
-		modified = true
+		changes = append(changes, containerImageChange{
+			ContainerName: container.Name,
+			NewImage:      buildNewImage(container.Image, imageName, imageTag),
+			AnnotationKey: key,
+			OriginalImage: container.Image,
+		})
 	}
-	if !modified {
-		return nil
-	}
-	return d.client.Update(ctx, pod)
+	return patchContainerImages(ctx, d.client, pod, changes)
 }
 
 // buildNewImage constructs the new image string based on provided imageName and imageTag.

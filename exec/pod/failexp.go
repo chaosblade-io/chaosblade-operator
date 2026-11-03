@@ -173,21 +173,20 @@ func (d *FailPodActionExecutor) destroy(ctx context.Context, expModel *spec.ExpM
 
 // failPod will exec failPod experiment
 func (d *FailPodActionExecutor) failPod(ctx context.Context, pod *v1.Pod) error {
-	for i, container := range pod.Spec.Containers {
+	changes := make([]containerImageChange, 0, len(pod.Spec.Containers))
+	for _, container := range pod.Spec.Containers {
 		key := fmt.Sprintf("%s-%s", "failPod", container.Name)
-		if pod.Annotations == nil {
-			pod.Annotations = make(map[string]string)
-		}
 		if isAnnotationExist(pod.Annotations, key) {
 			continue
 		}
-		pod.Annotations[key] = container.Image
-		pod.Spec.Containers[i].Image = fmt.Sprintf("%s-fault-injection", container.Image)
+		changes = append(changes, containerImageChange{
+			ContainerName: container.Name,
+			NewImage:      fmt.Sprintf("%s-fault-injection", container.Image),
+			AnnotationKey: key,
+			OriginalImage: container.Image,
+		})
 	}
-	if err := d.client.Update(ctx, pod); err != nil {
-		return err
-	}
-	return nil
+	return patchContainerImages(ctx, d.client, pod, changes)
 }
 
 // isAnnotationExist will check this pod has been tested
