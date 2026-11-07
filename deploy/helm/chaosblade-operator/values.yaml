@@ -23,6 +23,10 @@ operator:
   # qps of kubernetes client
   qps: 20
   reconcileCount: 20
+  leaderElection:
+    leaseDuration: 30s
+    renewDeadline: 20s
+    retryPeriod: 5s
 
 blade:
   repository: ghcr.io/chaosblade-io/chaosblade-tool

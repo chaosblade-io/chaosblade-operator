@@ -19,6 +19,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
+  # Avoid running ConfigMap-lock and Lease-lock versions concurrently
+  # while upgrading from releases that used operator-sdk leader.Become.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       name: chaosblade-operator
@@ -68,6 +72,9 @@ spec:
           {{- if .Values.remove.blade.interval }}
           - '--remove-blade-interval={{ .Values.remove.blade.interval }}'
           {{- end }}
+          - '--leader-election-lease-duration={{ .Values.operator.leaderElection.leaseDuration }}'
+          - '--leader-election-renew-deadline={{ .Values.operator.leaderElection.renewDeadline }}'
+          - '--leader-election-retry-period={{ .Values.operator.leaderElection.retryPeriod }}'
           {{- if .Values.blade.downloadUrl }}
           - '--chaosblade-download-url={{ .Values.blade.downloadUrl }}'
           {{- end }}
