@@ -17,14 +17,17 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/chaosblade-io/chaosblade-operator/exec/cluster"
 	"github.com/chaosblade-io/chaosblade-operator/exec/container"
 	"github.com/chaosblade-io/chaosblade-operator/exec/node"
 	"github.com/chaosblade-io/chaosblade-operator/exec/pod"
 	"github.com/chaosblade-io/chaosblade-operator/exec/service"
+	"github.com/chaosblade-io/chaosblade-operator/version"
 
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
@@ -35,8 +38,16 @@ func main() {
 	if len(os.Args) < 2 {
 		log.Panicln("less yaml file path")
 	}
-	if len(os.Args) == 3 {
+	if len(os.Args) == 3 && os.Args[2] != "" {
 		container.JvmSpecPathForYaml = os.Args[2]
+		// Build-time invariant: when the JVM spec directory is explicitly provided
+		// (aggregate build), the jvm spec yaml must exist; fail fast instead of
+		// silently dropping every JVM-derived scenario. The runtime path keeps
+		// its warning-and-skip behavior: completeness is enforced here at build time.
+		jvmSpecFile := filepath.Join(os.Args[2], fmt.Sprintf("chaosblade-jvm-spec-%s.yaml", version.Version))
+		if _, err := os.Stat(jvmSpecFile); err != nil {
+			log.Panicf("jvm spec file not found at %s: the aggregate build must build the java component first and pass JVM_SPEC_PATH=<output>/yaml", jvmSpecFile)
+		}
 	}
 	err := util.CreateYamlFile(getModels(), os.Args[1])
 	if err != nil {
