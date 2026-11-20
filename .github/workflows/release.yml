@@ -137,7 +137,7 @@ jobs:
           echo "version=${{ needs.build-and-push-images.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Install Helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.9.3
 
