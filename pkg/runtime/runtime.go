@@ -19,6 +19,7 @@ package runtime
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/chaosblade-io/chaosblade-operator/exec/model"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/chaosblade"
 	"github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/aliyun"
 	_ "github.com/chaosblade-io/chaosblade-operator/pkg/runtime/product/community"
@@ -30,13 +31,15 @@ var (
 	LogLevel                string
 	MaxConcurrentReconciles int
 	QPS                     float32
+	MaxWorkers              int
 )
 
 func init() {
 	flagSet = pflag.NewFlagSet("operator", pflag.ExitOnError)
 	flagSet.StringVar(&LogLevel, "log-level", "info", "Log level, such as panic|fatal|error|warn|info|debug|trace")
-	flagSet.IntVar(&MaxConcurrentReconciles, "reconcile-count", 20, "Max concurrent reconciles count, default value is 20")
-	flagSet.Float32Var(&QPS, "qps", 20, "qps of kubernetes client")
+	flagSet.IntVar(&MaxConcurrentReconciles, "max-concurrent-reconciles", 50, "Max concurrent reconciles count, default value is 50")
+	flagSet.Float32Var(&QPS, "qps", 100, "qps of kubernetes client, increased from 20 to 100 for better performance")
+	flagSet.IntVar(&MaxWorkers, "max-workers", 64, "Max workers for parallel execution, default value is 64")
 
 	flagSet.AddFlagSet(aliyun.FlagSet())
 	flagSet.AddFlagSet(chaosblade.FlagSet())
@@ -46,6 +49,14 @@ func init() {
 
 func initRuntimeData() {
 	chaosblade.Constant = chaosblade.Products[version.Product]
+	// Set default value for parallelizer.MaxWorkers
+	model.MaxWorkers = MaxWorkers
+}
+
+// Init initializes the runtime by syncing flag values to dependent packages.
+// This should be called after flag.Parse() in main().
+func Init() {
+	model.MaxWorkers = MaxWorkers
 }
 
 func FlagSet() *pflag.FlagSet {
